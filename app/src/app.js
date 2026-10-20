@@ -6,7 +6,7 @@ const win = T.window.getCurrentWindow();
 const LogicalSize = T.dpi.LogicalSize;
 const LogicalPosition = T.dpi.LogicalPosition;
 
-const SMALL = { w: 160, h: 160 };
+const SMALL = { w: 120, h: 120 };
 const LARGE = { w: 360, h: 460 };
 const HUNGER_PER_HOUR = 10, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
@@ -246,7 +246,7 @@ let collapsedPos = null;          // logical {x, y} of the collapsed window
 let movedWhileExpanded = false;   // the user dragged the big window, so collapse where it now is
 
 function savePos(p) {
-  try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y) })); } catch (e) {}
+  try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y), size: SMALL.w })); } catch (e) {}
 }
 function loadPos() {
   try { return JSON.parse(localStorage.getItem(POS_KEY) || "null"); } catch (e) { return null; }
@@ -282,6 +282,9 @@ async function clampToMonitor(p, size) {
 async function restorePos() {
   const p = loadPos();
   if (!p || typeof p.x !== "number" || typeof p.y !== "number") return;
+  // saved by an older build with a different pet size: keep the pet's bottom-right corner where it was
+  const oldSize = typeof p.size === "number" ? p.size : 160;
+  if (oldSize !== SMALL.w) { p.x += oldSize - SMALL.w; p.y += oldSize - SMALL.w; }
   try {
     // only if the saved spot is still on a connected screen (a monitor may have been unplugged)
     const mons = await T.window.availableMonitors();
