@@ -5,7 +5,9 @@ Facts this relies on (verified against real transcripts, 2026-10):
   repeating the same `message.id` and `message.usage` → dedupe by message.id
 - at Stop time the last line may not be written yet → cursor by byte offset,
   partial trailing line is ignored and re-read next time
-- subagent lines are marked `isSidechain: true`
+- subagent lines are marked `isSidechain: true`; each subagent also has its own file in
+  `<session>/subagents/agent-*.jsonl` (hooks doc, SubagentStop `agent_transcript_path`),
+  where every line is a sidechain line
 """
 from __future__ import annotations
 
@@ -34,8 +36,13 @@ def _parse_ts(s: str) -> dt.datetime:
     return d.astimezone(clock.local_tz())
 
 
-def read_new(path: str, offset: int, seen_ids: List[str]) -> Tuple[List[Usage], int, List[str]]:
-    """Return (usages, new_offset, new_seen_ids). Never raises on bad lines."""
+def read_new(path: str, offset: int, seen_ids: List[str],
+             include_sidechain: bool = False) -> Tuple[List[Usage], int, List[str]]:
+    """Return (usages, new_offset, new_seen_ids). Never raises on bad lines.
+
+    The main transcript skips sidechain lines; a subagent's own file is read with
+    include_sidechain=True.
+    """
     seen = list(seen_ids)
     seen_set = set(seen)
     usages: List[Usage] = []
@@ -57,7 +64,7 @@ def read_new(path: str, offset: int, seen_ids: List[str]) -> Tuple[List[Usage], 
                 d = json.loads(raw)
             except ValueError:
                 continue
-            if d.get("type") != "assistant" or d.get("isSidechain"):
+            if d.get("type") != "assistant" or (d.get("isSidechain") and not include_sidechain):
                 continue
             msg = d.get("message") or {}
             mid = msg.get("id")
@@ -78,3 +85,14 @@ def read_new(path: str, offset: int, seen_ids: List[str]) -> Tuple[List[Usage], 
                 cache_creation=int(usage.get("cache_creation_input_tokens") or 0),
             ))
     return usages, pos, seen[-SEEN_LIMIT:]
+
+
+def subagent_files(main_path: str) -> List[str]:
+    """Subagent transcripts that belong to the session whose transcript is main_path."""
+    import os
+    folder = os.path.join(os.path.splitext(main_path)[0], "subagents")
+    try:
+        names = sorted(n for n in os.listdir(folder) if n.endswith(".jsonl"))
+    except OSError:
+        return []
+    return [os.path.join(folder, n) for n in names]

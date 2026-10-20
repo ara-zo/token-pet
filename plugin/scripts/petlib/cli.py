@@ -57,6 +57,15 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
                 day["day_sessions"] += 1
         usages, off, seen = transcript.read_new(path, sess["offset"], sess["seen_ids"])
         sess.update(offset=off, seen_ids=seen, updated_at=clock.fmt(now))
+        # subagents write their own transcripts next to the session's; same earning rules
+        subs = sess.setdefault("subagents", {})
+        for sub_path in transcript.subagent_files(path):
+            key = os.path.basename(sub_path)
+            cur = subs.get(key) or {"offset": 0, "seen_ids": []}
+            more, sub_off, sub_seen = transcript.read_new(sub_path, cur["offset"], cur["seen_ids"],
+                                                          include_sidechain=True)
+            subs[key] = {"offset": sub_off, "seen_ids": sub_seen}
+            usages.extend(more)
 
         earn_form = s["form"]
         if earn_form == "burnout" and not evolve.burnout_active(s, now):

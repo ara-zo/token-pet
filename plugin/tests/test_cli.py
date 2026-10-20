@@ -41,6 +41,37 @@ def test_reset_does_not_recount_old_transcript(pet_home):
     assert s["coins"] == 0 and s["xp"] == 0
 
 
+def _agent_line(mid, out, ts="2026-10-20T14:40:00.000Z"):
+    return json.dumps({"type": "assistant", "isSidechain": True, "agentId": "x", "timestamp": ts,
+                       "message": {"id": mid, "usage": {"input_tokens": 10, "output_tokens": out,
+                                                        "cache_read_input_tokens": 0,
+                                                        "cache_creation_input_tokens": 0}}}) + "\n"
+
+
+def test_collect_counts_subagent_transcripts(pet_home, tmp_path):
+    main = tmp_path / "s9.jsonl"
+    main.write_bytes(Path(FIXTURE).read_bytes())
+    sub = tmp_path / "s9" / "subagents"
+    sub.mkdir(parents=True)
+    # one API response is written as several lines with the same id: counted once
+    (sub / "agent-x.jsonl").write_text(_agent_line("msg_X", 1000) + _agent_line("msg_X", 1000))
+    hook = {"session_id": "s9", "transcript_path": str(main)}
+
+    cli.main_collect(hook, NOW)
+    s = store.load()
+    rate = economy.COIN_PER_OUTPUT_TOKEN
+    raw = 447 * rate * economy.CACHE_BONUS + 100 * rate + 1000 * rate
+    assert s["coins"] == int(raw)
+    day = s["daily_log"][-1]
+    assert day["tokens_out"] == 547 + 1000 and day["sessions"] == 1   # a subagent is not a session
+
+    assert cli.main_collect(hook, at(20, 15)) == 0                     # nothing new anywhere
+    with open(sub / "agent-x.jsonl", "a") as f:
+        f.write(_agent_line("msg_Y", 2000))
+    cli.main_collect(hook, at(20, 16))
+    assert store.load()["daily_log"][-1]["tokens_out"] == 547 + 3000
+
+
 def test_collect_levels_up_and_evolves(pet_home):
     with store.transaction(NOW, tick=False) as s:
         s["xp"] = economy.LEVELS[economy.FIRST_EVOLUTION_LEVEL - 1] - 1   # one coin short of Lv.5

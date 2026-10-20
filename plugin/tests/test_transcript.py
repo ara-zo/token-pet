@@ -21,6 +21,11 @@ def test_sidechain_excluded():
     assert all(u.message_id != "msg_S" for u in usages)
 
 
+def test_sidechain_included_for_subagent_files():
+    usages, _, _ = transcript.read_new(str(FIXTURE), 0, [], include_sidechain=True)
+    assert any(u.message_id == "msg_S" for u in usages)
+
+
 def test_second_call_from_same_offset_is_empty():
     _, off, seen = transcript.read_new(str(FIXTURE), 0, [])
     usages, off2, seen2 = transcript.read_new(str(FIXTURE), off, seen)
