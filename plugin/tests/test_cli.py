@@ -232,3 +232,10 @@ def test_run_dispatch_never_raises(pet_home, monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"model": {"display_name": "M"}})))
     assert cli.run(["statusline"]) == 0
     assert "M" in capsys.readouterr().out
+
+
+def test_run_refusal_exits_zero_in_text_mode(pet_home, capsys):
+    # /pet shows non-zero exits as "Shell command failed"; a refusal is a normal answer
+    assert cli.run(["buy", "sunglasses"]) == 0
+    assert "모자라" in capsys.readouterr().out
+    assert cli.run(["buy", "sunglasses", "--json"]) == 2      # the widget reads "ok" from JSON

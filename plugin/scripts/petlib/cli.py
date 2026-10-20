@@ -291,4 +291,6 @@ def run(argv: List[str]) -> int:
         return 0
     code, text = main_pet(argv, now)
     print(text)
-    return code
+    # In text mode a refusal ("not enough coins") is a normal answer, and the /pet skill
+    # would show a non-zero exit as "Shell command failed". JSON callers keep the code.
+    return code if "--json" in argv else 0

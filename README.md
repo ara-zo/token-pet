@@ -18,10 +18,22 @@ Claude Code 안에서:
 새 세션을 시작하면 펫이 태어난다. 상태표시줄에 띄우려면 한 번 더:
 
 ```
-/pet setup
+/token-pet:pet setup
 ```
 
+플러그인 명령에는 플러그인 이름이 붙어서 실제 명령은 `/token-pet:pet` 이다. 아래 표에서는 `/pet` 으로 줄여 쓴다.
+
 요구사항: macOS, `python3` (Command Line Tools에 포함). Windows는 아직 지원하지 않는다.
+
+### 업데이트
+
+새 버전은 자동으로 오지 않는다. 받으려면:
+
+```
+/plugin marketplace update token-pet
+```
+
+자동으로 받으려면 `/plugin` → Marketplaces → token-pet → **Enable auto-update**.
 
 ## 사용법
 
