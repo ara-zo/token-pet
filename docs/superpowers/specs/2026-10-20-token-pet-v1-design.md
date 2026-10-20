@@ -3,15 +3,24 @@
 Claude Code 토큰 사용량이 코인이 되는 다마고치. 컨셉 전문은 `docs/SPEC.md`, 화면은 `docs/mockup.html`.
 이 문서는 1차 범위를 구현 가능한 수준으로 확정한 설계다. 스펙과 다른 결정은 "결정" 표시로 적었다.
 
+> **2026-10-21 갱신.** 실사용 후 수치와 범위를 바꿨고, 아래 본문도 그에 맞게 고쳤다. 수치의 기준은 언제나 `plugin/scripts/petlib/economy.py` 다.
+>
+> - 환율 1k 출력 토큰 = 5코인 (20에서), 먹이 50코인 (30에서), 강제 급식 100코인
+> - 배고픔 시간당 -10 (-3에서), 불량배 기준 배고픔 0 누적 48시간 (24에서)
+> - 레벨 표 5배: Lv.5 = 10,000, Lv.10 = 50,000, 이후 레벨당 15,000
+> - 상점 가격 5배: 400~1,000, 왕관 2,500
+> - 범위에 추가: 서브에이전트 토큰 집계, 위젯 상점·옷장, 쓰다듬기(`/pet pat`), 7일 기록(`/pet stats`), 진화 예감, 위젯 애니메이션·드래그·위치 기억·배고픔 알림
+> - 위젯 접힌 크기 120×120 (160에서)
+
 ## 1. 범위
 
 1차에 포함:
 
 1. Claude Code 플러그인: Stop·SessionStart 훅, `/pet` 커맨드, 상태표시줄 스크립트
 2. `~/.claude/pet/state.json` 스키마, 경제, 틱, 1차·2차 진화 판정 (전부 순수 함수 + pytest)
-3. Tauri 데스크톱 앱: 접힌 상태(160×160)와 펼친 위젯(360×460)만. 상점은 `/pet shop`
+3. Tauri 데스크톱 앱: 접힌 상태(120×120)와 펼친 위젯(360×460). 상점·옷장·기록 패널 포함
 
-제외: Windows, 서브에이전트 토큰 집계, 앱 내 상점·옷장, 사냥꾼 "드롭", 다기기 동기화.
+제외: Windows, 사냥꾼 "드롭", 다기기 동기화.
 
 ## 2. 설치와 실행 모델
 
@@ -110,7 +119,7 @@ statusline은 잠금 없이 읽기만 하고, 틱을 메모리에서만 계산�
 2. `sessions[sid].offset`부터 파일을 읽는다. 마지막 줄이 불완전하면 그 줄은 버리고 offset을 그 앞까지만 올린다.
 3. `type == "assistant"`, `isSidechain != true`, `message.id`가 `seen_ids`에 없는 줄만 집계한다.
 4. 턴 수입:
-   - 기본 `output_tokens × 0.02`
+   - 기본 `output_tokens × 0.005`
    - 캐시 보너스: `cache_read / (input + cache_read + cache_creation) ≥ 0.5` 이면 ×1.05 (메시지 단위)
    - 형태 배율(economy.FORM_EARN): 모범생 1.1, 박사 1.2, 올빼미 야간 2.0, 사냥꾼 야간 3.0, 번아웃 0, 흡혈귀 낮 메시지 0.95
    - `coin_carry`에 더해 정수부만 `coins`, `xp`, `daily_log.earned`로 옮긴다.
@@ -122,7 +131,7 @@ statusline은 잠금 없이 읽기만 하고, 틱을 메모리에서만 계산�
 
 모든 `transaction()` 진입 시 `tick.apply(state, now)` 호출.
 
-- `h = (now - last_tick_at) / 1h`. 배고픔 `-3h × hunger_rate`, 기분 `-2h`. 배고픔 0인 구간에서는 기분 `-4h`. 0~100 클램프.
+- `h = (now - last_tick_at) / 1h`. 배고픔 `-10h × hunger_rate`, 기분 `-2h`. 배고픔 0인 구간에서는 기분 `-4h`. 0~100 클램프.
 - `hunger_rate`: 모범생·박사 0.7, 그 외 1.0. 사치쟁이·인플루언서는 기분 하한 70.
 - 배고픔이 0에 닿는 시각을 선형으로 역산해 `hunger_zero_hours`를 해당 날짜들에 나눠 누적한다.
 - `max_gap_hours = max(기존, now - last_fed_at)`.
@@ -137,7 +146,7 @@ xp는 누적 획득 코인(지출 무관). `economy.LEVELS`:
 
 | Lv | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 이후 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| xp | 300 | 800 | 1,400 | 2,000 | 3,200 | 4,600 | 6,200 | 8,000 | 10,000 | +3,000/Lv |
+| xp | 1,500 | 4,000 | 7,000 | 10,000 | 16,000 | 23,000 | 31,000 | 40,000 | 50,000 | +15,000/Lv |
 
 레벨업은 collect 직후 계산한다. Lv.5, Lv.10 도달 이벤트가 `evolve`의 판정 트리거다.
 
@@ -150,7 +159,7 @@ xp는 누적 획득 코인(지출 무관). `economy.LEVELS`:
 | 형태 | 조건 (7일 합계) |
 |---|---|
 | runaway 가출 | Lv.5 판정 시점엔 해당 없음(아래 "상시 전이") |
-| thug 불량배 | hunger_zero_hours ≥ 24 |
+| thug 불량배 | hunger_zero_hours ≥ 48 |
 | owl 올빼미 | night_out / tokens_out ≥ 0.6 (tokens_out > 0) |
 | miser 구두쇠 | coins ≥ 2,000 and purchases == 0 and feeds ≤ 7 |
 | spender 사치쟁이 | spent ≥ 0.8 × earned and len(items_owned) ≥ 4 (결정: 카탈로그가 7개뿐이라 스펙의 8을 4로 낮춤) |
@@ -160,7 +169,7 @@ xp는 누적 획득 코인(지출 무관). `economy.LEVELS`:
 
 ### 상시 전이 (level ≥ 5, 매 롤오버)
 
-- 불량배 진입: 어떤 1차·2차 형태든 7일 hunger_zero_hours ≥ 24 → thug (단 가출·보스 제외).
+- 불량배 진입: 어떤 1차·2차 형태든 7일 hunger_zero_hours ≥ 48 → thug (단 가출·보스 제외).
 - 가출 진입: 7일 feeds 합 == 0, 또는 thug 상태로 `feed_streak == 0`이 3일 → runaway. 진입 시 `coins //= 2`, 상점·급식 불가.
 - 갱생: thug에서 `feed_streak ≥ 3` → 배지 `rehab`, form = base로 되돌린 뒤 즉시 1차 재판정(level ≥ 10이면 이어서 2차 판정).
 - 귀환: runaway에서 `/pet find`를 서로 다른 날 3회(`flags.find_days`) → form = model, 배지 `returned`.
@@ -193,7 +202,7 @@ xp는 누적 획득 코인(지출 무관). `economy.LEVELS`:
 
 ## 9. 먹이·상점·행동 (`pet.py`)
 
-- `feed`: 30코인, 배고픔 +40. 거부: coins < 30(단 loanshark는 debt로 허용), runaway, owl·vampire·hunter의 낮 시간("자고 있음"). `--force`는 vampire 낮 급식만 60코인으로 허용. 기록: feeds, dawn_feeds(04~08), day_feeds(08~22), last_fed_at, feed_streak는 롤오버 때.
+- `feed`: 50코인, 배고픔 +40. 거부: coins < 50(단 loanshark는 debt로 허용), runaway, owl·vampire·hunter의 낮 시간("자고 있음"). `--force`는 vampire 낮 급식만 100코인으로 허용. 기록: feeds, dawn_feeds(04~08), day_feeds(08~22), last_fed_at, feed_streak는 롤오버 때.
 - `shop`: 카탈로그와 가격(miser ×1.3), 잠금 표시(crown은 Lv.5, tycoon은 전부 해금). thug·boss·runaway는 "상점 봉쇄".
 - `buy <id>`: 코인 차감, items_owned 추가, spent·purchases 기록, demand_item 일치 시 해소, influencer 10% 환급.
 - `equip <id>` / `unequip <slot>`: 슬롯은 head, face, body, room(쿠션·화분).
@@ -203,7 +212,7 @@ xp는 누적 획득 코인(지출 무관). `economy.LEVELS`:
 - `setup`: statusLine 설정 JSON을 출력하고, `--write`면 `~/.claude/settings.json`에 병합(기존 statusLine이 있으면 덮지 않고 안내).
 - 모든 서브커맨드는 `--json`으로 기계용 출력을 낸다. 앱이 쓴다.
 
-카탈로그(`economy.CATALOG`): party_hat(머리, 0, 기본 보유), fedora 중절모 120, sunglasses 선글라스 90, hoodie 후드티 200, cushion 쿠션 150, plant 화분 80, crown 왕관 500(Lv.5).
+카탈로그(`economy.CATALOG`): party_hat(머리, 0, 기본 보유), fedora 중절모 600, sunglasses 선글라스 450, hoodie 후드티 1,000, cushion 쿠션 750, plant 화분 400, crown 왕관 2,500(Lv.5).
 
 ## 10. 출력
 
@@ -243,7 +252,7 @@ boss면 가운데 구간을 "👔 보스: 상납 안 하면 알지?" 로 점거�
 ## 11. Tauri 앱
 
 - Tauri 2, 프론트는 번들러 없는 바닐라 HTML/CSS/JS. mockup.html의 접힌 상태·펼친 위젯 마크업과 SVG를 `src/`로 옮기고 인라인 스타일을 `styles.css`로 뺀다. 형태별 SVG는 `sprites.js`에 문자열 테이블.
-- 창 하나: 투명, 프레임 없음, 항상 위, Dock 아이콘 없음(macOS activation policy Accessory), 시작 크기 160×160. 스프라이트 클릭으로 360×460 펼침, 접기 버튼이나 바깥 클릭으로 복귀. 스프라이트 영역은 `data-tauri-drag-region`.
+- 창 하나: 투명, 프레임 없음, 항상 위, Dock 아이콘 없음(macOS activation policy Accessory), 시작 크기 120×120. 스프라이트 클릭으로 360×460 펼침, 접기 버튼이나 바깥 클릭으로 복귀. 드래그는 `data-tauri-drag-region` 대신 JS에서 3px 이상 움직이면 `startDragging()` (그림 안의 SVG 사각형을 눌러도 끌리도록), 접힌 위치는 localStorage에 저장.
 - Rust: 시작 시 state.json 읽어 `state` 이벤트 emit, `notify`로 `~/.claude/pet/` 감시(파일은 rename으로 교체되므로 디렉터리 감시) → 변경 시 다시 읽어 emit. 200ms 디바운스.
 - `feed` 커맨드: `state.plugin_root/scripts/pet.py feed --json`을 실행하고 결과를 반환. 실패 메시지는 말풍선으로.
 - 꾸미기 버튼: 1차에서는 "터미널에서 /pet shop" 토스트.
@@ -265,7 +274,6 @@ boss면 가운데 구간을 "👔 보스: 상납 안 하면 알지?" 로 점거�
 
 ## 13. 미정 (실사용 후 조정)
 
-- 환율·감소 속도·레벨 표 수치
-- 사냥꾼 드롭, 앱 내 옷장
-- 서브에이전트 토큰 집계 여부
-- 코드 서명
+- 환율·감소 속도·레벨 표 수치 (2026-10-21 1차 조정, 며칠 사용 후 `/pet stats` 로 재점검)
+- 사냥꾼 드롭
+- 코드 서명과 dmg 자동 배포
