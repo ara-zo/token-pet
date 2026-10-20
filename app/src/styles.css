@@ -34,39 +34,39 @@ body.expanded #collapsed { display: none; }
   padding: 4px 8px; border-radius: 999px; margin-top: -5px;
 }
 .coin-pill span { font-family: var(--pixel); font-size: 9px; color: var(--coin); }
-.coin-pill.large { background: var(--card2); padding: 6px 10px; margin: 0; }
-.coin-pill.large span { font-size: 13px; }
+.coin-pill.large { background: var(--card2); padding: 5px 9px; margin: 0; }
+.coin-pill.large span { font-size: 12px; }
 
 /* ---------- expanded ---------- */
 .expanded-view {
-  width: 360px; height: 460px; background: var(--bg); border-radius: 28px; padding: 20px;
-  display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden;
+  width: 300px; height: 390px; background: var(--bg); border-radius: 24px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden;
 }
-.name { font-size: 15px; letter-spacing: 1px; }
+.name { font-size: 14px; letter-spacing: 1px; }
 .badge { font-size: 10px; background: var(--card2); color: #D9D4F5; padding: 4px 7px; border-radius: 6px; }
-.icon-btn { border: 0; background: var(--card2); color: var(--sub); width: 28px; height: 28px; border-radius: 999px; font-size: 16px; cursor: pointer; }
+.icon-btn { border: 0; background: var(--card2); color: var(--sub); width: 26px; height: 26px; border-radius: 999px; font-size: 15px; cursor: pointer; }
 .icon-btn:hover { color: var(--text); }
 .stage {
-  position: relative; height: 196px; background: var(--card); border-radius: 20px;
+  position: relative; height: 150px; background: var(--card); border-radius: 16px;
   display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
 }
-.stage .sprite { margin-bottom: 8px; }
+.stage .sprite { margin-bottom: 6px; }
 .speech {
-  position: absolute; top: 14px; left: 14px; background: var(--text); color: var(--bg); font-size: 12px;
-  font-weight: 500; padding: 8px 10px; border-radius: 12px 12px 12px 3px; max-width: 170px; line-height: 1.35; z-index: 1;
+  position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;
+  font-weight: 500; padding: 6px 9px; border-radius: 11px 11px 11px 3px; max-width: 150px; line-height: 1.35; z-index: 1;
 }
 .speech.error { background: var(--warn); color: var(--bg); }
-.shadow-large { position: absolute; bottom: 14px; width: 150px; height: 18px; border-radius: 50%; background: #1C1A2E; }
-.bars { display: flex; flex-direction: column; gap: 8px; }
+.shadow-large { position: absolute; bottom: 10px; width: 120px; height: 14px; border-radius: 50%; background: #1C1A2E; }
+.bars { display: flex; flex-direction: column; gap: 6px; }
 .bar-row { display: flex; align-items: center; gap: 10px; }
-.bar-label { width: 44px; font-size: 12px; color: var(--sub2); }
+.bar-label { width: 40px; font-size: 11px; color: var(--sub2); }
 .bar { flex: 1; height: 10px; background: var(--card2); border-radius: 5px; overflow: hidden; }
 .fill { height: 100%; width: 0; transition: width .4s; }
 .fill.hunger { background: var(--hunger); } .fill.mood { background: var(--mood); }
 .bar-val { width: 32px; text-align: right; font-size: 10px; color: var(--sub2); }
-.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: auto; }
+.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: auto; }
 .btn {
-  height: 46px; border: 0; border-radius: 14px; font-family: var(--sans); font-size: 14px; font-weight: 600;
+  height: 40px; border: 0; border-radius: 12px; font-family: var(--sans); font-size: 13px; font-weight: 600;
   display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
 }
 .btn.primary { background: var(--coin); color: var(--bg); }
@@ -77,26 +77,26 @@ body.expanded #collapsed { display: none; }
 .cost { font-size: 10px; opacity: .8; }
 .foot { font-size: 11px; color: var(--sub); }
 .toast {
-  position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--card2);
+  position: absolute; left: 50%; bottom: 66px; transform: translateX(-50%); background: var(--card2);
   color: var(--text); font-size: 12px; padding: 8px 12px; border-radius: 10px; white-space: nowrap;
 }
 
 /* ---------- dress-up panel ---------- */
 .dress-panel {
-  position: absolute; left: 0; right: 0; top: 250px; bottom: 0; z-index: 2;
-  background: var(--bg); border-top: 1.5px solid var(--line); border-radius: 20px 20px 28px 28px;
-  padding: 12px 20px 16px; display: flex; flex-direction: column; gap: 8px;
+  position: absolute; left: 0; right: 0; top: 200px; bottom: 0; z-index: 2;
+  background: var(--bg); border-top: 1.5px solid var(--line); border-radius: 18px 18px 24px 24px;
+  padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 8px;
 }
 .dress-note { font-size: 12px; color: var(--warn); }
 .dress-list { list-style: none; margin: 0; padding: 0 2px 0 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .dress-list::-webkit-scrollbar { width: 4px; }
 .dress-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
-.item { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 12px; padding: 6px 8px 6px 6px; }
+.item { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 10px; padding: 5px 7px 5px 5px; }
 .item.equipped { outline: 1.5px solid var(--mood); }
 .item.locked { opacity: .55; }
-.item-icon { width: 34px; height: 34px; background: var(--card2); border-radius: 8px; flex: none; shape-rendering: crispEdges; }
+.item-icon { width: 30px; height: 30px; background: var(--card2); border-radius: 8px; flex: none; shape-rendering: crispEdges; }
 .item-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.item-name { font-size: 13px; font-weight: 600; }
+.item-name { font-size: 12.5px; font-weight: 600; }
 .item-sub { font-size: 11px; color: var(--sub); }
 .item-sub.short { color: var(--warn); }
 .btn.small { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 10px; flex: none; }

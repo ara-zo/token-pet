@@ -10,7 +10,7 @@ Claude Code 토큰 사용량이 코인이 되는 다마고치. 컨셉 전문은 
 > - 레벨 표 5배: Lv.5 = 10,000, Lv.10 = 50,000, 이후 레벨당 15,000
 > - 상점 가격 5배: 400~1,000, 왕관 2,500
 > - 범위에 추가: 서브에이전트 토큰 집계, 위젯 상점·옷장, 쓰다듬기(`/pet pat`), 7일 기록(`/pet stats`), 진화 예감, 위젯 애니메이션·드래그·위치 기억·배고픔 알림
-> - 위젯 접힌 크기 120×120 (160에서)
+> - 위젯 접힌 크기 120×120 (160에서), 펼친 크기 300×390 (360×460에서)
 
 ## 1. 범위
 
@@ -18,7 +18,7 @@ Claude Code 토큰 사용량이 코인이 되는 다마고치. 컨셉 전문은 
 
 1. Claude Code 플러그인: Stop·SessionStart 훅, `/pet` 커맨드, 상태표시줄 스크립트
 2. `~/.claude/pet/state.json` 스키마, 경제, 틱, 1차·2차 진화 판정 (전부 순수 함수 + pytest)
-3. Tauri 데스크톱 앱: 접힌 상태(120×120)와 펼친 위젯(360×460). 상점·옷장·기록 패널 포함
+3. Tauri 데스크톱 앱: 접힌 상태(120×120)와 펼친 위젯(300×390). 상점·옷장·기록 패널 포함
 
 제외: Windows, 사냥꾼 "드롭", 다기기 동기화.
 
@@ -252,7 +252,7 @@ boss면 가운데 구간을 "👔 보스: 상납 안 하면 알지?" 로 점거�
 ## 11. Tauri 앱
 
 - Tauri 2, 프론트는 번들러 없는 바닐라 HTML/CSS/JS. mockup.html의 접힌 상태·펼친 위젯 마크업과 SVG를 `src/`로 옮기고 인라인 스타일을 `styles.css`로 뺀다. 형태별 SVG는 `sprites.js`에 문자열 테이블.
-- 창 하나: 투명, 프레임 없음, 항상 위, Dock 아이콘 없음(macOS activation policy Accessory), 시작 크기 120×120. 스프라이트 클릭으로 360×460 펼침, 접기 버튼이나 바깥 클릭으로 복귀. 드래그는 `data-tauri-drag-region` 대신 JS에서 3px 이상 움직이면 `startDragging()` (그림 안의 SVG 사각형을 눌러도 끌리도록), 접힌 위치는 localStorage에 저장.
+- 창 하나: 투명, 프레임 없음, 항상 위, Dock 아이콘 없음(macOS activation policy Accessory), 시작 크기 120×120. 스프라이트 클릭으로 300×390 펼침, 접기 버튼이나 바깥 클릭으로 복귀. 드래그는 `data-tauri-drag-region` 대신 JS에서 3px 이상 움직이면 `startDragging()` (그림 안의 SVG 사각형을 눌러도 끌리도록), 접힌 위치는 localStorage에 저장.
 - Rust: 시작 시 state.json 읽어 `state` 이벤트 emit, `notify`로 `~/.claude/pet/` 감시(파일은 rename으로 교체되므로 디렉터리 감시) → 변경 시 다시 읽어 emit. 200ms 디바운스.
 - `feed` 커맨드: `state.plugin_root/scripts/pet.py feed --json`을 실행하고 결과를 반환. 실패 메시지는 말풍선으로.
 - 꾸미기 버튼: 1차에서는 "터미널에서 /pet shop" 토스트.

@@ -7,7 +7,7 @@ const LogicalSize = T.dpi.LogicalSize;
 const LogicalPosition = T.dpi.LogicalPosition;
 
 const SMALL = { w: 120, h: 120 };
-const LARGE = { w: 360, h: 460 };
+const LARGE = { w: 300, h: 390 };
 const HUNGER_PER_HOUR = 10, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
@@ -449,6 +449,7 @@ function maybeNotify(s, hunger) {
 // ---------------------------------------------------------------- stats
 
 let stats = null;   // last `pet stats --json` result while the panel is open
+const W_CHART = 268;
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 async function openStats() {
@@ -486,7 +487,7 @@ function renderStats() {
 
   const svg = $("stats-chart");
   svg.replaceChildren();
-  const W = 320, top = 14, base = 84, slot = W / days.length, bw = 20;
+  const W = W_CHART, top = 14, base = 64, slot = W / days.length, bw = 18;
   const max = Math.max(1, ...days.map((d) => d.earned));
   svg.append(svgEl("line", { class: "base", x1: 0, x2: W, y1: base + 0.5, y2: base + 0.5 }));
   days.forEach((d, i) => {
@@ -508,7 +509,7 @@ function renderStats() {
       v.textContent = d.earned.toLocaleString();
       g.append(v);
     }
-    const hit = svgEl("rect", { class: "hit", x: slot * i, y: 0, width: slot, height: 104 });
+    const hit = svgEl("rect", { class: "hit", x: slot * i, y: 0, width: slot, height: 84 });
     hit.addEventListener("mouseenter", () => showTip(d, cx, wd, isToday));
     hit.addEventListener("mouseleave", () => $("chart-tip").classList.add("hidden"));
     g.append(hit);
@@ -520,7 +521,7 @@ function showTip(d, cx, wd, isToday) {
   const tip = $("chart-tip");
   const [, m, day] = d.date.split("-");
   tip.textContent = `${+m}/${+day} ${isToday ? "오늘" : wd} · +${d.earned.toLocaleString()}코인 · 출력 ${d.tokens_out.toLocaleString()} · 먹이 ${d.feeds}`;
-  tip.style.left = `${Math.min(Math.max(cx, 110), 210)}px`;   // keep the bubble inside the panel
+  tip.style.left = `${Math.min(Math.max(cx, 110), W_CHART - 110)}px`;   // keep the bubble inside the panel
   tip.classList.remove("hidden");
 }
 
