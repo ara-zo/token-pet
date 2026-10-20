@@ -243,7 +243,7 @@ function speakError(msg) {
 // kept on screen; collapsing goes back to the exact collapsed spot unless the big window was moved.
 const POS_KEY = "token-pet.position";
 let collapsedPos = null;          // logical {x, y} of the collapsed window
-let expandedPos = null;           // where we put the expanded window
+let movedWhileExpanded = false;   // the user dragged the big window, so collapse where it now is
 
 function savePos(p) {
   try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y) })); } catch (e) {}
@@ -258,16 +258,18 @@ async function currentPos() {
   return { x: pos.x / sf, y: pos.y / sf };
 }
 
-function monitorRect(m) {
+function monitorRect(m, work = false) {
+  // work area excludes the menu bar and Dock; macOS pushes windows out of the menu bar anyway
   const sf = m.scaleFactor;
-  return { x: m.position.x / sf, y: m.position.y / sf, w: m.size.width / sf, h: m.size.height / sf };
+  const a = work && m.workArea ? m.workArea : m;
+  return { x: a.position.x / sf, y: a.position.y / sf, w: a.size.width / sf, h: a.size.height / sf };
 }
 
 async function clampToMonitor(p, size) {
   try {
     const m = await win.currentMonitor();
     if (!m) return p;
-    const r = monitorRect(m);
+    const r = monitorRect(m, true);
     return {
       x: Math.min(Math.max(p.x, r.x), r.x + r.w - size.w),
       y: Math.min(Math.max(p.y, r.y), r.y + r.h - size.h),
@@ -289,8 +291,6 @@ async function restorePos() {
   } catch (e) {}
 }
 
-const near = (a, b) => a && b && Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2;
-
 async function setExpanded(on) {
   if (on === expanded) return;
   expanded = on;
@@ -299,11 +299,12 @@ async function setExpanded(on) {
     let target;
     if (on) {
       collapsedPos = here;
+      movedWhileExpanded = false;
       target = await clampToMonitor(
         { x: here.x + SMALL.w - LARGE.w, y: here.y + SMALL.h - LARGE.h }, LARGE);
-      expandedPos = target;
     } else {
-      target = near(here, expandedPos)
+      // Not dragged: go back exactly where the pet was, whatever the OS did to the big window.
+      target = !movedWhileExpanded && collapsedPos
         ? collapsedPos
         : await clampToMonitor({ x: here.x + LARGE.w - SMALL.w, y: here.y + LARGE.h - SMALL.h }, SMALL);
     }
@@ -333,6 +334,7 @@ window.addEventListener("mousemove", (e) => {
   if (Math.abs(e.screenX - press.x) > 3 || Math.abs(e.screenY - press.y) > 3) {
     press = null;
     dragged = true;
+    if (expanded) movedWhileExpanded = true;
     win.startDragging().catch(() => {});
   }
 });
