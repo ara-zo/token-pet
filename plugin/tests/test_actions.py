@@ -155,3 +155,26 @@ def test_reset_requires_confirm_unless_boss():
     b = st(form="boss")
     actions.reset(b, NOW)
     assert b["form"] == "base" and "independence" in b["badges"]
+
+
+# ------------------------------------------------------------------ pat
+
+def test_pat_raises_mood_with_daily_limit():
+    s = st(mood=50)
+    r = actions.pat(s, NOW)
+    assert s["mood"] == 50 + economy.PAT_MOOD
+    assert r == {"mood": s["mood"], "left": economy.PAT_DAILY_LIMIT - 1}
+    for _ in range(economy.PAT_DAILY_LIMIT - 1):
+        actions.pat(s, NOW)
+    assert schema.today(s, NOW)["pats"] == economy.PAT_DAILY_LIMIT
+    with pytest.raises(ActionError, match="충분히"):
+        actions.pat(s, NOW)
+    assert actions.pat(s, at(21, 9))["left"] == economy.PAT_DAILY_LIMIT - 1   # resets the next day
+
+
+def test_pat_caps_mood_and_refuses_runaway():
+    s = st(mood=99)
+    actions.pat(s, NOW)
+    assert s["mood"] == 100
+    with pytest.raises(ActionError, match="가출"):
+        actions.pat(st(form="runaway"), NOW)

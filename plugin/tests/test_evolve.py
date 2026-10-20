@@ -168,3 +168,34 @@ def test_thug_at_level_10_becomes_boss_with_hijack():
     s = lv10("thug")
     evolve.check(s, NOW)
     assert s["form"] == "boss" and s["flags"]["boss_hijack"] is True
+
+
+# ------------------------------------------------------------ forecast
+
+def test_forecast_first_stage_names_the_leading_form():
+    s = lv5(level=3, xp=900, days=same({"tokens_out": 1000, "night_out": 800, "earned": 5}))
+    f = evolve.forecast(s)
+    assert f["form"] == "owl" and f["at_level"] == economy.FIRST_EVOLUTION_LEVEL
+    assert "80%" in f["reason"]
+    assert 0 < f["progress"] < 1
+
+
+def test_forecast_model_mentions_near_alternative():
+    s = lv5(level=3, days=same({"tokens_out": 1000, "night_out": 450, "earned": 5}))
+    f = evolve.forecast(s)
+    assert f["form"] == "model" and "올빼미" in f["reason"] and "45%" in f["reason"]
+
+
+def test_forecast_second_stage_and_none_when_done():
+    s = lv5(form="miser", level=8, coins=evolve.RICH_COINS)
+    f = evolve.forecast(s)
+    assert f["form"] == "loanshark" and f["at_level"] == economy.SECOND_EVOLUTION_LEVEL
+    assert evolve.forecast(lv5(form="tycoon", level=12)) is None
+    assert evolve.forecast(lv5(form="runaway")) is None
+
+
+def test_tick_keeps_forecast_on_state():
+    from petlib import tick
+    s = lv5(level=3, days=same({"tokens_out": 1000, "night_out": 900, "earned": 5}))
+    tick.apply(s, NOW)
+    assert s["forecast"]["form"] == "owl"

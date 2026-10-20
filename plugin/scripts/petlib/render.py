@@ -47,6 +47,9 @@ def status_text(state: dict, now: dt.datetime) -> str:
         f"💬 {state['speech'] or '...'}",
         f"오늘 +{day['earned']} 코인 · 출력 {day['tokens_out']:,} 토큰 · 마지막 식사 {_ago(state['last_fed_at'], now)}",
     ]
+    fc = state.get("forecast")
+    if fc:
+        lines.append(f"🔮 Lv.{fc['at_level']} 진화 예감: {fc['glyph']} {fc['ko']} · {fc['reason']}")
     eq = [economy.CATALOG[v].name for v in state["equipped"].values() if v in economy.CATALOG]
     if eq:
         lines.append("착용: " + ", ".join(eq))
@@ -129,3 +132,30 @@ def statusline(state: Optional[dict], cc: dict, now: dt.datetime) -> str:
     if tail:
         parts.append(f"{C['sub']}{' · '.join(tail)}{C['reset']}")
     return sep.join(parts)
+
+
+STAT_KEYS = ("earned", "spent", "tokens_out", "feeds", "pats")
+
+
+def stats_payload(state: dict, now: dt.datetime, days: int = 7) -> dict:
+    """The last `days` days, oldest first, with missing days filled with zeros."""
+    by_date = {d["date"]: d for d in state["daily_log"]}
+    out = []
+    for i in range(days - 1, -1, -1):
+        date = clock.day_key(now - dt.timedelta(days=i))
+        src = by_date.get(date, {})
+        out.append({"date": date, **{k: int(src.get(k, 0) or 0) for k in STAT_KEYS}})
+    total = {k: sum(d[k] for d in out) for k in STAT_KEYS}
+    return {"days": out, "total": total}
+
+
+def stats_text(state: dict, now: dt.datetime) -> str:
+    p = stats_payload(state, now)
+    top = max([d["earned"] for d in p["days"]] + [1])
+    lines = ["📊 최근 7일   코인 · 출력 토큰 · 먹이"]
+    for d in p["days"]:
+        bar = bars(d["earned"] / top * 100, 8)
+        lines.append(f"  {d['date'][5:].replace('-', '/')}  {bar}  +{d['earned']:,} · {d['tokens_out']:,} · {d['feeds']}")
+    t = p["total"]
+    lines.append(f"합계 +{t['earned']:,}코인 (사용 {t['spent']:,}) · 출력 {t['tokens_out']:,} · 먹이 {t['feeds']} · 쓰다듬기 {t['pats']}")
+    return "\n".join(lines)

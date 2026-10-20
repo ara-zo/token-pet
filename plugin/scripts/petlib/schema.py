@@ -18,7 +18,7 @@ def new_day(date: str) -> dict:
         "feeds": 0, "dawn_feeds": 0, "day_feeds": 0,
         "sessions": 0, "day_sessions": 0,
         "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "night_out": 0,
-        "earned": 0, "spent": 0, "purchases": 0, "refusals": 0,
+        "earned": 0, "spent": 0, "purchases": 0, "refusals": 0, "pats": 0,
         "hunger_zero_hours": 0.0, "max_gap_hours": 0.0, "zero_balance": False,
     }
 

@@ -150,6 +150,31 @@ def test_pet_shop_json_catalog(pet_home):
     assert payload["result"]["blocked"] is True and payload["result"]["catalog"] == []
 
 
+def test_pet_pat_json(pet_home):
+    with store.transaction(NOW, tick=False) as s:
+        s["mood"] = 40
+    code, text = cli.main_pet(["pat", "--json"], NOW)
+    payload = json.loads(text)
+    assert code == 0 and payload["ok"] and payload["state"]["mood"] == 40 + economy.PAT_MOOD
+    assert payload["result"]["left"] == economy.PAT_DAILY_LIMIT - 1
+
+
+def test_pet_stats_last_7_days(pet_home):
+    with store.transaction(at(14, 9), tick=False) as s:
+        s["daily_log"] = [schema.new_day("2026-10-14"), schema.new_day("2026-10-17"), schema.new_day("2026-10-20")]
+        s["daily_log"][1].update(earned=120, tokens_out=24000, feeds=2, spent=50, pats=3)
+        s["daily_log"][2].update(earned=40, tokens_out=8000, feeds=1)
+        s["last_tick_at"] = clock.fmt(NOW)
+    code, text = cli.main_pet(["stats", "--json"], NOW)
+    r = json.loads(text)["result"]
+    assert [d["date"] for d in r["days"]] == [f"2026-10-{d}" for d in range(14, 21)]   # gaps filled
+    assert r["days"][3]["earned"] == 120 and r["days"][3]["pats"] == 3
+    assert r["days"][1] == {"date": "2026-10-15", "earned": 0, "spent": 0, "tokens_out": 0, "feeds": 0, "pats": 0}
+    assert r["total"] == {"earned": 160, "spent": 50, "tokens_out": 32000, "feeds": 3, "pats": 3}
+    code, text = cli.main_pet(["stats"], NOW)
+    assert code == 0 and "10/17" in text and "24,000" in text
+
+
 def test_pet_buy_equip_name(pet_home):
     with store.transaction(NOW, tick=False) as s:
         s["coins"] = economy.CATALOG["fedora"].price + 100

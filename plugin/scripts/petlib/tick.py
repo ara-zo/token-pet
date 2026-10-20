@@ -154,4 +154,5 @@ def apply(state: dict, now: dt.datetime) -> List[dict]:
     state["last_tick_at"] = clock.fmt(now)
     from . import evolve
     events += evolve.check(state, now)
+    state["forecast"] = evolve.forecast(state)
     return events

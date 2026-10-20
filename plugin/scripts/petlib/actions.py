@@ -1,4 +1,4 @@
-"""User actions: feed, buy, equip, rename, find, reset. Each mutates state and returns a summary dict."""
+"""User actions: feed, pat, buy, equip, rename, find, reset. Each mutates state and returns a summary dict."""
 from __future__ import annotations
 
 import datetime as dt
@@ -41,6 +41,17 @@ def feed(state: dict, now: dt.datetime, force: bool = False) -> dict:
         day["day_feeds"] += 1
     schema.push_event(state, now, "feed", "냠냠! 고마워")
     return {"hunger": state["hunger"], "coins": state["coins"], "cost": cost, "debt": flags["debt"]}
+
+
+def pat(state: dict, now: dt.datetime) -> dict:
+    if state["form"] == "runaway":
+        raise ActionError("가출 중이라 쓰다듬을 수 없어. /pet find 로 찾아봐")
+    day = schema.today(state, now)
+    if day["pats"] >= economy.PAT_DAILY_LIMIT:
+        raise ActionError("오늘은 충분히 쓰다듬었어. 내일 또 해 줘")
+    day["pats"] += 1
+    state["mood"] = round(min(100.0, float(state["mood"]) + economy.PAT_MOOD), 2)
+    return {"mood": state["mood"], "left": economy.PAT_DAILY_LIMIT - day["pats"]}
 
 
 def buy(state: dict, now: dt.datetime, item_id: str) -> dict:

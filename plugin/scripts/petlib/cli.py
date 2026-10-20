@@ -12,7 +12,7 @@ from . import actions, clock, economy, evolve, render, schema, speech, store, tr
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup")
-USAGE = """사용법: /pet [status|feed [--force]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|find|reset [--confirm]|setup [--write]]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|find|reset [--confirm]|setup [--write]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -173,7 +173,8 @@ def _shop_payload(s: dict) -> dict:
 
 def _summary(s: dict) -> dict:
     return {k: s[k] for k in ("name", "level", "xp", "coins", "hunger", "mood", "form", "speech",
-                              "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges")}
+                              "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges")} \
+        | {"forecast": s.get("forecast")}
 
 
 def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
@@ -211,6 +212,12 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 if r["debt"]:
                     msg += f"  외상 {r['debt']}"
                 return out(0, msg, r, s)
+            if cmd == "pat":
+                r = actions.pat(s, now)
+                s["speech"] = speech.choose(s, now)
+                return out(0, f"쓰담쓰담… 기분 {int(r['mood'])} (오늘 {r['left']}번 더)", r, s)
+            if cmd == "stats":
+                return out(0, render.stats_text(s, now), render.stats_payload(s, now), s)
             if cmd == "buy":
                 if len(pos) < 2:
                     raise ActionError("무엇을 살지 알려줘: /pet buy <id>")

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import List
+from typing import List, Optional
 
 from . import clock, economy, schema
 
@@ -166,3 +166,81 @@ def check(state: dict, now: dt.datetime) -> List[dict]:
         if new != form:
             events.append(set_form(state, new, now, "Lv.10 도달, Lv.5 이후 생활 기록"))
     return events
+
+
+# ----------------------------------------------------------------- forecast
+# Which form the pet is heading for, from the same records the judgement uses.
+# Shown to the user before the evolution so the 5-day wait has a direction.
+
+def _pct(x: float) -> str:
+    return f"{x:.0%}"
+
+
+def _first_reason(state: dict, form: str) -> str:
+    w = window(state)
+    night = w["night_out"] / w["tokens_out"] if w["tokens_out"] else 0.0
+    if form == "thug":
+        return f"배고픔 0으로 {w['hunger_zero_hours']:.0f}시간을 보냈어요"
+    if form == "owl":
+        return f"출력의 {_pct(night)}를 밤 10시~새벽 4시에 썼어요"
+    if form == "miser":
+        return f"코인 {state['coins']:,}개를 모으고 아무것도 안 샀어요"
+    if form == "spender":
+        return f"번 코인의 {_pct(w['spent'] / w['earned'])}를 꾸미기에 썼어요"
+    # model: point at the closest other road, if any
+    if night >= OWL_NIGHT_RATIO * 2 / 3:
+        return f"밤 출력이 {_pct(night)}예요. {_pct(OWL_NIGHT_RATIO)}를 넘으면 올빼미가 돼요"
+    if w["hunger_zero_hours"] >= THUG_ZERO_HOURS / 2:
+        return f"배고픔 0으로 {w['hunger_zero_hours']:.0f}시간… {THUG_ZERO_HOURS}시간이면 불량배가 돼요"
+    if state["coins"] >= MISER_COINS / 2 and w["purchases"] == 0:
+        return f"코인을 모으기만 해요. {MISER_COINS:,}개를 넘기면 구두쇠가 돼요"
+    return "규칙적으로 지내고 있어요"
+
+
+def _second_reason(state: dict, form: str, target: str) -> str:
+    sf = state["since_form"]
+    cache = sf["cache_read"] / sf["tokens_in_total"] if sf["tokens_in_total"] else 0.0
+    night = sf["night_out"] / sf["tokens_out"] if sf["tokens_out"] else 0.0
+    if target == "burnout":
+        return f"하루 5만 토큰 넘게 {sf['streak_50k']}일 연속 일했어요"
+    if target == "scholar":
+        return f"캐시 적중률이 {_pct(cache)}예요"
+    if target == "tycoon":
+        return "코인을 많이 모았고 지갑도 열어요"
+    if target == "loanshark":
+        return "코인은 많은데 한 번도 안 썼어요"
+    if target == "vampire":
+        return f"출력의 {_pct(night)}가 밤이고 낮에는 안 먹어요"
+    if target == "hunter":
+        return f"새벽에 {sf['dawn_feeds']}번 밥을 먹었어요"
+    if target == "broke":
+        return "잔액 0인 날이 많아요"
+    if target == "influencer":
+        return f"아이템을 {len(state['items_owned'])}개 모았어요"
+    if target == "boss":
+        return "불량배로 계속 지내면 조직 보스가 돼요"
+    # staying the same: hint at the nearest change for the model student
+    if form == "model" and sf["streak_50k"] >= BURNOUT_STREAK - 2:
+        return f"하루 5만 토큰 넘게 {sf['streak_50k']}일 연속… {BURNOUT_STREAK}일이면 번아웃이에요"
+    if form == "model" and cache >= SCHOLAR_CACHE_RATIO * 0.7:
+        return f"캐시 적중률 {_pct(cache)}. {_pct(SCHOLAR_CACHE_RATIO)}를 넘으면 박사가 돼요"
+    return "지금 모습 그대로 자랄 것 같아요"
+
+
+def forecast(state: dict) -> Optional[dict]:
+    """The form the next evolution would pick today, or None when no evolution is ahead."""
+    form = state["form"]
+    if form == "base":
+        target, at_level = judge_first(state), economy.FIRST_EVOLUTION_LEVEL
+        reason = _first_reason(state, target)
+    elif form in economy.FIRST_TIER and form != "runaway":
+        target, at_level = judge_second(state), economy.SECOND_EVOLUTION_LEVEL
+        reason = _second_reason(state, form, target)
+    else:
+        return None
+    info = economy.FORMS[target]
+    need = economy.xp_for_level(at_level)
+    return {
+        "form": target, "ko": info.ko, "glyph": info.glyph, "reason": reason,
+        "at_level": at_level, "progress": round(min(1.0, state["xp"] / need), 3) if need else 1.0,
+    }
