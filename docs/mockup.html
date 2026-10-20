@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Token Pet 목업</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Silkscreen:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#14131E;color:#F4F1FF;font-family:'IBM Plex Sans KR',system-ui,sans-serif;padding:40px 24px}
+h1{font-family:Silkscreen,monospace;font-size:22px;letter-spacing:1px;margin:0 0 6px}
+p.sub{color:#A9A3C9;margin:0 0 36px;font-size:14px}
+section{margin-bottom:48px}
+h2{font-size:14px;font-weight:500;color:#A9A3C9;margin:0 0 12px}
+.board{display:inline-block;max-width:100%;overflow-x:auto}
+</style></head><body>
+<h1>Token Pet — 목업</h1>
+<p class="sub">Claude 토큰 사용량이 코인이 되는 데스크톱 펫. 컨셉 전문은 SPEC.md 참고.</p>
+<section><h2>접힌 상태 (평소, 160×160)</h2><div class="board"><div style="width: 160px; height: 160px; box-sizing: border-box; background: transparent; font-family: Silkscreen, monospace; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8px">
+  <div style="position: absolute; top: 6px; right: 6px; background: #F4F1FF; color: #23203A; font-size: 9px; padding: 5px 7px; border-radius: 10px 10px 2px 10px">+12</div>
+  <div style="position: absolute; bottom: 34px; width: 96px; height: 14px; border-radius: 50%; background: rgba(20,19,30,0.35)"></div>
+  <svg width="120" height="120" viewBox="0 0 64 64" role="img" aria-label="모찌, 접힌 상태" style="position: relative; shape-rendering: crispEdges">
+    <rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/>
+    <rect x="14" y="30" width="36" height="18" fill="#FFB7C5"/>
+    <rect x="18" y="52" width="28" height="4" fill="#FFB7C5"/>
+    <rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/>
+    <rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/>
+    <rect x="14" y="26" width="4" height="4" fill="#F38BA3"/>
+    <rect x="46" y="26" width="4" height="4" fill="#F38BA3"/>
+    <rect x="22" y="36" width="5" height="6" fill="#23203A"/>
+    <rect x="37" y="36" width="5" height="6" fill="#23203A"/>
+    <rect x="23" y="37" width="2" height="2" fill="#F4F1FF"/>
+    <rect x="38" y="37" width="2" height="2" fill="#F4F1FF"/>
+    <rect x="18" y="42" width="5" height="3" fill="#F38BA3"/>
+    <rect x="41" y="42" width="5" height="3" fill="#F38BA3"/>
+    <rect x="29" y="44" width="6" height="2" fill="#23203A"/>
+    <rect x="22" y="56" width="8" height="4" fill="#F38BA3"/>
+    <rect x="34" y="56" width="8" height="4" fill="#F38BA3"/>
+    <rect x="30" y="8" width="4" height="4" fill="#F5C451"/>
+    <rect x="28" y="12" width="8" height="4" fill="#8FB4FF"/>
+    <rect x="26" y="16" width="12" height="4" fill="#6FE3B3"/>
+    <rect x="24" y="20" width="16" height="6" fill="#8FB4FF"/>
+    <rect x="22" y="26" width="20" height="2" fill="#F4F1FF"/>
+  </svg>
+  <div style="position: relative; display: flex; align-items: center; gap: 5px; background: #23203A; padding: 5px 9px; border-radius: 999px; margin-top: -6px">
+    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#F5C451"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#9A6E12" stroke-width="1.5"/></svg>
+    <span style="font-size: 10px; color: #F5C451">1,240</span>
+  </div>
+</div></div></section><section><h2>펼친 위젯 (360×460)</h2><div class="board"><div style="width: 360px; height: 460px; box-sizing: border-box; background: #23203A; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; border-radius: 28px; padding: 20px; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden">
+
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span style="font-family: Silkscreen, monospace; font-size: 15px; letter-spacing: 1px">모찌</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; background: #3A3660; color: #D9D4F5; padding: 4px 7px; border-radius: 6px">LV.3</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; background: #3A3660; padding: 6px 10px; border-radius: 999px">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#F5C451"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#9A6E12" stroke-width="1.5"/></svg>
+      <span style="font-family: Silkscreen, monospace; font-size: 13px; color: #F5C451">1,240</span>
+    </div>
+  </div>
+
+  <div style="position: relative; height: 196px; background: #2D2A4A; border-radius: 20px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden">
+    <div style="position: absolute; top: 14px; left: 14px; background: #F4F1FF; color: #23203A; font-size: 12px; font-weight: 500; padding: 8px 10px; border-radius: 12px 12px 12px 3px; max-width: 170px; line-height: 1.35">오늘 12.4k 토큰 썼지? 나 배고파…</div>
+    <div style="position: absolute; bottom: 14px; width: 150px; height: 18px; border-radius: 50%; background: #1C1A2E"></div>
+    <svg width="160" height="160" viewBox="0 0 64 64" role="img" aria-label="분홍색 펫 모찌, 파티 모자를 쓰고 있음" style="position: relative; shape-rendering: crispEdges; margin-bottom: 8px">
+      <rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/>
+      <rect x="14" y="30" width="36" height="18" fill="#FFB7C5"/>
+      <rect x="18" y="52" width="28" height="4" fill="#FFB7C5"/>
+      <rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="14" y="26" width="4" height="4" fill="#F38BA3"/>
+      <rect x="46" y="26" width="4" height="4" fill="#F38BA3"/>
+      <rect x="22" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="37" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="23" y="37" width="2" height="2" fill="#F4F1FF"/>
+      <rect x="38" y="37" width="2" height="2" fill="#F4F1FF"/>
+      <rect x="18" y="42" width="5" height="3" fill="#F38BA3"/>
+      <rect x="41" y="42" width="5" height="3" fill="#F38BA3"/>
+      <rect x="29" y="44" width="6" height="2" fill="#23203A"/>
+      <rect x="22" y="56" width="8" height="4" fill="#F38BA3"/>
+      <rect x="34" y="56" width="8" height="4" fill="#F38BA3"/>
+      <rect x="30" y="8" width="4" height="4" fill="#F5C451"/>
+      <rect x="28" y="12" width="8" height="4" fill="#8FB4FF"/>
+      <rect x="26" y="16" width="12" height="4" fill="#6FE3B3"/>
+      <rect x="24" y="20" width="16" height="6" fill="#8FB4FF"/>
+      <rect x="22" y="26" width="20" height="2" fill="#F4F1FF"/>
+    </svg>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 44px; font-size: 12px; color: #C9C3E6">배고픔</span>
+      <div style="flex: 1; height: 10px; background: #3A3660; border-radius: 5px; overflow: hidden"><div style="width: 38%; height: 100%; background: #F5A54A"></div></div>
+      <span style="width: 32px; text-align: right; font-family: Silkscreen, monospace; font-size: 10px; color: #C9C3E6">38</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 44px; font-size: 12px; color: #C9C3E6">기분</span>
+      <div style="flex: 1; height: 10px; background: #3A3660; border-radius: 5px; overflow: hidden"><div style="width: 72%; height: 100%; background: #6FE3B3"></div></div>
+      <span style="width: 32px; text-align: right; font-family: Silkscreen, monospace; font-size: 10px; color: #C9C3E6">72</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: auto">
+    <button type="button" style="height: 46px; border: 0; border-radius: 14px; background: #F5C451; color: #23203A; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer">먹이주기 <span style="font-family: Silkscreen, monospace; font-size: 10px; opacity: 0.8">-30</span></button>
+    <button type="button" style="height: 46px; border: 1.5px solid #4A4677; border-radius: 14px; background: transparent; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px; font-weight: 600; cursor: pointer">꾸미기</button>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; font-size: 11px; color: #A9A3C9">
+    <span>이번 턴 +12 코인</span>
+    <span>마지막 식사 3시간 전</span>
+  </div>
+</div></div></section><section><h2>상점 패널 (420×700)</h2><div class="board"><div style="width: 420px; height: 700px; box-sizing: border-box; background: #23203A; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <button type="button" aria-label="뒤로" style="width: 36px; height: 36px; border: 0; border-radius: 10px; background: #3A3660; color: #F4F1FF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
+      <span style="font-size: 17px; font-weight: 600">모찌의 방</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; background: #3A3660; padding: 6px 10px; border-radius: 999px">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#F5C451"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#9A6E12" stroke-width="1.5"/></svg>
+      <span style="font-family: Silkscreen, monospace; font-size: 13px; color: #F5C451">1,240</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; background: #1C1A2E; padding: 5px; border-radius: 14px">
+    <button type="button" style="height: 38px; border: 0; border-radius: 10px; background: transparent; color: #A9A3C9; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer">먹이</button>
+    <button type="button" style="height: 38px; border: 0; border-radius: 10px; background: #3A3660; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px; font-weight: 600; cursor: pointer">상점</button>
+    <button type="button" style="height: 38px; border: 0; border-radius: 10px; background: transparent; color: #A9A3C9; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer">옷장</button>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 14px; background: #2D2A4A; border-radius: 16px; padding: 12px 14px">
+    <svg width="56" height="56" viewBox="0 0 64 64" role="img" aria-label="모찌 미리보기, 선택한 모자를 씀" style="shape-rendering: crispEdges">
+      <rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/>
+      <rect x="14" y="30" width="36" height="18" fill="#FFB7C5"/>
+      <rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="22" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="37" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="18" y="42" width="5" height="3" fill="#F38BA3"/>
+      <rect x="41" y="42" width="5" height="3" fill="#F38BA3"/>
+      <rect x="29" y="44" width="6" height="2" fill="#23203A"/>
+      <rect x="20" y="18" width="24" height="8" fill="#5B5A7A"/>
+      <rect x="24" y="12" width="16" height="6" fill="#5B5A7A"/>
+      <rect x="16" y="24" width="32" height="3" fill="#F4F1FF"/>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 3px">
+      <span style="font-size: 14px; font-weight: 600">미리보기 · 중절모</span>
+      <span style="font-size: 12px; color: #A9A3C9">착용 시 기분 +5 · 하루 1회</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+    <div style="background: #2D2A4A; border: 2px solid #F5C451; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="4" y="12" width="16" height="4" fill="#5B5A7A"/><rect x="7" y="6" width="10" height="6" fill="#5B5A7A"/><rect x="6" y="11" width="12" height="2" fill="#F4F1FF"/></svg>
+      <span style="font-size: 12px; font-weight: 500">중절모</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">120</span>
+    </div>
+    <div style="background: #2D2A4A; border: 2px solid transparent; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="6" y="9" width="12" height="5" fill="#23203A"/><rect x="4" y="11" width="16" height="2" fill="#23203A"/><rect x="8" y="10" width="3" height="2" fill="#8FB4FF"/><rect x="13" y="10" width="3" height="2" fill="#8FB4FF"/></svg>
+      <span style="font-size: 12px; font-weight: 500">선글라스</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">90</span>
+    </div>
+    <div style="background: #2D2A4A; border: 2px solid transparent; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="6" y="8" width="12" height="10" fill="#6FE3B3"/><rect x="9" y="4" width="6" height="4" fill="#6FE3B3"/><rect x="10" y="11" width="4" height="4" fill="#23203A"/></svg>
+      <span style="font-size: 12px; font-weight: 500">후드티</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">200</span>
+    </div>
+    <div style="background: #2D2A4A; border: 2px solid transparent; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="4" y="16" width="16" height="4" fill="#8FB4FF"/><rect x="6" y="12" width="12" height="4" fill="#5B8FE8"/><rect x="10" y="8" width="4" height="4" fill="#F5C451"/></svg>
+      <span style="font-size: 12px; font-weight: 500">쿠션</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">150</span>
+    </div>
+    <div style="background: #2D2A4A; border: 2px solid transparent; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="10" y="4" width="4" height="12" fill="#6FE3B3"/><rect x="6" y="8" width="4" height="4" fill="#6FE3B3"/><rect x="14" y="6" width="4" height="4" fill="#6FE3B3"/><rect x="7" y="16" width="10" height="4" fill="#C9956B"/></svg>
+      <span style="font-size: 12px; font-weight: 500">화분</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">80</span>
+    </div>
+    <div style="background: #2D2A4A; border: 2px solid transparent; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: 0.55">
+      <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" style="shape-rendering: crispEdges"><rect x="5" y="10" width="14" height="8" fill="#F5C451"/><rect x="7" y="6" width="2" height="4" fill="#F5C451"/><rect x="11" y="4" width="2" height="6" fill="#F5C451"/><rect x="15" y="6" width="2" height="4" fill="#F5C451"/></svg>
+      <span style="font-size: 12px; font-weight: 500">왕관</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 10px; color: #F5C451">LV.5</span>
+    </div>
+  </div>
+
+  <button type="button" style="height: 50px; border: 0; border-radius: 14px; background: #F5C451; color: #23203A; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">중절모 구매 <span style="font-family: Silkscreen, monospace; font-size: 11px">-120</span></button>
+
+  <div style="margin-top: auto; background: #1C1A2E; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; justify-content: space-between; font-size: 13px">
+      <span style="color: #A9A3C9">오늘 획득</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 12px; color: #6FE3B3">+312</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 13px">
+      <span style="color: #A9A3C9">오늘 사용한 토큰</span>
+      <span style="font-family: Silkscreen, monospace; font-size: 12px">12.4k out · 88k in</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 13px">
+      <span style="color: #A9A3C9">환율</span>
+      <span style="font-size: 12px; color: #C9C3E6">출력 1k = 20코인 · 캐시 적중 보너스 +5%</span>
+    </div>
+  </div>
+</div></div></section><section><h2>Claude Code 상태표시줄</h2><div class="board"><div style="width: 860px; height: 56px; box-sizing: border-box; background: #14131E; color: #D9D4F5; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; border-radius: 8px; padding: 0 16px; display: flex; align-items: center; gap: 18px; white-space: nowrap">
+  <span style="color: #8FB4FF">~/work/dev-hub</span>
+  <span style="color: #5F5B82">│</span>
+  <span style="color: #A9A3C9">opus-5.5</span>
+  <span style="color: #5F5B82">│</span>
+  <span style="display: flex; align-items: center; gap: 8px">
+    <svg width="22" height="22" viewBox="0 0 64 64" role="img" aria-label="모찌" style="shape-rendering: crispEdges">
+      <rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/>
+      <rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/>
+      <rect x="22" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="37" y="36" width="5" height="6" fill="#23203A"/>
+      <rect x="29" y="44" width="6" height="2" fill="#23203A"/>
+      <rect x="24" y="20" width="16" height="6" fill="#8FB4FF"/>
+      <rect x="30" y="8" width="4" height="12" fill="#F5C451"/>
+    </svg>
+    <span style="color: #F4F1FF">모찌 Lv.3</span>
+  </span>
+  <span style="display: flex; align-items: center; gap: 6px">
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#F5C451"/><circle cx="8" cy="8" r="4.5" fill="none" stroke="#9A6E12" stroke-width="1.5"/></svg>
+    <span style="color: #F5C451">1,240</span>
+    <span style="color: #6FE3B3">+12</span>
+  </span>
+  <span style="display: flex; align-items: center; gap: 6px">
+    <span style="color: #A9A3C9">배고픔</span>
+    <span style="display: flex; gap: 2px"><span style="width: 10px; height: 12px; background: #F5A54A"></span><span style="width: 10px; height: 12px; background: #F5A54A"></span><span style="width: 10px; height: 12px; background: #3A3660"></span><span style="width: 10px; height: 12px; background: #3A3660"></span><span style="width: 10px; height: 12px; background: #3A3660"></span></span>
+  </span>
+  <span style="display: flex; align-items: center; gap: 6px">
+    <span style="color: #A9A3C9">기분</span>
+    <span style="display: flex; gap: 2px"><span style="width: 10px; height: 12px; background: #6FE3B3"></span><span style="width: 10px; height: 12px; background: #6FE3B3"></span><span style="width: 10px; height: 12px; background: #6FE3B3"></span><span style="width: 10px; height: 12px; background: #6FE3B3"></span><span style="width: 10px; height: 12px; background: #3A3660"></span></span>
+  </span>
+  <span style="margin-left: auto; color: #A9A3C9">ctx 41% · $2.18</span>
+</div></div></section><section><h2>1차 진화 분기 (Lv.5)</h2><div class="board"><div style="width: 1100px; height: 620px; box-sizing: border-box; background: #23203A; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 20px">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-family: Silkscreen, monospace; font-size: 18px; letter-spacing: 1px">진화 분기</span>
+      <span style="font-size: 13px; color: #A9A3C9">Lv.5에서 1차 진화 · 지난 7일의 양육 기록으로 결정 · 숨은 게이지는 보여주지 않음</span>
+    </div>
+    <div style="display: flex; gap: 8px; font-size: 12px">
+      <span style="background: #3A3660; padding: 6px 10px; border-radius: 8px">급식 빈도</span>
+      <span style="background: #3A3660; padding: 6px 10px; border-radius: 8px">방치 시간</span>
+      <span style="background: #3A3660; padding: 6px 10px; border-radius: 8px">저축 vs 소비</span>
+      <span style="background: #3A3660; padding: 6px 10px; border-radius: 8px">야간 토큰 비율</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex: 1">
+
+    <div style="background: #2D2A4A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="모범생 형태" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/><rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="20" y="34" width="9" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="35" y="34" width="9" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="29" y="37" width="6" height="2" fill="#23203A"/><rect x="29" y="45" width="6" height="2" fill="#23203A"/><rect x="24" y="14" width="16" height="4" fill="#23203A"/><rect x="20" y="18" width="24" height="6" fill="#23203A"/><rect x="40" y="18" width="2" height="10" fill="#F5C451"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">모범생</span>
+          <span style="font-size: 11px; color: #6FE3B3">정석 루트</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5">하루 2회 이상 급식 · 방치 6시간 미만 · 꾸미기 적당히</span>
+      <span style="font-size: 12px; color: #F4F1FF; line-height: 1.5; margin-top: auto">효과: 코인 획득 +10%, 배고픔 느리게 참</span>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="구두쇠 형태" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="#F5C451"/><rect x="12" y="24" width="8" height="8" fill="#F5C451"/><rect x="44" y="24" width="8" height="8" fill="#F5C451"/><rect x="22" y="36" width="5" height="6" fill="#23203A"/><rect x="37" y="36" width="5" height="6" fill="#23203A"/><rect x="27" y="44" width="10" height="2" fill="#23203A"/><rect x="26" y="12" width="12" height="12" fill="#9A6E12"/><rect x="28" y="8" width="8" height="4" fill="#9A6E12"/><rect x="30" y="15" width="4" height="6" fill="#F5C451"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">구두쇠</span>
+          <span style="font-size: 11px; color: #F5C451">저축 루트</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5">코인 2,000 이상 보유 · 상점 구매 0회 · 급식은 최소치만</span>
+      <span style="font-size: 12px; color: #F4F1FF; line-height: 1.5; margin-top: auto">효과: 매일 잔액 1% 이자 · 상점 가격 +30%</span>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="올빼미 형태" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="#8FB4FF"/><rect x="12" y="20" width="8" height="12" fill="#8FB4FF"/><rect x="44" y="20" width="8" height="12" fill="#8FB4FF"/><rect x="20" y="34" width="8" height="8" fill="#F5C451"/><rect x="36" y="34" width="8" height="8" fill="#F5C451"/><rect x="23" y="37" width="3" height="3" fill="#23203A"/><rect x="39" y="37" width="3" height="3" fill="#23203A"/><rect x="30" y="44" width="4" height="3" fill="#F5A54A"/><rect x="22" y="30" width="20" height="2" fill="#5B8FE8"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">올빼미</span>
+          <span style="font-size: 11px; color: #8FB4FF">야근 루트</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5">토큰의 60% 이상을 22시~04시에 사용</span>
+      <span style="font-size: 12px; color: #F4F1FF; line-height: 1.5; margin-top: auto">효과: 밤 코인 2배 · 낮에는 잠만 자서 급식 불가</span>
+    </div>
+
+    <div style="background: #3A2A3A; border: 2px solid #F38BA3; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="불량배 형태" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="#C97A8E"/><rect x="12" y="24" width="8" height="8" fill="#C97A8E"/><rect x="44" y="24" width="8" height="8" fill="#C97A8E"/><rect x="18" y="32" width="12" height="3" fill="#23203A"/><rect x="34" y="30" width="12" height="3" fill="#23203A"/><rect x="22" y="36" width="5" height="4" fill="#23203A"/><rect x="37" y="36" width="5" height="4" fill="#23203A"/><rect x="26" y="45" width="12" height="2" fill="#23203A"/><rect x="38" y="43" width="4" height="2" fill="#23203A"/><rect x="26" y="16" width="12" height="10" fill="#23203A"/><rect x="22" y="22" width="20" height="4" fill="#23203A"/><rect x="42" y="40" width="10" height="2" fill="#F4F1FF"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">불량배</span>
+          <span style="font-size: 11px; color: #F38BA3">엇나감 루트</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5">배고픔 0 상태 누적 24시간 이상 · 방치 중 코인은 계속 쌓임</span>
+      <span style="font-size: 12px; color: #F4F1FF; line-height: 1.5; margin-top: auto">효과: 매일 잔액 10% 삥뜯음 · 상점 봉쇄 · 3일 연속 급식하면 갱생</span>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="사치쟁이 형태" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/><rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="22" y="36" width="5" height="6" fill="#23203A"/><rect x="37" y="36" width="5" height="6" fill="#23203A"/><rect x="29" y="44" width="6" height="2" fill="#23203A"/><rect x="26" y="10" width="12" height="8" fill="#F5C451"/><rect x="24" y="18" width="16" height="4" fill="#F5C451"/><rect x="10" y="34" width="4" height="4" fill="#6FE3B3"/><rect x="50" y="34" width="4" height="4" fill="#6FE3B3"/><rect x="20" y="50" width="24" height="4" fill="#8FB4FF"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">사치쟁이</span>
+          <span style="font-size: 11px; color: #FFB7C5">소비 루트</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5">획득 코인의 80% 이상을 꾸미기에 사용 · 아이템 8개 이상</span>
+      <span style="font-size: 12px; color: #F4F1FF; line-height: 1.5; margin-top: auto">효과: 기분 항상 높음 · 매일 "신상 사줘" 요구, 거절 시 기분 급락</span>
+    </div>
+
+    <div style="background: #1C1A2E; border: 2px dashed #5F5B82; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="72" height="72" viewBox="0 0 64 64" role="img" aria-label="가출 상태, 빈 자리" style="shape-rendering: crispEdges"><rect x="16" y="26" width="32" height="26" fill="none" stroke="#5F5B82" stroke-width="2" stroke-dasharray="4 3"/><rect x="24" y="44" width="16" height="4" fill="#5F5B82"/><rect x="28" y="36" width="8" height="4" fill="#5F5B82"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600; color: #C9C3E6">가출</span>
+          <span style="font-size: 11px; color: #A9A3C9">최종 경고</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #A9A3C9; line-height: 1.5">7일 연속 방치 · 불량배 상태에서 추가 3일</span>
+      <span style="font-size: 12px; color: #C9C3E6; line-height: 1.5; margin-top: auto">효과: 코인 절반 들고 사라짐 · 다음 세션에서 찾기 미션 발생</span>
+    </div>
+
+  </div>
+</div></div></section><section><h2>2차 진화 분기 (Lv.10)</h2><div class="board"><div style="width: 1100px; height: 760px; box-sizing: border-box; background: #23203A; color: #F4F1FF; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
+
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <span style="font-family: Silkscreen, monospace; font-size: 18px; letter-spacing: 1px">2차 진화 · Lv.10</span>
+    <span style="font-size: 13px; color: #A9A3C9">1차 형태마다 상승/타락 두 갈래 · Lv.5~10 사이의 양육으로 결정 · 불량배는 갱생하면 1차로 되돌아간 뒤 다시 분기</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 150px 24px minmax(0, 1fr) minmax(0, 1fr); gap: 10px 14px; align-items: stretch; flex: 1">
+
+    <div style="background: #2D2A4A; border-radius: 14px; padding: 12px; display: flex; align-items: center; font-size: 14px; font-weight: 600">모범생</div>
+    <div style="display: flex; align-items: center; justify-content: center; color: #5F5B82"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+    <div style="background: #2D2A4A; border-left: 3px solid #6FE3B3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="박사: 학사모와 안경" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/><rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="20" y="34" width="9" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="35" y="34" width="9" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="29" y="37" width="6" height="2" fill="#23203A"/><rect x="29" y="45" width="6" height="2" fill="#23203A"/><rect x="14" y="16" width="36" height="4" fill="#23203A"/><rect x="22" y="20" width="20" height="6" fill="#23203A"/><rect x="46" y="18" width="2" height="12" fill="#F5C451"/><rect x="22" y="48" width="20" height="4" fill="#5B5A7A"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">박사</span><span style="font-size: 11px; color: #C9C3E6">꾸준함 유지 · 캐시 적중률 70% 이상</span><span style="font-size: 11px; color: #F4F1FF">코인 +20% · 토큰 절약 팁을 말풍선으로 알려줌</span></div>
+    </div>
+    <div style="background: #2D2A4A; border-left: 3px solid #F38BA3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="번아웃: 다크서클과 늘어진 귀" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="28" width="32" height="24" fill="#E7A3B3"/><rect x="10" y="30" width="8" height="10" fill="#E7A3B3"/><rect x="46" y="30" width="8" height="10" fill="#E7A3B3"/><rect x="22" y="38" width="5" height="3" fill="#23203A"/><rect x="37" y="38" width="5" height="3" fill="#23203A"/><rect x="21" y="41" width="7" height="3" fill="#8A6B9A"/><rect x="36" y="41" width="7" height="3" fill="#8A6B9A"/><rect x="29" y="47" width="6" height="2" fill="#23203A"/><rect x="26" y="20" width="4" height="4" fill="#5F5B82"/><rect x="32" y="16" width="4" height="4" fill="#5F5B82"/><rect x="38" y="20" width="4" height="4" fill="#5F5B82"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">번아웃</span><span style="font-size: 11px; color: #C9C3E6">하루 출력 토큰 50k 초과가 5일 연속</span><span style="font-size: 11px; color: #F4F1FF">이틀간 코인 획득 0 · 휴식(토큰 안 쓰기) 하루면 회복</span></div>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 14px; padding: 12px; display: flex; align-items: center; font-size: 14px; font-weight: 600">구두쇠</div>
+    <div style="display: flex; align-items: center; justify-content: center; color: #5F5B82"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+    <div style="background: #2D2A4A; border-left: 3px solid #6FE3B3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="재벌: 금색 몸, 실크햇, 모노클" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#F5C451"/><rect x="12" y="24" width="8" height="8" fill="#F5C451"/><rect x="44" y="24" width="8" height="8" fill="#F5C451"/><rect x="22" y="36" width="5" height="6" fill="#23203A"/><rect x="34" y="33" width="11" height="11" fill="none" stroke="#9A6E12" stroke-width="2"/><rect x="37" y="36" width="5" height="6" fill="#23203A"/><rect x="29" y="45" width="6" height="2" fill="#23203A"/><rect x="18" y="20" width="28" height="6" fill="#23203A"/><rect x="24" y="6" width="16" height="14" fill="#23203A"/><rect x="24" y="16" width="16" height="2" fill="#F5C451"/><rect x="28" y="48" width="8" height="4" fill="#9A6E12"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">재벌</span><span style="font-size: 11px; color: #C9C3E6">잔액 10,000 돌파 · 중간에 한 번이라도 꾸미기 구매</span><span style="font-size: 11px; color: #F4F1FF">이자 3% · 상점 전 품목 해금 · 금색 스프라이트</span></div>
+    </div>
+    <div style="background: #2D2A4A; border-left: 3px solid #F38BA3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="고리대금업자: 탁한 금색, 눈 가늘고 장부를 듦" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#C9A23A"/><rect x="12" y="24" width="8" height="8" fill="#C9A23A"/><rect x="44" y="24" width="8" height="8" fill="#C9A23A"/><rect x="20" y="37" width="8" height="2" fill="#23203A"/><rect x="36" y="37" width="8" height="2" fill="#23203A"/><rect x="27" y="45" width="10" height="2" fill="#23203A"/><rect x="36" y="44" width="2" height="2" fill="#23203A"/><rect x="22" y="22" width="20" height="4" fill="#5B4A1A"/><rect x="26" y="14" width="12" height="8" fill="#5B4A1A"/><rect x="46" y="40" width="10" height="12" fill="#F4F1FF"/><rect x="48" y="43" width="6" height="1" fill="#5F5B82"/><rect x="48" y="46" width="6" height="1" fill="#5F5B82"/><rect x="48" y="49" width="6" height="1" fill="#5F5B82"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">고리대금업자</span><span style="font-size: 11px; color: #C9C3E6">잔액 10,000 돌파 · 구매 0회 유지 · 급식 최소치</span><span style="font-size: 11px; color: #F4F1FF">먹이가 외상 처리됨 · 매일 이자로 잔액 깎임 · 완납 전까지 꾸미기 불가</span></div>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 14px; padding: 12px; display: flex; align-items: center; font-size: 14px; font-weight: 600">올빼미</div>
+    <div style="display: flex; align-items: center; justify-content: center; color: #5F5B82"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+    <div style="background: #2D2A4A; border-left: 3px solid #6FE3B3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="야행성 사냥꾼: 남색 몸, 빛나는 눈, 야시경" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#5B8FE8"/><rect x="12" y="18" width="8" height="14" fill="#5B8FE8"/><rect x="44" y="18" width="8" height="14" fill="#5B8FE8"/><rect x="18" y="32" width="28" height="10" fill="#23203A"/><rect x="20" y="34" width="8" height="6" fill="#6FE3B3"/><rect x="36" y="34" width="8" height="6" fill="#6FE3B3"/><rect x="23" y="36" width="2" height="2" fill="#23203A"/><rect x="39" y="36" width="2" height="2" fill="#23203A"/><rect x="30" y="45" width="4" height="3" fill="#F5A54A"/><rect x="20" y="28" width="24" height="4" fill="#3A3660"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">야행성 사냥꾼</span><span style="font-size: 11px; color: #C9C3E6">밤 토큰 비율 유지 · 새벽 급식 3회 이상</span><span style="font-size: 11px; color: #F4F1FF">밤 코인 3배 · 새벽 세션에서 랜덤 보너스 아이템 드롭</span></div>
+    </div>
+    <div style="background: #2D2A4A; border-left: 3px solid #F38BA3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="흡혈귀: 창백한 몸, 붉은 눈, 송곳니, 망토" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="14" y="30" width="36" height="24" fill="#3A2A3A"/><rect x="16" y="26" width="32" height="24" fill="#D9D4F5"/><rect x="12" y="20" width="8" height="12" fill="#D9D4F5"/><rect x="44" y="20" width="8" height="12" fill="#D9D4F5"/><rect x="22" y="36" width="5" height="5" fill="#F38BA3"/><rect x="37" y="36" width="5" height="5" fill="#F38BA3"/><rect x="27" y="45" width="10" height="2" fill="#23203A"/><rect x="28" y="47" width="2" height="3" fill="#F4F1FF"/><rect x="34" y="47" width="2" height="3" fill="#F4F1FF"/><rect x="22" y="22" width="20" height="4" fill="#23203A"/><rect x="26" y="18" width="12" height="4" fill="#23203A"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">흡혈귀</span><span style="font-size: 11px; color: #C9C3E6">밤 토큰 90% 이상 · 낮 세션 0회</span><span style="font-size: 11px; color: #F4F1FF">낮에 세션 열면 코인 5% 증발 · 낮 세션 3회로 올빼미 복귀</span></div>
+    </div>
+
+    <div style="background: #2D2A4A; border-radius: 14px; padding: 12px; display: flex; align-items: center; font-size: 14px; font-weight: 600">사치쟁이</div>
+    <div style="display: flex; align-items: center; justify-content: center; color: #5F5B82"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+    <div style="background: #2D2A4A; border-left: 3px solid #6FE3B3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="인플루언서: 왕관, 선글라스, 스카프" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/><rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="18" y="34" width="12" height="7" fill="#23203A"/><rect x="34" y="34" width="12" height="7" fill="#23203A"/><rect x="30" y="36" width="4" height="2" fill="#23203A"/><rect x="20" y="36" width="4" height="2" fill="#8FB4FF"/><rect x="36" y="36" width="4" height="2" fill="#8FB4FF"/><rect x="29" y="45" width="6" height="2" fill="#23203A"/><rect x="22" y="16" width="20" height="10" fill="#F5C451"/><rect x="22" y="10" width="4" height="6" fill="#F5C451"/><rect x="30" y="8" width="4" height="8" fill="#F5C451"/><rect x="38" y="10" width="4" height="6" fill="#F5C451"/><rect x="18" y="50" width="28" height="4" fill="#6FE3B3"/><rect x="40" y="52" width="8" height="6" fill="#6FE3B3"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">인플루언서</span><span style="font-size: 11px; color: #C9C3E6">아이템 15개 이상 · 요구 거절 3회 이하</span><span style="font-size: 11px; color: #F4F1FF">꾸밀 때마다 코인 환급 10% · 상태표시줄에 코디 자랑</span></div>
+    </div>
+    <div style="background: #2D2A4A; border-left: 3px solid #F38BA3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="탕진잼: 뒤집어진 빈 주머니, 소용돌이 눈" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#E7A3B3"/><rect x="12" y="24" width="8" height="8" fill="#E7A3B3"/><rect x="44" y="24" width="8" height="8" fill="#E7A3B3"/><rect x="20" y="34" width="8" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="23" y="37" width="2" height="2" fill="#23203A"/><rect x="36" y="34" width="8" height="8" fill="none" stroke="#23203A" stroke-width="2"/><rect x="39" y="37" width="2" height="2" fill="#23203A"/><rect x="29" y="46" width="6" height="2" fill="#23203A"/><rect x="48" y="38" width="10" height="10" fill="#9A6E12"/><rect x="50" y="34" width="6" height="4" fill="#9A6E12"/><rect x="52" y="48" width="2" height="4" fill="#5F5B82"/><rect x="26" y="20" width="4" height="4" fill="#F5C451"/><rect x="34" y="16" width="4" height="4" fill="#F5C451"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">탕진잼</span><span style="font-size: 11px; color: #C9C3E6">잔액 0이 5일 이상 · 요구 거절 5회 이상</span><span style="font-size: 11px; color: #F4F1FF">기분 바가 더 빨리 떨어짐 · 아이템 랜덤 1개씩 팔아치움</span></div>
+    </div>
+
+    <div style="background: #3A2A3A; border: 2px solid #F38BA3; border-radius: 14px; padding: 12px; display: flex; align-items: center; font-size: 14px; font-weight: 600">불량배</div>
+    <div style="display: flex; align-items: center; justify-content: center; color: #5F5B82"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+    <div style="background: #2D2A4A; border-left: 3px solid #6FE3B3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="갱생: 기본 모찌에 갱생 배지" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="16" y="26" width="32" height="26" fill="#FFB7C5"/><rect x="12" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="44" y="24" width="8" height="8" fill="#FFB7C5"/><rect x="22" y="36" width="5" height="6" fill="#23203A"/><rect x="37" y="36" width="5" height="6" fill="#23203A"/><rect x="23" y="37" width="2" height="2" fill="#F4F1FF"/><rect x="38" y="37" width="2" height="2" fill="#F4F1FF"/><rect x="18" y="42" width="5" height="3" fill="#F38BA3"/><rect x="41" y="42" width="5" height="3" fill="#F38BA3"/><rect x="29" y="44" width="6" height="2" fill="#23203A"/><rect x="40" y="28" width="12" height="12" fill="#6FE3B3"/><rect x="43" y="33" width="2" height="2" fill="#23203A"/><rect x="45" y="35" width="2" height="2" fill="#23203A"/><rect x="47" y="31" width="2" height="4" fill="#23203A"/><rect x="24" y="16" width="16" height="4" fill="#F38BA3"/><rect x="28" y="14" width="8" height="2" fill="#F38BA3"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">갱생 → 1차로 복귀</span><span style="font-size: 11px; color: #C9C3E6">3일 연속 급식 · 삥뜯긴 코인은 돌려주지 않음</span><span style="font-size: 11px; color: #F4F1FF">모범생/구두쇠/올빼미/사치쟁이 중 다시 판정 · 갱생 배지 획득</span></div>
+    </div>
+    <div style="background: #3A2A3A; border-left: 3px solid #F38BA3; border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="조직 보스: 덩치 큰 몸, 선글라스, 흉터, 금목걸이" style="shape-rendering: crispEdges; flex-shrink: 0"><rect x="10" y="22" width="44" height="34" fill="#A85C72"/><rect x="6" y="18" width="10" height="10" fill="#A85C72"/><rect x="48" y="18" width="10" height="10" fill="#A85C72"/><rect x="14" y="32" width="36" height="8" fill="#23203A"/><rect x="16" y="34" width="12" height="4" fill="#5F5B82"/><rect x="36" y="34" width="12" height="4" fill="#5F5B82"/><rect x="40" y="40" width="2" height="10" fill="#F4F1FF"/><rect x="38" y="44" width="6" height="2" fill="#F4F1FF"/><rect x="24" y="46" width="14" height="2" fill="#23203A"/><rect x="36" y="44" width="4" height="2" fill="#23203A"/><rect x="18" y="52" width="28" height="3" fill="#F5C451"/><rect x="29" y="54" width="6" height="5" fill="#F5C451"/><rect x="22" y="12" width="20" height="10" fill="#23203A"/><rect x="18" y="20" width="28" height="3" fill="#23203A"/></svg>
+      <div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">조직 보스</span><span style="font-size: 11px; color: #C9C3E6">불량배 상태로 Lv.10 도달 (방치해도 토큰은 계속 썼을 때)</span><span style="font-size: 11px; color: #F4F1FF">삥 10% → 25% · 상태표시줄 점거 · 가출 대신 "독립 선언"으로 세이브 리셋</span></div>
+    </div>
+
+  </div>
+</div></div></section>
+</body></html>

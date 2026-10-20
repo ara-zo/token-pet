@@ -1,0 +1,12 @@
+{
+  "name": "token-pet",
+  "description": "Token Pet — 토큰이 코인이 되는 다마고치",
+  "owner": { "name": "arazo", "url": "https://github.com/ara-zo" },
+  "plugins": [
+    {
+      "name": "token-pet",
+      "source": "./plugin",
+      "description": "Claude Code 토큰 사용량이 코인이 되는 다마고치. /pet 으로 먹이 주고 꾸미기"
+    }
+  ]
+}

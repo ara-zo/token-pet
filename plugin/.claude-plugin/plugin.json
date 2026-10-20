@@ -1,0 +1,10 @@
+{
+  "name": "token-pet",
+  "displayName": "Token Pet",
+  "version": "0.1.0",
+  "description": "Claude Code 토큰 사용량이 코인이 되는 다마고치. 먹이고 꾸미고, 키운 방식대로 진화한다.",
+  "author": { "name": "arazo", "url": "https://github.com/ara-zo" },
+  "repository": "https://github.com/ara-zo/token-pet",
+  "license": "MIT",
+  "keywords": ["pet", "tamagotchi", "tokens", "statusline", "fun"]
+}

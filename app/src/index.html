@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Pet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="collapsed">
+
+<!-- 접힌 상태 160×160 -->
+<section id="collapsed" class="collapsed-view pet-host">
+  <div id="earn-bubble" class="earn-bubble hidden">+0</div>
+  <div class="shadow-small"></div>
+  <div id="particles-small" class="particles" aria-hidden="true"></div>
+  <div id="fx-small" class="pet-fx"><svg id="sprite-small" class="sprite" width="120" height="120" viewBox="0 0 64 64" role="img" aria-label="펫"></svg></div>
+  <div class="coin-pill">
+    <svg width="12" height="12" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>
+    <span id="coins-small">0</span>
+  </div>
+</section>
+
+<!-- 펼친 위젯 360×460 -->
+<section id="expanded" class="expanded-view">
+  <header class="row">
+    <div class="row gap8">
+      <span id="name" class="pixel name">모찌</span>
+      <span id="level" class="pixel badge">LV.1</span>
+    </div>
+    <div class="row gap6">
+      <div class="coin-pill large">
+        <svg width="14" height="14" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>
+        <span id="coins" class="pixel">0</span>
+      </div>
+      <button id="collapse" class="icon-btn" type="button" aria-label="접기">×</button>
+    </div>
+  </header>
+
+  <div id="stage" class="stage pet-host">
+    <div id="speech" class="speech">…</div>
+    <div class="shadow-large"></div>
+    <div id="particles-large" class="particles" aria-hidden="true"></div>
+    <div id="fx-large" class="pet-fx"><svg id="sprite-large" class="sprite" width="160" height="160" viewBox="0 0 64 64" role="img" aria-label="펫"></svg></div>
+  </div>
+
+  <div class="bars">
+    <div class="bar-row">
+      <span class="bar-label">배고픔</span>
+      <div class="bar"><div id="hunger-bar" class="fill hunger"></div></div>
+      <span id="hunger-val" class="pixel bar-val">0</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-label">기분</span>
+      <div class="bar"><div id="mood-bar" class="fill mood"></div></div>
+      <span id="mood-val" class="pixel bar-val">0</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="feed" class="btn primary" type="button">먹이주기 <span id="feed-cost" class="pixel cost">-50</span></button>
+    <button id="dress" class="btn ghost" type="button">꾸미기</button>
+  </div>
+
+  <footer class="row foot">
+    <span id="turn">이번 턴 +0 코인</span>
+    <span id="fed">마지막 식사 -</span>
+  </footer>
+  <section id="dress-panel" class="dress-panel hidden" aria-label="꾸미기">
+    <header class="row">
+      <span class="pixel name">꾸미기</span>
+      <div class="row gap6">
+        <div class="coin-pill large">
+          <svg width="14" height="14" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>
+          <span id="coins-dress" class="pixel">0</span>
+        </div>
+        <button id="dress-close" class="icon-btn" type="button" aria-label="꾸미기 닫기">×</button>
+      </div>
+    </header>
+    <div id="dress-note" class="dress-note hidden"></div>
+    <ul id="dress-list" class="dress-list"></ul>
+  </section>
+  <div id="toast" class="toast hidden"></div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
