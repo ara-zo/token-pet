@@ -99,6 +99,17 @@ function render() {
   $("speech").classList.remove("error");
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
+  maybeNotify(s, hunger);
+  const fc = s.forecast;
+  const fcEl = $("forecast");
+  fcEl.classList.toggle("hidden", !fc);
+  if (fc) {
+    fcEl.innerHTML = "";
+    const b = document.createElement("b");
+    b.textContent = `🔮 LV.${fc.at_level} ${fc.ko} 기운`;
+    fcEl.append(b, ` · ${fc.reason}`);
+    fcEl.title = `${fc.ko} 기운 · ${fc.reason}`;
+  }
   $("hunger-bar").style.width = `${hunger}%`;
   $("mood-bar").style.width = `${mood}%`;
   $("hunger-val").textContent = hunger.toFixed(1);
@@ -112,6 +123,7 @@ function render() {
   $("feed").classList.toggle("short", short);
   $("feed-cost").textContent = short ? `${s.coins}/${feedCost}` : `-${feedCost}`;
   if (shop) renderDress();
+  if (stats) renderStats();
 
   if (s.last_turn_at && s.last_turn_at !== lastTurnAt) {
     const fresh = Date.now() - new Date(s.last_turn_at).getTime() < 5000;
@@ -385,9 +397,137 @@ async function feed() {
   }
 }
 
+// ---------------------------------------------------------------- pat
+
+async function patPet() {
+  try {
+    const res = await invoke("pet", { args: ["pat"] });
+    if (res.state) state = { ...state, ...res.state };
+    if (res.ok) {
+      fx("hop", "large");
+      burst("heart", 4, "large");
+      flash($("mood-bar"));
+      render();
+    }
+    toast(res.text);                 // a refusal (daily limit) is gentle: no head shake
+  } catch (e) {
+    toast(String(e));
+  }
+}
+
+// ---------------------------------------------------------------- notifications
+// One macOS notification per stage until the pet is fed again: hungry, starving, about to run away.
+
+const NOTIFY_KEY = "token-pet.notified";
+const RUNAWAY_WARN_HOURS = 6 * 24;          // plugin runs away at 7 days unfed
+
+function josa(word, withFinal, withoutFinal) {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  return word + (c >= 0 && c <= 11171 && c % 28 !== 0 ? withFinal : withoutFinal);
+}
+
+function maybeNotify(s, hunger) {
+  if (s.form === "runaway" || petMood === "sleep") return;     // can't be fed right now anyway
+  let n;
+  try { n = JSON.parse(localStorage.getItem(NOTIFY_KEY) || "{}"); } catch (e) { n = {}; }
+  if (n.fedAt !== s.last_fed_at || !Array.isArray(n.sent)) n = { fedAt: s.last_fed_at, sent: [] };
+  const unfed = (Date.now() - new Date(s.last_fed_at).getTime()) / 36e5;
+  const who = josa(s.name, "이", "가");
+  const stages = [                                              // most severe first
+    ["runaway", unfed >= RUNAWAY_WARN_HOURS, `${who} 가출하려고 해요`, "하루 안에 먹이를 주지 않으면 코인 절반을 들고 집을 나가요"],
+    ["starving", hunger <= 0, `${who} 굶고 있어요`, "배고픔 0으로 48시간이 쌓이면 불량배가 돼요"],
+    ["hungry", hunger < 20, `${who} 배고파요`, `배고픔 ${Math.round(hunger)}. 먹이는 ${feedCost}코인이에요`],
+  ];
+  const i = stages.findIndex(([key, hit]) => hit && !n.sent.includes(key));
+  if (i < 0) return;
+  const [, , title, body] = stages[i];
+  for (const [key] of stages.slice(i)) if (!n.sent.includes(key)) n.sent.push(key);   // skip milder ones
+  try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(n)); } catch (e) {}
+  invoke("notify", { title, body }).catch(() => {});
+}
+
+// ---------------------------------------------------------------- stats
+
+let stats = null;   // last `pet stats --json` result while the panel is open
+const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
+
+async function openStats() {
+  closeDress();
+  const res = await runPet(["stats"]);
+  if (!res) return;
+  stats = res.result;
+  $("stats-panel").classList.remove("hidden");
+  renderStats();
+}
+
+function closeStats() {
+  stats = null;
+  $("stats-panel").classList.add("hidden");
+  $("chart-tip").classList.add("hidden");
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+// Single series (coins earned per day): no legend, the panel title names it. Bars <= 24px,
+// 4px rounded top, square at the baseline; today's value is labelled, the rest on hover.
+function renderStats() {
+  if (!stats) return;
+  const days = stats.days, t = stats.total, today = days[days.length - 1];
+  $("stats-today").innerHTML = "";
+  const b = document.createElement("b");
+  b.textContent = `+${today.earned.toLocaleString()}`;
+  $("stats-today").append("오늘 ", b, ` 코인 · 출력 ${today.tokens_out.toLocaleString()} · 먹이 ${today.feeds} · 쓰다듬기 ${today.pats}`);
+  $("stats-total").textContent =
+    `7일 합계 +${t.earned.toLocaleString()}코인 · 사용 ${t.spent.toLocaleString()} · 먹이 ${t.feeds}번`;
+
+  const svg = $("stats-chart");
+  svg.replaceChildren();
+  const W = 320, top = 14, base = 84, slot = W / days.length, bw = 20;
+  const max = Math.max(1, ...days.map((d) => d.earned));
+  svg.append(svgEl("line", { class: "base", x1: 0, x2: W, y1: base + 0.5, y2: base + 0.5 }));
+  days.forEach((d, i) => {
+    const cx = slot * i + slot / 2;
+    const g = svgEl("g", { class: "slot" });
+    const h = d.earned > 0 ? Math.max(3, ((base - top) * d.earned) / max) : 2;
+    const x = cx - bw / 2, y = base - h, r = Math.min(4, h);
+    const path = d.earned > 0
+      ? `M${x},${base} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${base} Z`
+      : `M${x},${base} V${base - 2} H${x + bw} V${base} Z`;
+    g.append(svgEl("path", { class: d.earned > 0 ? "bar" : "bar empty", d: path }));
+    const isToday = i === days.length - 1;
+    const wd = WEEKDAY[new Date(`${d.date}T00:00:00`).getDay()];
+    const label = svgEl("text", { class: isToday ? "day today" : "day", x: cx, y: base + 15 });
+    label.textContent = isToday ? "오늘" : wd;
+    g.append(label);
+    if (isToday && d.earned > 0) {
+      const v = svgEl("text", { class: "val", x: cx, y: y - 4 });
+      v.textContent = d.earned.toLocaleString();
+      g.append(v);
+    }
+    const hit = svgEl("rect", { class: "hit", x: slot * i, y: 0, width: slot, height: 104 });
+    hit.addEventListener("mouseenter", () => showTip(d, cx, wd, isToday));
+    hit.addEventListener("mouseleave", () => $("chart-tip").classList.add("hidden"));
+    g.append(hit);
+    svg.append(g);
+  });
+}
+
+function showTip(d, cx, wd, isToday) {
+  const tip = $("chart-tip");
+  const [, m, day] = d.date.split("-");
+  tip.textContent = `${+m}/${+day} ${isToday ? "오늘" : wd} · +${d.earned.toLocaleString()}코인 · 출력 ${d.tokens_out.toLocaleString()} · 먹이 ${d.feeds}`;
+  tip.style.left = `${Math.min(Math.max(cx, 110), 210)}px`;   // keep the bubble inside the panel
+  tip.classList.remove("hidden");
+}
+
 // ---------------------------------------------------------------- dress-up
 
 async function openDress() {
+  closeStats();
   const res = await runPet(["shop"]);
   if (!res) return;
   shop = res.result;
@@ -491,15 +631,21 @@ $("collapsed").addEventListener("click", () => {
   setExpanded(true);
 });
 
-$("collapse").addEventListener("click", () => { closeDress(); setExpanded(false); });
+$("collapse").addEventListener("click", () => { closeDress(); closeStats(); setExpanded(false); });
 $("feed").addEventListener("click", feed);
 $("dress").addEventListener("click", openDress);
 $("dress-close").addEventListener("click", closeDress);
+$("stats-btn").addEventListener("click", () => (stats ? closeStats() : openStats()));
+$("stats-close").addEventListener("click", closeStats);
+$("fx-large").addEventListener("click", () => {
+  if (dragged) { dragged = false; return; }       // the press was a drag
+  patPet();
+});
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (shop) closeDress(); else setExpanded(false);
+  if (shop) closeDress(); else if (stats) closeStats(); else setExpanded(false);
 });
-window.addEventListener("blur", () => { if (expanded) { closeDress(); setExpanded(false); } });
+window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); setExpanded(false); } });
 
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 setInterval(render, 10 * 1000);

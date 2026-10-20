@@ -33,6 +33,7 @@
         <svg width="14" height="14" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>
         <span id="coins" class="pixel">0</span>
       </div>
+      <button id="stats-btn" class="icon-btn" type="button" aria-label="최근 7일 기록"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="7" width="2" height="5" fill="currentColor"/><rect x="6" y="3" width="2" height="9" fill="currentColor"/><rect x="10" y="5" width="2" height="7" fill="currentColor"/></svg></button>
       <button id="collapse" class="icon-btn" type="button" aria-label="접기">×</button>
     </div>
   </header>
@@ -56,6 +57,7 @@
       <span id="mood-val" class="pixel bar-val">0</span>
     </div>
   </div>
+  <p id="forecast" class="forecast hidden"></p>
 
   <div class="actions">
     <button id="feed" class="btn primary" type="button">먹이주기 <span id="feed-cost" class="pixel cost">-50</span></button>
@@ -79,6 +81,18 @@
     </header>
     <div id="dress-note" class="dress-note hidden"></div>
     <ul id="dress-list" class="dress-list"></ul>
+  </section>
+  <section id="stats-panel" class="dress-panel hidden" aria-label="최근 7일 기록">
+    <header class="row">
+      <span class="pixel name">기록</span>
+      <button id="stats-close" class="icon-btn" type="button" aria-label="기록 닫기">×</button>
+    </header>
+    <p id="stats-today" class="stats-today"></p>
+    <div class="chart-wrap">
+      <svg id="stats-chart" class="chart" width="320" height="104" viewBox="0 0 320 104" role="img" aria-label="최근 7일 번 코인"></svg>
+      <div id="chart-tip" class="chart-tip hidden"></div>
+    </div>
+    <p id="stats-total" class="stats-total"></p>
   </section>
   <div id="toast" class="toast hidden"></div>
 </section>

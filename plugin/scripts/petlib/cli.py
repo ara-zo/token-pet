@@ -215,7 +215,7 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
             if cmd == "pat":
                 r = actions.pat(s, now)
                 s["speech"] = speech.choose(s, now)
-                return out(0, f"쓰담쓰담… 기분 {int(r['mood'])} (오늘 {r['left']}번 더)", r, s)
+                return out(0, f"쓰담쓰담… 기분 {round(r['mood'])} (오늘 {r['left']}번 더)", r, s)
             if cmd == "stats":
                 return out(0, render.stats_text(s, now), render.stats_payload(s, now), s)
             if cmd == "buy":

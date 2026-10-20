@@ -7,6 +7,7 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 fn pet_home() -> PathBuf {
     if let Ok(p) = std::env::var("PET_HOME") {
@@ -52,6 +53,12 @@ fn pet(args: Vec<String>) -> Result<serde_json::Value, String> {
     })
 }
 
+/// macOS notification from the widget (hungry pet, runaway warning).
+#[tauri::command]
+fn notify(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
+}
+
 fn watch_state(app: tauri::AppHandle) {
     let (tx, rx) = mpsc::channel();
     let mut watcher = match notify::recommended_watcher(move |res| {
@@ -90,7 +97,8 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![read_state, pet])
+        .plugin(tauri_plugin_notification::init())
+        .invoke_handler(tauri::generate_handler![read_state, pet, notify])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
