@@ -21,6 +21,7 @@ let expanded = false;
 let lastTurnAt = null;
 let feedCost = FEED_COST;
 let shop = null;          // last `pet shop --json` result while the dress panel is open
+let dressTab = "wear";    // "wear" (hats, clothes, room items) | "bg" (stage backgrounds)
 
 // ---------------------------------------------------------------- rendering
 
@@ -543,6 +544,7 @@ async function openDress() {
   if (!res) return;
   shop = res.result;
   feedCost = shop.feed_cost || FEED_COST;
+  dressTab = "wear";
   $("dress-panel").classList.remove("hidden");
   renderDress();
 }
@@ -611,17 +613,11 @@ function renderDress() {
   } else {
     note.classList.add("hidden");
   }
-  const rows = [];
-  for (const it of shop.catalog) {
-    if (it.slot === "bg" && !rows.some((r) => r.classList.contains("section"))) {
-      const h = document.createElement("li");
-      h.className = "section";
-      h.textContent = "배경";
-      rows.push(h);
-    }
-    rows.push(itemRow(it));
+  for (const tab of document.querySelectorAll(".tabs .tab")) {
+    tab.setAttribute("aria-selected", String(tab.dataset.tab === dressTab));
   }
-  $("dress-list").replaceChildren(...rows);
+  const inTab = shop.catalog.filter((it) => (it.slot === "bg") === (dressTab === "bg"));
+  $("dress-list").replaceChildren(...inTab.map(itemRow));
 }
 
 async function dressAction(args) {
@@ -661,6 +657,13 @@ $("collapse").addEventListener("click", () => { closeDress(); closeStats(); setE
 $("feed").addEventListener("click", feed);
 $("dress").addEventListener("click", openDress);
 $("dress-close").addEventListener("click", closeDress);
+for (const tab of document.querySelectorAll(".tabs .tab")) {
+  tab.addEventListener("click", () => {
+    dressTab = tab.dataset.tab;
+    $("dress-list").scrollTop = 0;
+    renderDress();
+  });
+}
 $("stats-btn").addEventListener("click", () => (stats ? closeStats() : openStats()));
 $("stats-close").addEventListener("click", closeStats);
 $("fx-large").addEventListener("click", () => {
