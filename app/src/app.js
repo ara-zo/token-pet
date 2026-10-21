@@ -627,7 +627,10 @@ function renderMail() {
   const n = mail.items.length;
   $("mail-btn").classList.toggle("hidden", !on);
   $("mail-small").classList.toggle("hidden", !on || n === 0);
-  $("mail-count-small").textContent = n > 99 ? "99+" : String(n);
+  const reviews = mail.items.filter((it) => it.category === "review").length;
+  $("mail-small").classList.toggle("review", reviews > 0);
+  $("mail-count-small").textContent = reviews ? `리뷰 요청 ${reviews}개!` : `우편 ${n > 99 ? "99+" : n}통`;
+  $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${$("mail-count-small").textContent}`);
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
   if (!mailOpen) return;
