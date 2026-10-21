@@ -1,5 +1,6 @@
 import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
+import { speciesMarkup, itemOffset, formOwnsSlot, anchor } from "./species.js";
 
 const T = window.__TAURI__;
 const invoke = T.core.invoke;
@@ -21,22 +22,54 @@ let expanded = false;
 let lastTurnAt = null;
 let feedCost = FEED_COST;
 let shop = null;          // last `pet shop --json` result while the dress panel is open
-let dressTab = "wear";    // "wear" (hats, clothes, room items) | "bg" (stage backgrounds)
+let dressTab = "wear";
+let dex = null;            // last `pet dex --json` result, fetched when the 도감 tab opens    // "wear" (hats, clothes, room items) | "bg" (stage backgrounds)
 
 // ---------------------------------------------------------------- rendering
 
 function spriteMarkup(s) {
   const form = SPRITES[s.form] ? s.form : "base";
-  let items = "";
+  const kind = s.species || "mochi";
   const eq = s.equipped || {};
+  const sp = kind !== "mochi" ? speciesMarkup(kind, form) : null;
+  let items = "";
   for (const slot of ["room", "body", "face", "head"]) {
     const item = eq[slot];
-    if (!item || !ITEMS[item]) continue;
-    if (slot === "head" && OWN_HEADWEAR.has(form)) continue;
-    if (form === "runaway") continue;
-    items += ITEMS[item];
+    if (!item || !ITEMS[item] || form === "runaway") continue;
+    if (!sp) {
+      if (slot === "head" && OWN_HEADWEAR.has(form)) continue;
+      items += ITEMS[item];
+      continue;
+    }
+    // other species: clothes are cut for mochi's body, hats and glasses move to this head and eyes
+    if (slot === "body" || formOwnsSlot(form, slot)) continue;
+    const [dx, dy] = itemOffset(kind, slot) || [0, 0];
+    items += dx || dy ? `<g transform="translate(${dx} ${dy})">${ITEMS[item]}</g>` : ITEMS[item];
   }
-  return { body: SPRITES[form], items };
+  if (sp) return { body: sp.markup, items, grouped: true, wrap: sp.wrap, whole: sp.whole, form, kind };
+  return { body: SPRITES[form], items, grouped: false, wrap: "", whole: "", form, kind };
+}
+
+// Form motions that need extra pixels (the "모션" board): drawn on both sprites, animated only on
+// the stage. The collapsed pet shows species motion only.
+function formOverlay(kind, form) {
+  const a = anchor(kind), e = a.eye;
+  const r = (x, y, w, h, c, cls) => `<rect class="fx-form ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
+  if (form === "burnout") {
+    return r(a.cx - 8, a.hatY - 8, 4, 4, "#5F5B82", "f-smoke") + r(a.cx - 1, a.hatY - 12, 4, 4, "#5F5B82", "f-smoke d2")
+      + r(a.cx + 6, a.hatY - 8, 4, 4, "#5F5B82", "f-smoke d4");
+  }
+  if (form === "boss") return r(e[0] - 2, e[1] - 1, 2, e[3] + 2, "#F4F1FF", "f-glint");
+  if (form === "tycoon" || form === "influencer") {
+    return r(4, 20, 3, 3, "#FFE59A", "f-spark") + r(56, 12, 3, 3, "#F4F1FF", "f-spark d2")
+      + r(6, 44, 2, 2, "#F5C451", "f-spark d3") + r(57, 40, 3, 3, "#FFE59A", "f-spark d1");
+  }
+  if (form === "broke") {
+    const [ix, iy] = a.item;
+    return r(ix + 4, iy + 2, 3, 3, "#F5C451", "f-leak") + r(ix + 4, iy + 2, 3, 3, "#F5C451", "f-leak d2")
+      + r(ix + 4, iy + 2, 2, 2, "#FFE59A", "f-leak d4");
+  }
+  return "";
 }
 
 // Eyes are the small filled rects on the eye line (y 34-38) of the body sprite. Grouping them lets
@@ -56,14 +89,20 @@ function wrapEyes(svg) {
 
 let lastMarkup = null;
 function setSprite(m) {
-  const key = m.body + m.items;
+  const key = m.kind + m.form + m.body + m.items;
   if (key === lastMarkup) return;          // re-rendering every 10s must not reset the eyes
   lastMarkup = key;
   for (const id of ["sprite-small", "sprite-large"]) {
     const svg = $(id);
-    svg.innerHTML = m.body;
-    wrapEyes(svg);
-    svg.insertAdjacentHTML("beforeend", m.items);
+    svg.dataset.form = m.form;
+    svg.dataset.species = m.kind;
+    // other species reach higher (antennas, chimneys, shifted hats): give them headroom
+    svg.setAttribute("viewBox", m.kind === "mochi" ? "0 0 64 64" : "-8 -14 80 80");
+    // everything sits in one group so form motions (sway, droop, nod) move the whole pet
+    svg.innerHTML = `<g class="whole ${m.whole}"${m.wrap ? ` style="${m.wrap}"` : ""}>${m.body}</g>`;
+    const whole = svg.querySelector(".whole");
+    if (!m.grouped) wrapEyes(whole);
+    whole.insertAdjacentHTML("beforeend", m.items + formOverlay(m.kind, m.form));
   }
 }
 
@@ -98,7 +137,15 @@ function setBackground(id) {
 function render() {
   if (!state) return;
   const s = state;
-  setSprite(spriteMarkup(s));
+  if (lastForm !== null && s.form !== lastForm && !walkingOut) {
+    if (s.form === "runaway") {
+      walkOut();                         // packs up and walks off the screen, then the empty spot shows
+    } else {
+      formEvent(lastForm, s.form);
+    }
+  }
+  lastForm = s.form;
+  if (!walkingOut) setSprite(spriteMarkup(s));
   setBackground((s.equipped || {}).bg);
   $("sprite-small").setAttribute("aria-label", s.name);
   $("sprite-large").setAttribute("aria-label", s.name);
@@ -236,6 +283,7 @@ function showEarn(n) {
   el.textContent = `+${n}`;
   el.classList.remove("hidden");
   fx("hop", "small");
+  earning();
   pulse($("coins-small").parentElement);
   pulse($("coins").parentElement);
   clearTimeout(earnTimer);
@@ -415,8 +463,12 @@ async function patPet() {
     const res = await invoke("pet", { args: ["pat"] });
     if (res.state) state = { ...state, ...res.state };
     if (res.ok) {
-      fx("hop", "large");
-      burst("heart", 4, "large");
+      if (state.form === "thug" || state.form === "boss") {
+        fx("shake", "large");            // slaps the hand away (motion board), but the mood still goes up
+      } else {
+        fx("hop", "large");
+        burst("heart", 4, "large");
+      }
       flash($("mood-bar"));
       render();
     }
@@ -424,6 +476,55 @@ async function patPet() {
   } catch (e) {
     toast(String(e));
   }
+}
+
+// ---------------------------------------------------------------- event motions
+
+let lastForm = null;
+let walkingOut = false;
+
+// Coin in: species parts react (crystal grows, lamp, furnace, beak, cheeks).
+function earning() {
+  for (const id of ["sprite-small", "sprite-large"]) {
+    const svg = $(id);
+    svg.classList.remove("earning");
+    void svg.getBoundingClientRect();
+    svg.classList.add("earning");
+    setTimeout(() => svg.classList.remove("earning"), 1400);
+  }
+}
+
+// Evolution: the exchange's notice flies in and unfolds, a flash, then the new look.
+// Rehab: the beanie gets thrown off.
+function formEvent(from, to) {
+  if (from === "thug" && to === "base") {
+    burst("beanie", 1);
+    toast("비니를 벗어 던졌다!");
+    return;
+  }
+  fx("pop");
+  burst("sparkle", 14);
+  if (!expanded) return;
+  const layer = $("particles-large");
+  const note = document.createElement("div");
+  note.className = "notice";
+  note.innerHTML = "<b>환전소 통지서</b><span>배정 과정 안내</span>";
+  const glare = document.createElement("div");
+  glare.className = "flashover";
+  note.addEventListener("animationend", () => note.remove());
+  glare.addEventListener("animationend", () => glare.remove());
+  layer.append(note, glare);
+}
+
+function walkOut() {
+  walkingOut = true;
+  for (const id of ["fx-small", "fx-large"]) $(id).classList.add("walk-out");
+  setTimeout(() => {
+    for (const id of ["fx-small", "fx-large"]) $(id).classList.remove("walk-out");
+    walkingOut = false;
+    lastMarkup = null;
+    render();
+  }, 1700);
 }
 
 // ---------------------------------------------------------------- notifications
@@ -620,8 +721,60 @@ function renderDress() {
   for (const tab of document.querySelectorAll(".tabs .tab")) {
     tab.setAttribute("aria-selected", String(tab.dataset.tab === dressTab));
   }
+  if (dressTab === "dex") {
+    renderDex();
+    return;
+  }
   const inTab = shop.catalog.filter((it) => (it.slot === "bg") === (dressTab === "bg"));
   $("dress-list").replaceChildren(...inTab.map(itemRow));
+}
+
+async function openDexTab() {
+  const res = await runPet(["dex"]);
+  if (res) dex = res.result;
+  renderDress();
+}
+
+// 도감: every species with its base look; locked ones are silhouettes with the condition and progress.
+function renderDex() {
+  const note = $("dress-note");
+  note.textContent = "등록된 종족은 새로 시작할 때 고를 수 있어요";
+  note.title = "/token-pet:pet reset --confirm <종족 id>  (오른쪽 이름이 id)";
+  note.classList.remove("hidden");
+  note.classList.add("hint");
+  if (!dex) { $("dress-list").replaceChildren(); return; }
+  $("dress-list").replaceChildren(...dex.species.map((sp) => {
+    const li = document.createElement("li");
+    li.className = "item dex" + (sp.current ? " equipped" : "") + (sp.unlocked ? "" : " locked");
+    const icon = document.createElementNS(SVG_NS, "svg");
+    icon.setAttribute("viewBox", "-4 -6 72 72");
+    icon.setAttribute("class", "item-icon" + (sp.unlocked ? "" : " silhouette"));
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = sp.id === "mochi" ? SPRITES.base : speciesMarkup(sp.id, "base").markup;
+    const meta = document.createElement("div");
+    meta.className = "item-meta";
+    const name = document.createElement("span");
+    name.className = "item-name";
+    name.textContent = sp.name;
+    const sub = document.createElement("span");
+    sub.className = "item-sub";
+    sub.textContent = sp.current ? `${sp.part} · 지금 키우는 중` : sp.unlocked ? `${sp.part} · 등록됨` : sp.condition;
+    meta.append(name, sub);
+    if (!sp.unlocked && sp.goal) {
+      const bar = document.createElement("div");
+      bar.className = "dex-bar";
+      bar.title = `${sp.cur.toLocaleString()} / ${sp.goal.toLocaleString()}`;
+      const fill = document.createElement("div");
+      fill.style.width = `${Math.min(100, (sp.cur / sp.goal) * 100)}%`;
+      bar.append(fill);
+      meta.append(bar);
+    }
+    const tag = document.createElement("span");
+    tag.className = "dex-tag";
+    tag.textContent = sp.current ? "키우는 중" : sp.unlocked ? sp.id : `${Math.floor((sp.cur / Math.max(1, sp.goal)) * 100)}%`;
+    li.append(icon, meta, tag);
+    return li;
+  }));
 }
 
 async function dressAction(args) {
@@ -665,7 +818,8 @@ for (const tab of document.querySelectorAll(".tabs .tab")) {
   tab.addEventListener("click", () => {
     dressTab = tab.dataset.tab;
     $("dress-list").scrollTop = 0;
-    renderDress();
+    $("dress-note").classList.remove("hint");
+    if (dressTab === "dex") openDexTab(); else renderDress();
   });
 }
 $("stats-btn").addEventListener("click", () => (stats ? closeStats() : openStats()));
