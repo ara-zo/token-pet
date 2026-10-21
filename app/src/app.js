@@ -545,6 +545,7 @@ async function openDress() {
   shop = res.result;
   feedCost = shop.feed_cost || FEED_COST;
   dressTab = "wear";
+  $("expanded").classList.add("dressing");
   $("dress-panel").classList.remove("hidden");
   renderDress();
 }
@@ -552,6 +553,7 @@ async function openDress() {
 function closeDress() {
   shop = null;
   $("dress-panel").classList.add("hidden");
+  $("expanded").classList.remove("dressing");
 }
 
 function itemRow(it) {

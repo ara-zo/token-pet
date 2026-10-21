@@ -51,6 +51,13 @@ body.expanded #collapsed { display: none; }
   display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
 }
 .stage .sprite { margin-bottom: 6px; }
+/* while dressing, the stage shrinks so the pet stays visible above a taller item list */
+.stage { transition: height .2s; }
+.dressing .stage { height: 96px; }
+.dressing #sprite-large { width: 80px; height: 80px; }
+.dressing .shadow-large { width: 76px; bottom: 6px; }
+.dressing .speech { display: none; }
+.dressing #dress-panel { top: 146px; }
 .stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; shape-rendering: crispEdges; }
 .speech {
   position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;
@@ -93,7 +100,7 @@ body.expanded #collapsed { display: none; }
 .dress-list::-webkit-scrollbar { width: 4px; }
 .dress-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
 .item { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 10px; padding: 5px 7px 5px 5px; }
-.item.equipped { outline: 1.5px solid var(--mood); }
+.item.equipped { outline: 1.5px solid var(--mood); outline-offset: -1.5px; }
 .item.locked { opacity: .55; }
 .item-icon { width: 30px; height: 30px; background: var(--card2); border-radius: 8px; flex: none; shape-rendering: crispEdges; }
 .item-icon.bg { width: 54px; }
