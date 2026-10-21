@@ -30,10 +30,12 @@ def test_each_species_unlocks_at_its_goal(key, metric):
     s = fresh()
     goal = species.SPECIES[key].goal
     s["lifetime"][metric] = goal - 1
-    assert species.check(s, NOW) == [] and key not in s["dex"]
+    early = species.check(s, NOW)
+    assert key not in s["dex"] and all(e["type"] == "dex_sign" for e in early)
     s["lifetime"][metric] = goal
     ev = species.check(s, NOW)
-    assert key in s["dex"] and ev[-1]["type"] == "dex" and species.SPECIES[key].ko in ev[-1]["text"]
+    assert key in s["dex"] and ev[-1]["type"] == "dex"
+    assert species.SPECIES[key].ko in ev[-1]["text"] and species.SPECIES[key].condition in ev[-1]["text"]  # revealed now
     assert species.check(s, NOW) == []                       # registered once
 
 
@@ -85,7 +87,7 @@ def test_reset_restarts_only_the_active_pet_and_keeps_the_dex():
     assert s["pets"]["mole"]["level"] == 3                   # the resting pet is untouched
 
 
-def test_cli_dex_lists_progress_ownership_and_price(pet_home):
+def test_cli_dex_keeps_locked_species_mysterious(pet_home):
     with store.transaction(NOW, tick=False) as s:
         s["lifetime"]["tokens_out"] = 400_000
         s["lifetime"]["pats"] = 50
@@ -94,10 +96,27 @@ def test_cli_dex_lists_progress_ownership_and_price(pet_home):
     rows = {row["id"]: row for row in r["species"]}
     assert r["current"] == "mochi" and rows["hamster"]["unlocked"] and not rows["hamster"]["owned"]
     assert rows["hamster"]["adopt_cost"] == species.ADOPT_COST["hamster"]
-    assert rows["mochi"]["owned"] and rows["mochi"]["current"]
-    assert rows["mole"]["cur"] == 400_000 and not rows["mole"]["unlocked"]
+    assert rows["hamster"]["condition"] == species.SPECIES["hamster"].condition    # revealed once met
+    mole = rows["mole"]
+    assert not mole["unlocked"] and mole["name"] == "???" and mole["hint"] == species.SPECIES["mole"].hint
+    assert "condition" not in mole and "cur" not in mole and "goal" not in mole    # no numbers to grind
+    assert mole["sign"] == 1                                                        # 40% of the way
     code, text = cli.main_pet(["dex"], NOW)
-    assert code == 0 and "유리볼 햄스터" in text and "입양" in text and "400,000" in text
+    assert code == 0 and "유리볼 햄스터" in text and "입양" in text
+    assert "두더지" not in text and "400,000" not in text and species.SPECIES["mole"].hint in text
+
+
+def test_sign_levels_and_the_almost_there_event():
+    s = fresh()
+    goal = species.SPECIES["mole"].goal
+    assert species.sign(s, "mole") == 0
+    s["lifetime"]["tokens_out"] = int(goal * 0.5)
+    assert species.sign(s, "mole") == 1 and species.check(s, NOW) == []
+    s["lifetime"]["tokens_out"] = int(goal * 0.8)
+    ev = species.check(s, NOW)
+    assert species.sign(s, "mole") == 2 and [e["type"] for e in ev] == ["dex_sign"]
+    assert "두더지" not in ev[0]["text"]                                             # the name stays hidden
+    assert species.check(s, NOW) == []                                              # once only
 
 
 def test_collect_counts_lifetime_tokens_and_attendance(pet_home):

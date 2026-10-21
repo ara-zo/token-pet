@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple
 from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, widget
 from .actions import ActionError
 
-NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex")
+NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
 USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3

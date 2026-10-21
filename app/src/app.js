@@ -766,17 +766,12 @@ function renderDex() {
     if (sp.current) sub.textContent = `${sp.part} · 지금 돌보는 중`;
     else if (sp.resting) sub.textContent = `쉬는 중 · ${sp.resting.name} Lv.${sp.resting.level}`;
     else if (sp.unlocked) sub.textContent = `입양 가능 · ${sp.adopt_cost ? `${sp.adopt_cost.toLocaleString()}코인` : "무료"}`;
-    else sub.textContent = sp.condition;
-    meta.append(name, sub);
-    if (!sp.unlocked && sp.goal) {
-      const bar = document.createElement("div");
-      bar.className = "dex-bar";
-      bar.title = `${sp.cur.toLocaleString()} / ${sp.goal.toLocaleString()}`;
-      const fill = document.createElement("div");
-      fill.style.width = `${Math.min(100, (sp.cur / sp.goal) * 100)}%`;
-      bar.append(fill);
-      meta.append(bar);
+    else {
+      sub.textContent = `“${sp.hint}”`;           // a rumor, not the rule: unlocking stays a surprise
+      sub.classList.add("rumor");
     }
+    if (sp.unlocked && !sp.current) li.title = `만난 계기: ${sp.condition}`;
+    meta.append(name, sub);
     let end;
     if (sp.current) {
       end = document.createElement("span");
@@ -800,8 +795,10 @@ function renderDex() {
       end.addEventListener("click", () => rosterAction(["adopt", sp.id]));
     } else {
       end = document.createElement("span");
-      end.className = "dex-tag";
-      end.textContent = `${Math.floor((sp.cur / Math.max(1, sp.goal)) * 100)}%`;
+      end.className = `dex-sign s${sp.sign}`;
+      end.textContent = "●".repeat(sp.sign + 1) + "○".repeat(2 - sp.sign);
+      end.title = sp.sign_text;
+      end.setAttribute("aria-label", sp.sign_text);
     }
     li.append(icon, meta, end);
     return li;

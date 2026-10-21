@@ -289,6 +289,10 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .item.dex.locked .item-name { color: var(--sub2); }
 .dex-bar { height: 4px; background: var(--card2); border-radius: 2px; overflow: hidden; margin-top: 3px; }
 .dex-bar > div { height: 100%; background: var(--coin); }
+.item-sub.rumor { font-style: italic; color: var(--sub2); line-height: 1.35; }
+.dex-sign { flex: none; font-size: 9px; letter-spacing: 1px; color: var(--line); }
+.dex-sign.s1 { color: var(--sub); }
+.dex-sign.s2 { color: var(--coin); animation: tp-twinkle 2.4s linear infinite; }
 .dex-tag { flex: none; font-family: var(--pixel); font-size: 9px; color: var(--sub); }
 .item.dex.equipped .dex-tag { color: var(--mood); }
 
