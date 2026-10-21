@@ -586,6 +586,12 @@ const MAIL_SEEN_KEY = "token-pet.pr.review-seen";   // new key: ids of review re
 const MAIL_LABEL = { review: "리뷰 요청" };
 const MAIL_TITLE = { review: "리뷰 요청이 왔어요" };
 let mail = { items: [], error: null };
+// "read" lives only in this widget: a PR I already looked at stops ringing, but stays listed
+// (dimmed) until it is reviewed and drops out of the search.
+const MAIL_READ_KEY = "token-pet.pr.read";
+let mailRead = new Set((() => { try { return JSON.parse(localStorage.getItem(MAIL_READ_KEY) || "[]"); } catch (e) { return []; } })());
+function saveRead() { try { localStorage.setItem(MAIL_READ_KEY, JSON.stringify([...mailRead])); } catch (e) {} }
+const isRead = (it) => mailRead.has(String(it.id));
 let mailOpen = false;
 let mailOn = false;
 
@@ -608,6 +614,10 @@ async function pollMail() {
   const next = {};
   for (const it of items) next[it.id] = 1;
   try { localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify(next)); } catch (e) {}
+  // forget read marks of PRs that left the list, so a later re-request rings again
+  const live = new Set(items.map((it) => String(it.id)));
+  for (const id of [...mailRead]) if (!live.has(id)) mailRead.delete(id);
+  saveRead();
   mail = { items, error: null };
   renderMail();
   if (fresh.length) announceMail(fresh);
@@ -647,7 +657,7 @@ async function setBand(on) {
 
 function renderMail() {
   const on = mailEnabled();
-  const n = mail.items.length;
+  const n = mail.items.filter((it) => !isRead(it)).length;     // only unread ones ring
   $("mail-btn").classList.toggle("hidden", !on);
   $("mail-small").classList.toggle("hidden", !on || n === 0);
   const reviews = n;                            // every item is a review request
@@ -662,10 +672,11 @@ function renderMail() {
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
   if (!mailOpen) return;
+  $("mail-readall").disabled = n === 0;
   const note = $("mail-note");
   note.textContent = mail.error || "";
   note.classList.toggle("hidden", !mail.error);
-  if (!n) {
+  if (!mail.items.length) {
     const li = document.createElement("li");
     li.className = "mail-empty";
     li.textContent = mail.error ? "" : "리뷰를 기다리는 PR이 없어요";
@@ -674,12 +685,12 @@ function renderMail() {
   }
   $("mail-list").replaceChildren(...mail.items.map((it) => {
     const li = document.createElement("li");
-    li.className = "item mail-item";
+    li.className = "item mail-item" + (isRead(it) ? " read" : "");
     li.tabIndex = 0;
     li.setAttribute("role", "link");
     const chip = document.createElement("span");
     chip.className = `mail-chip ${it.category}`;
-    chip.textContent = MAIL_LABEL[it.category];
+    chip.textContent = isRead(it) ? "읽음" : MAIL_LABEL[it.category];
     const meta = document.createElement("div");
     meta.className = "item-meta";
     const title = document.createElement("span");
@@ -697,9 +708,19 @@ function renderMail() {
   }));
 }
 
-// open the PR in the browser; it leaves the list by itself once reviewed (next check)
+// open the PR in the browser and mark it read; it leaves the list once reviewed (next check)
 function openMail(it) {
   invoke("open_url", { url: it.url }).catch((e) => toast(String(e)));
+  mailRead.add(String(it.id));
+  saveRead();
+  renderMail();
+}
+
+function readAllMail() {
+  for (const it of mail.items) mailRead.add(String(it.id));
+  saveRead();
+  renderMail();
+  toast("리뷰 요청을 모두 읽음으로 표시했어요");
 }
 
 function openMailbox() {
@@ -1069,6 +1090,7 @@ window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
 $("mail-close").addEventListener("click", closeMailbox);
+$("mail-readall").addEventListener("click", readAllMail);
 $("mail-small").addEventListener("click", (e) => {
   e.stopPropagation();                      // don't also count as a click on the pet
   if (dragged) { dragged = false; return; }

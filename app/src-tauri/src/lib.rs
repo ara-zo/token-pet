@@ -129,7 +129,11 @@ fn pr_item(n: &serde_json::Value) -> Option<serde_json::Value> {
 #[tauri::command]
 async fn pr_inbox() -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let text = gh(&["api", "search/issues?q=is:pr+is:open+review-requested:@me+archived:false&per_page=50"])?;
+        // for demos and tests: PET_PR_FAKE=<file> answers with a saved search result instead of GitHub
+        let text = match std::env::var("PET_PR_FAKE") {
+            Ok(path) => std::fs::read_to_string(path).map_err(|e| e.to_string())?,
+            Err(_) => gh(&["api", "search/issues?q=is:pr+is:open+review-requested:@me+archived:false&per_page=50"])?,
+        };
         let res: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
         let items: Vec<serde_json::Value> = res["items"].as_array().map(|a| a.iter().filter_map(pr_item).collect()).unwrap_or_default();
         Ok(serde_json::json!({ "items": items }))
