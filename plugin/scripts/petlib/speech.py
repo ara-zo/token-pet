@@ -2,37 +2,32 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Optional
 
 from . import clock, economy, schema
+from . import speech_lines as L
 
 RECENT_EVENT_MINUTES = 10
 
-FORM_LINES = {
-    "base": "오늘도 같이 일하자!",
-    "model": "오늘 목표 다 끝내면 간식 줘",
-    "miser": "코인은 쓰는 게 아니라 모으는 거야",
-    "owl": "밤이 제일 좋아…",
-    "spender": "오늘은 뭐 사줄 거야?",
-    "thug": "야. 코인 좀 내놔 봐",
-    "runaway": "…",
-    "scholar": "캐시를 잘 쓰면 코인이 더 모여",
-    "burnout": "오늘은… 아무것도 하기 싫어",
-    "tycoon": "돈이 돈을 벌어. 후후",
-    "loanshark": "외상값은 꼭 받아낸다",
-    "hunter": "새벽 사냥 가자",
-    "vampire": "햇빛… 싫어…",
-    "influencer": "오늘 룩 어때? 찍어줘",
-    "broke": "통장이 텅… 아이템 팔아야 하나",
-    "boss": "상납 안 하면 알지?",
-}
-EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt")
+EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap")
 
 
 def _fmt_k(n: int) -> str:
     return f"{n/1000:.1f}k" if n >= 1000 else str(n)
 
 
-def choose(state: dict, now: dt.datetime) -> str:
+def _pick(form: str, situation: str, now: dt.datetime, **fmt) -> Optional[str]:
+    """One line for the situation, rotating hourly so the bubble doesn't feel stuck."""
+    options = [t for t in L.lines(form, situation)
+               if all("{" + k + "}" not in t or fmt.get(k) is not None for k in ("n", "out", "item"))]
+    if not options:
+        return None
+    line = options[(now.toordinal() * 24 + now.hour) % len(options)]
+    return line.format(**{k: v for k, v in fmt.items() if v is not None}) if "{" in line else line
+
+
+def choose(state: dict, now: dt.datetime, situation: Optional[str] = None, **fmt) -> str:
+    """Recent event > reaction to what just happened (FEED, PAT, BUY, EARN, REFUSE) > mood of the moment."""
     for ev in reversed(state["events"]):
         if ev["type"] not in EVENT_TYPES_TO_SPEAK:
             continue
@@ -44,18 +39,21 @@ def choose(state: dict, now: dt.datetime) -> str:
             return ev["text"]
         break
     form = state["form"]
+    night = clock.period(now) == "night"
+    if situation:
+        line = _pick(form, situation, now, **fmt)
+        if line:
+            return line
     if form == "runaway":
-        return "(집이 비어 있다…)"
+        return _pick(form, L.IDLE, now)
     if state["hunger"] < 20:
         out = schema.today(state, now)["tokens_out"]
-        return f"오늘 {_fmt_k(out)} 토큰 썼지? 나 배고파…" if out else "배고파… 먹이 줘"
+        return _pick(form, L.HUNGRY, now, out=_fmt_k(out) if out else None) or "배고파… 먹이 줘"
     if state["mood"] < 30:
-        return "심심해… 나한테 관심 좀 줘"
+        return _pick(form, L.BORED, now)
     flags = state["flags"]
     if form in ("spender", "influencer") and flags.get("demand_item"):
         return f"신상 {economy.CATALOG[flags['demand_item']].name} 사줘!"
-    if form in economy.NOCTURNAL and clock.period(now) == "day":
-        return "zzz…"
-    if form == "boss":
-        return FORM_LINES["boss"]
-    return FORM_LINES.get(form, FORM_LINES["base"])
+    if form in economy.NOCTURNAL:
+        return (_pick(form, L.NIGHT, now) or _pick(form, L.IDLE, now)) if night else "zzz…"
+    return _pick(form, L.IDLE, now)

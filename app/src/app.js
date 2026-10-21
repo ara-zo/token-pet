@@ -1,4 +1,5 @@
 import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
+import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
 
 const T = window.__TAURI__;
 const invoke = T.core.invoke;
@@ -8,10 +9,10 @@ const LogicalPosition = T.dpi.LogicalPosition;
 
 const SMALL = { w: 120, h: 120 };
 const LARGE = { w: 300, h: 390 };
-const HUNGER_PER_HOUR = 10, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
+const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
-const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방" };
+const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경" };
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -85,10 +86,19 @@ function ago(iso) {
   return `${Math.floor(h / 24)}일 전`;
 }
 
+let lastBg = null;
+function setBackground(id) {
+  const key = BACKGROUNDS[id] ? id : "street";
+  if (key === lastBg) return;
+  lastBg = key;
+  $("stage-bg").innerHTML = BACKGROUNDS[key];
+}
+
 function render() {
   if (!state) return;
   const s = state;
   setSprite(spriteMarkup(s));
+  setBackground((s.equipped || {}).bg);
   $("sprite-small").setAttribute("aria-label", s.name);
   $("sprite-large").setAttribute("aria-label", s.name);
   $("coins-small").textContent = s.coins.toLocaleString();
@@ -545,11 +555,13 @@ function closeDress() {
 function itemRow(it) {
   const li = document.createElement("li");
   li.className = "item" + (it.equipped ? " equipped" : "") + (!it.owned && !it.unlocked ? " locked" : "");
+  const isBg = it.slot === "bg";
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  icon.setAttribute("viewBox", "0 0 64 64");
-  icon.setAttribute("class", "item-icon");
+  icon.setAttribute("viewBox", isBg ? BG_VIEWBOX : "0 0 64 64");
+  icon.setAttribute("preserveAspectRatio", "xMidYMid slice");
+  icon.setAttribute("class", isBg ? "item-icon bg" : "item-icon");
   icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = ITEMS[it.id] || "";
+  icon.innerHTML = (isBg ? BACKGROUNDS[it.id] : ITEMS[it.id]) || "";
   const meta = document.createElement("div");
   meta.className = "item-meta";
   const name = document.createElement("span");
@@ -566,8 +578,12 @@ function itemRow(it) {
     btn.textContent = it.equipped ? "벗기" : "착용";
     btn.classList.add(it.equipped ? "ghost" : "mood");
     btn.addEventListener("click", () => dressAction(it.equipped ? ["unequip", it.slot] : ["equip", it.id]));
+    if (isBg && it.equipped) {          // a stage always has a background: switch, don't take off
+      btn.textContent = "사용 중";
+      btn.disabled = true;
+    }
   } else if (!it.unlocked) {
-    sub.textContent = `${slot} · Lv.${it.min_level} 해금`;
+    sub.textContent = it.grant ? `${slot} · ${it.grant}` : `${slot} · Lv.${it.min_level} 해금`;
     btn.textContent = "잠김";
     btn.classList.add("ghost");
     btn.disabled = true;
@@ -595,8 +611,17 @@ function renderDress() {
   } else {
     note.classList.add("hidden");
   }
-  const list = $("dress-list");
-  list.replaceChildren(...shop.catalog.map(itemRow));
+  const rows = [];
+  for (const it of shop.catalog) {
+    if (it.slot === "bg" && !rows.some((r) => r.classList.contains("section"))) {
+      const h = document.createElement("li");
+      h.className = "section";
+      h.textContent = "배경";
+      rows.push(h);
+    }
+    rows.push(itemRow(it));
+  }
+  $("dress-list").replaceChildren(...rows);
 }
 
 async function dressAction(args) {

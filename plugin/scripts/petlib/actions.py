@@ -62,6 +62,9 @@ def buy(state: dict, now: dt.datetime, item_id: str) -> dict:
         raise ActionError("상점이 봉쇄됐어. 지금은 살 수 없어")
     if item_id in state["items_owned"]:
         raise ActionError("이미 갖고 있어")
+    if not economy.for_sale(item_id):
+        item = economy.CATALOG[item_id]
+        raise ActionError(f"{item.name}은(는) 파는 게 아니야" + (f". {item.grant}" if item.grant else ""))
     if not economy.is_unlocked(item_id, state):
         raise ActionError(f"{economy.CATALOG[item_id].name}은(는) Lv.{economy.CATALOG[item_id].min_level}부터")
     cost = economy.price(item_id, form)
@@ -118,6 +121,7 @@ def find(state: dict, now: dt.datetime) -> dict:
     if len(days) >= 3:
         state["badges"].append("returned") if "returned" not in state["badges"] else None
         evolve.set_form(state, "model", now, "3일간 찾아다닌 끝에 귀환")
+        evolve.grant(state, economy.GRANT_ON_RETURN, now)
         state["hunger"] = 50.0
         return {"found": True, "days": len(days)}
     return {"found": False, "days": len(days)}

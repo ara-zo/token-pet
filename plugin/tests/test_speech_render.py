@@ -1,4 +1,4 @@
-from petlib import speech, render, schema, clock, economy
+from petlib import speech, speech_lines, render, schema, clock, economy
 from conftest import at
 
 NOW = at(20, 14)
@@ -13,7 +13,12 @@ def st(**over):
 def test_hungry_line_mentions_tokens():
     s = st(hunger=10)
     schema.today(s, NOW)["tokens_out"] = 12400
-    assert speech.choose(s, NOW) == "오늘 12.4k 토큰 썼지? 나 배고파…"
+    said = {speech.choose(s, at(20, h)) for h in range(9, 21)}
+    assert "오늘 12.4k 토큰 썼지? 나 배고파…" in said
+    assert all("{" not in line for line in said)
+    # nothing used today: the token line is skipped instead of saying "0 토큰"
+    s2 = st(hunger=10)
+    assert all("토큰" not in speech.choose(s2, at(20, h)) for h in range(9, 21))
 
 
 def test_recent_event_wins():
@@ -35,8 +40,23 @@ def test_demand_and_sleep_and_default():
     s["flags"]["demand_item"] = "crown"
     assert "왕관" in speech.choose(s, NOW)
     assert speech.choose(st(form="owl"), NOW) == "zzz…"
-    assert speech.choose(st(form="owl"), at(20, 23)) == "밤이 제일 좋아…"
-    assert speech.choose(st(), NOW) == "오늘도 같이 일하자!"
+    assert speech.choose(st(form="owl"), at(20, 23)) == "지금이야! 조각이 두 배로 떨어져"
+    assert speech.choose(st(), NOW) in speech_lines.LINES["base"]["IDLE"]
+
+
+def test_situation_lines_by_form_with_fallback():
+    assert speech.choose(st(form="miser"), NOW, "FEED") == "50코인… 50코인… 맛있긴 하네"
+    assert speech.choose(st(form="scholar"), NOW, "EARN", n=12) == "+12. 캐시 적중률 좋았어"
+    assert speech.choose(st(form="thug"), NOW, "BUY", item="화분") == "화분! 고마워!"     # base fallback
+    assert speech.choose(st(), NOW, "EARN") in speech_lines.LINES["base"]["IDLE"]     # {n} missing → mood line
+
+
+def test_every_form_has_idle_and_lines_format():
+    for form in economy.FORMS:
+        assert speech_lines.lines(form, "IDLE"), form
+        for sit, opts in speech_lines.LINES.get(form, {}).items():
+            for line in opts:
+                line.format(n=1, out="1k", item="모자")
 
 
 def test_bars():

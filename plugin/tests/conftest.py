@@ -15,6 +15,7 @@ def fixed_now():
 @pytest.fixture
 def pet_home(tmp_path, monkeypatch):
     monkeypatch.setenv("PET_HOME", str(tmp_path))
+    monkeypatch.setenv("TOKEN_PET_NO_WIDGET", "1")
     return tmp_path
 
 

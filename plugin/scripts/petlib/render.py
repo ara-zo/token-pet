@@ -69,10 +69,12 @@ def shop_text(state: dict) -> str:
         return f"🚫 상점 봉쇄 중 ({economy.FORMS[form].ko})"
     lines = [f"🛒 상점   보유 🪙 {state['coins']:,}" + ("   (구두쇠 할증 +30%)" if form == "miser" else "")]
     for key, item in economy.CATALOG.items():
-        if item.price == 0:
+        if not economy.for_sale(key) and not item.grant:
             continue
         if key in state["items_owned"]:
             mark = "보유"
+        elif item.grant:
+            mark = item.grant
         elif not economy.is_unlocked(key, state):
             mark = f"Lv.{item.min_level} 해금"
         else:

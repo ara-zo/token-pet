@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import datetime as dt
 
-from . import clock
+from . import clock, economy
 
 VERSION = 1
 DEFAULT_NAME = "모찌"
@@ -49,7 +49,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "level": 1, "xp": 0, "coins": 0, "coin_carry": 0.0,
         "hunger": 80, "mood": 80,
         "form": "base", "form_since": ts,
-        "items_owned": ["party_hat"], "equipped": {"head": "party_hat"},
+        "items_owned": list(economy.STARTER_ITEMS), "equipped": {v: k for k, v in economy.STARTER_ITEMS.items()},
         "last_fed_at": ts, "last_tick_at": ts, "last_turn_at": None, "last_turn_earned": 0,
         "plugin_root": None,
         "speech": "",
@@ -59,6 +59,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "since_form": new_since_form(),
         "flags": new_flags(),
         "badges": [],
+        "settings": {"widget": True, "widget_install_tried": None},
     }
 
 
@@ -76,6 +77,11 @@ def migrate(state: dict) -> dict:
     _fill(state, base)
     _fill(state["flags"], new_flags())
     _fill(state["since_form"], new_since_form())
+    _fill(state["settings"], base["settings"])
+    for item_id, slot in economy.STARTER_ITEMS.items():     # starters added after a pet was born
+        if item_id not in state["items_owned"]:
+            state["items_owned"].append(item_id)
+            state["equipped"].setdefault(slot, item_id)
     for day in state["daily_log"]:
         _fill(day, new_day(day.get("date", "")))
     state["version"] = VERSION

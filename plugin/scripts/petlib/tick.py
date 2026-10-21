@@ -9,7 +9,7 @@ import datetime as dt
 import math
 from typing import List
 
-from . import clock, economy, schema
+from . import clock, economy, evolve, schema, speech_lines
 
 SESSION_TTL_HOURS = 7 * 24
 RUNAWAY_HOURS = 7 * 24
@@ -44,7 +44,7 @@ def decay(state: dict, start: dt.datetime, end: dt.datetime) -> None:
 
 
 def _pick_demand(state: dict):
-    unowned = [k for k in economy.CATALOG if k not in state["items_owned"]]
+    unowned = [k for k in economy.CATALOG if k not in state["items_owned"] and economy.for_sale(k)]
     unowned.sort(key=lambda k: economy.CATALOG[k].price)
     return unowned[0] if unowned else None
 
@@ -73,7 +73,7 @@ def close_day(state: dict, day: dict, now: dt.datetime) -> List[dict]:
     day["zero_balance"] = state["coins"] <= 0
     if day["zero_balance"]:
         sf["zero_balance_days"] += 1
-    sf["streak_50k"] = sf["streak_50k"] + 1 if day["tokens_out"] >= 50000 else 0
+    sf["streak_50k"] = sf["streak_50k"] + 1 if day["tokens_out"] >= evolve.BURNOUT_DAILY_OUT else 0
     sf["feed_streak"] = sf["feed_streak"] + 1 if day["feeds"] >= 1 else 0
     sf["balance_ok_streak"] = sf["balance_ok_streak"] + 1 if state["coins"] >= 500 else 0
     if form == "thug":
@@ -83,7 +83,8 @@ def close_day(state: dict, day: dict, now: dt.datetime) -> List[dict]:
 
     # 4. money effects
     if form in economy.DAILY_INTEREST and state["coins"] > 0:
-        gain = int(state["coins"] * economy.DAILY_INTEREST[form])
+        rate = economy.DAILY_INTEREST[form] + economy.bg_bonus(economy.BG_INTEREST_BONUS, state)
+        gain = int(state["coins"] * rate)
         if gain:
             state["coins"] += gain
             events.append(schema.push_event(state, now, "interest", f"이자 +{gain}"))
@@ -99,8 +100,8 @@ def close_day(state: dict, day: dict, now: dt.datetime) -> List[dict]:
         flags["debt"] -= pay
         if pay:
             events.append(schema.push_event(state, now, "debt", f"외상 이자로 {pay}코인 차감 (남은 외상 {flags['debt']})"))
-    if form == "broke" and len(state["items_owned"]) > 1:
-        sellable = [k for k in state["items_owned"] if k != "party_hat"]
+    if form == "broke":
+        sellable = [k for k in state["items_owned"] if k in economy.CATALOG and economy.for_sale(k)]
         if sellable:
             item = max(sellable, key=lambda k: economy.CATALOG[k].price)
             got = int(economy.CATALOG[item].price * economy.BROKE_SELL_RATIO)
@@ -110,7 +111,12 @@ def close_day(state: dict, day: dict, now: dt.datetime) -> List[dict]:
                     del state["equipped"][slot]
             state["coins"] += got
             state["mood"] = round(_clamp(state["mood"] - economy.BROKE_MOOD_HIT, 0, 100), 2)
-            events.append(schema.push_event(state, now, "sold", f"{clock.josa(economy.CATALOG[item].name, '을/를')} {got}코인에 팔아버렸다…"))
+            events.append(schema.push_event(state, now, "sold", speech_lines.EVENTS["sold"].format(
+                item=clock.josa(economy.CATALOG[item].name, "이/가"), coins=got)))
+
+    mood_bonus = economy.bg_bonus(economy.BG_MOOD_BONUS, state)
+    if mood_bonus:
+        state["mood"] = round(_clamp(state["mood"] + mood_bonus, 0, 100), 2)
 
     # 5. new demand for the new day
     if form in ("spender", "influencer"):

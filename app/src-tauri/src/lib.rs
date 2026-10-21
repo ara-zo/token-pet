@@ -7,6 +7,7 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_notification::NotificationExt;
 
 fn pet_home() -> PathBuf {
@@ -59,6 +60,25 @@ fn notify(app: tauri::AppHandle, title: String, body: String) -> Result<(), Stri
     app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
 }
 
+/// Launch at login follows `settings.widget` in state.json (`/pet widget on|off`), on by default.
+/// Dev builds skip it so `tauri dev` never registers a debug binary as a login item.
+fn sync_autostart(app: &tauri::AppHandle, state: Option<&serde_json::Value>) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let want = state
+        .and_then(|s| s.pointer("/settings/widget"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let al = app.autolaunch();
+    if al.is_enabled().unwrap_or(false) != want {
+        let res = if want { al.enable() } else { al.disable() };
+        if let Err(e) = res {
+            eprintln!("autostart sync failed: {e}");
+        }
+    }
+}
+
 fn watch_state(app: tauri::AppHandle) {
     let (tx, rx) = mpsc::channel();
     let mut watcher = match notify::recommended_watcher(move |res| {
@@ -80,6 +100,7 @@ fn watch_state(app: tauri::AppHandle) {
     while rx.recv().is_ok() {
         while rx.recv_timeout(Duration::from_millis(200)).is_ok() {}
         if let Ok(v) = read_state_file() {
+            sync_autostart(&app, Some(&v));
             let _ = app.emit("state", v);
         }
     }
@@ -98,6 +119,7 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .invoke_handler(tauri::generate_handler![read_state, pet, notify])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -105,6 +127,7 @@ pub fn run() {
             if let Some(win) = app.get_webview_window("main") {
                 place_bottom_right(&win);
             }
+            sync_autostart(app.handle(), read_state_file().ok().as_ref());
             let handle = app.handle().clone();
             std::thread::spawn(move || watch_state(handle));
             Ok(())

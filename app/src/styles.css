@@ -51,6 +51,7 @@ body.expanded #collapsed { display: none; }
   display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
 }
 .stage .sprite { margin-bottom: 6px; }
+.stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; shape-rendering: crispEdges; }
 .speech {
   position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;
   font-weight: 500; padding: 6px 9px; border-radius: 11px 11px 11px 3px; max-width: 150px; line-height: 1.35; z-index: 1;
@@ -95,6 +96,8 @@ body.expanded #collapsed { display: none; }
 .item.equipped { outline: 1.5px solid var(--mood); }
 .item.locked { opacity: .55; }
 .item-icon { width: 30px; height: 30px; background: var(--card2); border-radius: 8px; flex: none; shape-rendering: crispEdges; }
+.item-icon.bg { width: 54px; }
+.dress-list .section { font-size: 11px; color: var(--sub); padding: 6px 2px 0; }
 .item-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .item-name { font-size: 12.5px; font-weight: 600; }
 .item-sub { font-size: 11px; color: var(--sub); }

@@ -4,7 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-COIN_PER_OUTPUT_TOKEN = 0.005         # 1k output tokens = 5 coins
+COIN_PER_OUTPUT_TOKEN = 0.002         # 1k output tokens = 2 coins
+DAILY_SOFTCAP_OUT = 300_000           # exchange daily limit: output past this a day earns the low rate
+COIN_PER_OUTPUT_TOKEN_OVER_CAP = 0.0003
 CACHE_BONUS_THRESHOLD = 0.5
 CACHE_BONUS = 1.05
 
@@ -15,11 +17,11 @@ FEED_HUNGER = 40
 PAT_MOOD = 8                          # mood per pat
 PAT_DAILY_LIMIT = 5
 
-HUNGER_PER_HOUR = 10.0
+HUNGER_PER_HOUR = 5.0
 MOOD_PER_HOUR = 2.0
 MOOD_PER_HOUR_STARVING = 4.0
 
-LEVELS = [0, 1500, 4000, 7000, 10000, 16000, 23000, 31000, 40000, 50000]   # xp needed for level index+1
+LEVELS = [0, 1500, 4000, 7000, 10000, 15000, 20000, 26000, 33000, 40000]   # xp needed for level index+1
 LEVEL_STEP_AFTER_10 = 15000
 FIRST_EVOLUTION_LEVEL = 5
 SECOND_EVOLUTION_LEVEL = 10
@@ -37,9 +39,10 @@ BURNOUT_DAYS = 2
 @dataclass(frozen=True)
 class Item:
     name: str
-    slot: str          # head | face | body | room
+    slot: str          # head | face | body | room | bg
     price: int
     min_level: Optional[int] = None
+    grant: Optional[str] = None    # not for sale: handed over by an event, this says which
 
 
 CATALOG = {
@@ -50,8 +53,22 @@ CATALOG = {
     "cushion": Item("쿠션", "room", 750),
     "plant": Item("화분", "room", 400),
     "crown": Item("왕관", "head", 2500, FIRST_EVOLUTION_LEVEL),
+    # backgrounds: the expanded widget's stage
+    "street": Item("환전소 거리", "bg", 0),
+    "night_factory": Item("밤의 공장", "bg", 800),
+    "vault": Item("환전소 금고 안", "bg", 1500),
+    "alley": Item("환전소 뒷골목", "bg", 0, grant="불량배 계열만 해금"),
+    "two_factories": Item("공장이 두 개인 마을", "bg", 0, grant="가출 후 찾아오면 해금"),
+    "mansion": Item("황금 저택", "bg", 0, grant="재벌만 해금"),
 }
-SLOTS = ("head", "face", "body", "room")
+SLOTS = ("head", "face", "body", "room", "bg")
+STARTER_ITEMS = {"party_hat": "head", "street": "bg"}
+GRANT_ON_FORM = {"thug": "alley", "boss": "alley", "tycoon": "mansion"}
+GRANT_ON_RETURN = "two_factories"
+
+# background bonuses, only while equipped and only for the matching form family
+BG_MOOD_BONUS = {"night_factory": (("owl", "hunter", "vampire"), 5)}      # mood +5 each new day
+BG_INTEREST_BONUS = {"vault": (("miser", "tycoon"), 0.005)}              # daily interest +0.5%p
 
 
 @dataclass(frozen=True)
@@ -124,6 +141,22 @@ def mood_floor(form: str) -> int:
     return 70 if form in ("spender", "influencer") else 0
 
 
+def for_sale(item_id: str) -> bool:
+    item = CATALOG[item_id]
+    return item.price > 0 and item.grant is None
+
+
+def bought_count(state: dict) -> int:
+    """Item count for spender/influencer: free backgrounds (starter, granted) don't count, as before they existed."""
+    return sum(1 for k in state["items_owned"]
+               if not (k in CATALOG and CATALOG[k].slot == "bg" and not for_sale(k)))
+
+
+def bg_bonus(table: dict, state: dict):
+    rule = table.get(state["equipped"].get("bg"))
+    return rule[1] if rule and state["form"] in rule[0] else 0
+
+
 def price(item_id: str, form: str) -> int:
     p = CATALOG[item_id].price
     if form == "miser":
@@ -155,9 +188,15 @@ def cache_ratio(input_tokens: int, cache_read: int, cache_creation: int) -> floa
     return cache_read / total if total else 0.0
 
 
+def output_coins(output_tokens: int, day_out_before: int = 0) -> float:
+    """Base coins for output, the part past today's soft cap at the low rate."""
+    under = max(0, min(output_tokens, DAILY_SOFTCAP_OUT - day_out_before))
+    return under * COIN_PER_OUTPUT_TOKEN + (output_tokens - under) * COIN_PER_OUTPUT_TOKEN_OVER_CAP
+
+
 def turn_coins(output_tokens: int, input_tokens: int, cache_read: int,
-               cache_creation: int, form: str, period: str) -> float:
-    coins = output_tokens * COIN_PER_OUTPUT_TOKEN
+               cache_creation: int, form: str, period: str, day_out_before: int = 0) -> float:
+    coins = output_coins(output_tokens, day_out_before)
     if cache_ratio(input_tokens, cache_read, cache_creation) >= CACHE_BONUS_THRESHOLD:
         coins *= CACHE_BONUS
     return coins * earn_multiplier(form, period)

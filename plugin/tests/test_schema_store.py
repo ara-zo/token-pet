@@ -10,14 +10,14 @@ EXPECTED_KEYS = {
     "hunger", "mood", "form", "form_since", "items_owned", "equipped",
     "last_fed_at", "last_tick_at", "last_turn_at", "last_turn_earned",
     "plugin_root", "speech", "events", "sessions", "daily_log", "since_form",
-    "flags", "badges",
+    "flags", "badges", "settings",
 }
 
 
 def test_new_state_keys(state):
     assert set(state.keys()) == EXPECTED_KEYS
-    assert state["items_owned"] == ["party_hat"]
-    assert state["equipped"] == {"head": "party_hat"}
+    assert state["items_owned"] == ["party_hat", "street"]
+    assert state["equipped"] == {"head": "party_hat", "bg": "street"}
     assert state["daily_log"][0]["date"] == "2026-10-20"
 
 

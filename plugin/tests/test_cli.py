@@ -141,13 +141,15 @@ def test_pet_shop_json_catalog(pet_home):
     assert "party_hat" not in items                      # free starter item is not for sale
     assert items["plant"]["owned"] and items["plant"]["equipped"]
     assert items["fedora"] == {"id": "fedora", "name": "중절모", "slot": "head", "price": economy.CATALOG["fedora"].price,
-                               "owned": False, "equipped": False, "unlocked": True, "min_level": None}
+                               "owned": False, "equipped": False, "unlocked": True, "min_level": None,
+                               "grant": None}
     assert items["crown"]["unlocked"] is False and items["crown"]["min_level"] == 5
 
     with store.transaction(NOW, tick=False) as s:
         s["form"] = "thug"
     payload = json.loads(cli.main_pet(["shop", "--json"], NOW)[1])
-    assert payload["result"]["blocked"] is True and payload["result"]["catalog"] == []
+    assert payload["result"]["blocked"] is True
+    assert {i["id"] for i in payload["result"]["catalog"]} == {"plant", "street"}   # only what it can still wear
 
 
 def test_pet_pat_json(pet_home):
@@ -239,3 +241,60 @@ def test_run_refusal_exits_zero_in_text_mode(pet_home, capsys):
     assert cli.run(["buy", "sunglasses"]) == 0
     assert "모자라" in capsys.readouterr().out
     assert cli.run(["buy", "sunglasses", "--json"]) == 2      # the widget reads "ok" from JSON
+
+
+def test_collect_softcap_event_once(pet_home):
+    cli.main_collect(STOP, NOW)
+    with store.transaction(NOW) as s:
+        s["daily_log"][-1]["tokens_out"] = economy.DAILY_SOFTCAP_OUT - 100
+        s["sessions"]["s1"]["offset"] = 0
+        s["sessions"]["s1"]["seen_ids"] = []
+    cli.main_collect(STOP, at(20, 15))
+    s = store.load()
+    assert [e["type"] for e in s["events"]].count("softcap") == 1
+    assert "환전소" in s["speech"]
+
+
+def test_session_start_widget_launches_or_installs_once_a_day(pet_home, monkeypatch):
+    from petlib import widget
+    import subprocess
+    monkeypatch.delenv("TOKEN_PET_NO_WIDGET")
+    monkeypatch.setattr(cli.sys, "platform", "darwin")
+    spawned = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    monkeypatch.setattr(widget, "launch", lambda app=None: False)
+    cli.main_session_start({}, NOW)
+    cli._session_start_widget(NOW)
+    cli._session_start_widget(at(20, 18))          # same day: no second download
+    assert len(spawned) == 1 and spawned[0][-2:] == ["widget", "install"]
+    cli._session_start_widget(at(21, 9))
+    assert len(spawned) == 2
+
+    launched = []
+    monkeypatch.setattr(widget, "launch", lambda app=None: launched.append(1) or True)
+    cli._session_start_widget(at(21, 10))
+    assert launched and len(spawned) == 2
+
+    assert cli.main_pet(["widget", "off"], at(21, 11))[0] == 0
+    launched.clear()
+    cli._session_start_widget(at(21, 12))
+    assert not launched
+
+
+def test_widget_command_status_and_usage(pet_home):
+    code, text = cli.main_pet(["widget"], NOW)
+    assert code == 0 and "데스크톱 위젯" in text
+    assert cli.main_pet(["widget", "nope"], NOW)[0] == 2
+
+
+def test_backgrounds_in_shop_buy_and_grant(pet_home):
+    with store.transaction(NOW, tick=False) as s:
+        s["coins"] = 5000
+    items = {i["id"]: i for i in json.loads(cli.main_pet(["shop", "--json"], NOW)[1])["result"]["catalog"]}
+    assert items["street"]["owned"] and items["street"]["equipped"]
+    assert items["vault"]["price"] == 1500 and items["vault"]["unlocked"]
+    assert items["alley"]["unlocked"] is False and items["alley"]["grant"]
+    assert cli.main_pet(["buy", "alley"], NOW)[0] == 2                     # granted, not sold
+    assert cli.main_pet(["buy", "vault"], NOW)[0] == 0
+    assert cli.main_pet(["equip", "vault"], NOW)[0] == 0
+    assert store.load(NOW)["equipped"]["bg"] == "vault"

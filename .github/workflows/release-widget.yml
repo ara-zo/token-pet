@@ -1,0 +1,37 @@
+name: release-widget
+
+# Tag vX.Y.Z → builds the desktop widget (universal macOS) and attaches
+# Token-Pet-macos.zip to the release. `/pet widget install` downloads that asset.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        working-directory: app
+        run: npx -y @tauri-apps/cli@2 build --target universal-apple-darwin --bundles app,dmg
+      - name: Package
+        run: |
+          cd app/src-tauri/target/universal-apple-darwin/release/bundle
+          ditto -c -k --keepParent "macos/Token Pet.app" "$GITHUB_WORKSPACE/Token-Pet-macos.zip"
+          cp dmg/*.dmg "$GITHUB_WORKSPACE/Token-Pet-macos.dmg"
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes "Token Pet desktop widget"
+          gh release upload "$tag" Token-Pet-macos.zip Token-Pet-macos.dmg --clobber

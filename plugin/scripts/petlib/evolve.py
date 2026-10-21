@@ -4,20 +4,21 @@ from __future__ import annotations
 import datetime as dt
 from typing import List, Optional
 
-from . import clock, economy, schema
+from . import clock, economy, schema, speech_lines
 
 # v1 catalog has 7 items, so the spec's 8/15 thresholds are unreachable.
 # Scaled down until the catalog grows (documented in README 미정).
 SPENDER_ITEMS = 4
 INFLUENCER_ITEMS = 6
 
-THUG_ZERO_HOURS = 48
+THUG_ZERO_HOURS = 72
 OWL_NIGHT_RATIO = 0.6
-MISER_COINS = 2000
+MISER_COINS = 1000
 MISER_MAX_FEEDS = 7
 SPENDER_SPEND_RATIO = 0.8
 SCHOLAR_CACHE_RATIO = 0.7
 BURNOUT_STREAK = 5
+BURNOUT_DAILY_OUT = 500_000
 RICH_COINS = 10000
 HUNTER_DAWN_FEEDS = 3
 VAMPIRE_NIGHT_RATIO = 0.9
@@ -49,7 +50,7 @@ def judge_first(state: dict) -> str:
     if state["coins"] >= MISER_COINS and w["purchases"] == 0 and w["feeds"] <= MISER_MAX_FEEDS:
         return "miser"
     if w["earned"] > 0 and w["spent"] >= SPENDER_SPEND_RATIO * w["earned"] \
-            and len(state["items_owned"]) >= SPENDER_ITEMS:
+            and economy.bought_count(state) >= SPENDER_ITEMS:
         return "spender"
     return "model"
 
@@ -57,7 +58,7 @@ def judge_first(state: dict) -> str:
 def judge_second(state: dict) -> str:
     form = state["form"]
     sf = state["since_form"]
-    items = len(state["items_owned"])
+    items = economy.bought_count(state)
     if form == "model":
         if sf["streak_50k"] >= BURNOUT_STREAK:
             return "burnout"
@@ -97,9 +98,17 @@ def set_form(state: dict, form: str, now: dt.datetime, reason: str) -> dict:
         flags["demand_since"] = None
     if form != "runaway":
         flags["find_days"] = []
+    grant(state, economy.GRANT_ON_FORM.get(form), now)
     name = economy.FORMS[form].ko
-    text = f"{clock.josa(state['name'], '이/가')} {clock.josa(name, '으로/로')} 진화했다! ({reason})"
+    # evolution is the exchange's qualification exam: an assignment, not a pass/fail (docs/LORE.md)
+    text = f"환전소 통지서: {clock.josa(state['name'], '은/는')} {name} 과정에 배정되었습니다 ({reason})"
     return schema.push_event(state, now, "evolve", text, form=form, old_form=old)
+
+
+def grant(state: dict, item_id, now: dt.datetime) -> None:
+    if item_id and item_id not in state["items_owned"]:
+        state["items_owned"].append(item_id)
+        schema.push_event(state, now, "unlock", f"배경 해금: {economy.CATALOG[item_id].name}", item=item_id)
 
 
 def _add_badge(state: dict, badge: str) -> None:
@@ -130,17 +139,17 @@ def check(state: dict, now: dt.datetime) -> List[dict]:
             if flags["thug_days"] >= THUG_RUNAWAY_DAYS:
                 state["coins"] //= 2
                 events.append(set_form(state, "runaway", now, "불량배 상태로 3일 방치"))
-                events.append(schema.push_event(state, now, "runaway", f"{clock.josa(state['name'], '이/가')} 코인 절반을 들고 가출했다… /pet find"))
+                events.append(schema.push_event(state, now, "runaway", speech_lines.EVENTS["runaway"].format(name=clock.josa(state["name"], "이/가"))))
                 return events
             if sf["feed_streak"] >= REHAB_FEED_STREAK:
                 _add_badge(state, "rehab")
                 state["form"] = "base"
-                events.append(schema.push_event(state, now, "rehab", f"{clock.josa(state['name'], '이/가')} 갱생했다!"))
+                events.append(schema.push_event(state, now, "rehab", speech_lines.EVENTS["rehab"]))
                 form = "base"
         elif clock.hours_between(clock.parse(state["last_fed_at"]), now) >= RUNAWAY_HOURS:
             state["coins"] //= 2
             events.append(set_form(state, "runaway", now, "7일 방치"))
-            events.append(schema.push_event(state, now, "runaway", f"{clock.josa(state['name'], '이/가')} 코인 절반을 들고 가출했다… /pet find"))
+            events.append(schema.push_event(state, now, "runaway", speech_lines.EVENTS["runaway"].format(name=clock.josa(state["name"], "이/가"))))
             return events
 
     if form == "base" and level >= economy.FIRST_EVOLUTION_LEVEL:
@@ -202,7 +211,7 @@ def _second_reason(state: dict, form: str, target: str) -> str:
     cache = sf["cache_read"] / sf["tokens_in_total"] if sf["tokens_in_total"] else 0.0
     night = sf["night_out"] / sf["tokens_out"] if sf["tokens_out"] else 0.0
     if target == "burnout":
-        return f"하루 5만 토큰 넘게 {sf['streak_50k']}일 연속 일했어요"
+        return f"하루 출력 {BURNOUT_DAILY_OUT // 10000}만 토큰 넘게 {sf['streak_50k']}일 연속 일했어요"
     if target == "scholar":
         return f"캐시 적중률이 {_pct(cache)}예요"
     if target == "tycoon":
@@ -216,12 +225,12 @@ def _second_reason(state: dict, form: str, target: str) -> str:
     if target == "broke":
         return "잔액 0인 날이 많아요"
     if target == "influencer":
-        return f"아이템을 {len(state['items_owned'])}개 모았어요"
+        return f"아이템을 {economy.bought_count(state)}개 모았어요"
     if target == "boss":
         return "불량배로 계속 지내면 조직 보스가 돼요"
     # staying the same: hint at the nearest change for the model student
     if form == "model" and sf["streak_50k"] >= BURNOUT_STREAK - 2:
-        return f"하루 5만 토큰 넘게 {sf['streak_50k']}일 연속… {BURNOUT_STREAK}일이면 번아웃이에요"
+        return f"하루 출력 {BURNOUT_DAILY_OUT // 10000}만 토큰 넘게 {sf['streak_50k']}일 연속… {BURNOUT_STREAK}일이면 번아웃이에요"
     if form == "model" and cache >= SCHOLAR_CACHE_RATIO * 0.7:
         return f"캐시 적중률 {_pct(cache)}. {_pct(SCHOLAR_CACHE_RATIO)}를 넘으면 박사가 돼요"
     return "지금 모습 그대로 자랄 것 같아요"

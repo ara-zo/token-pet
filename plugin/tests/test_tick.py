@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 
-from petlib import tick, schema, clock, economy
+from petlib import tick, schema, clock, economy, evolve
 
 H = economy.HUNGER_PER_HOUR
 from conftest import at
@@ -126,7 +126,7 @@ def test_broke_sells_most_expensive_item_and_drops_mood():
 
 def test_streaks_and_zero_balance():
     s = fresh(at(20, 23), form="model", coins=0)
-    schema.today(s, at(20, 23))["tokens_out"] = 60000
+    schema.today(s, at(20, 23))["tokens_out"] = evolve.BURNOUT_DAILY_OUT
     tick.apply(s, at(21, 0, 30))
     sf = s["since_form"]
     assert sf["streak_50k"] == 1 and sf["feed_streak"] == 0 and sf["zero_balance_days"] == 1
@@ -156,3 +156,29 @@ def test_burnout_rest_day_flag():
     s["hunger"] = 100.0
     tick.apply(s, at(23, 0, 30))
     assert s["form"] == "model"            # penalty over + rested → recovered
+
+
+def test_background_bonuses_apply_to_matching_family_only():
+    s = fresh(at(20, 23), form="miser", coins=10000)
+    s["items_owned"].append("vault")
+    s["equipped"]["bg"] = "vault"
+    tick.apply(s, at(21, 0, 1))
+    assert s["coins"] == 10000 + int(10000 * (0.01 + 0.005))
+
+    s = fresh(at(20, 23), form="model", coins=10000, mood=50)
+    s["items_owned"].append("night_factory")
+    s["equipped"]["bg"] = "night_factory"
+    tick.apply(s, at(21, 0, 1))
+    assert s["mood"] < 50                                   # not nocturnal: no bonus
+
+    s = fresh(at(20, 23), form="owl", mood=50)
+    s["equipped"]["bg"] = "night_factory"
+    tick.apply(s, at(21, 0, 1))
+    assert s["mood"] > 50
+
+
+def test_evolving_into_thug_grants_alley():
+    from petlib import evolve
+    s = fresh(at(20, 23))
+    evolve.set_form(s, "thug", at(20, 23), "test")
+    assert "alley" in s["items_owned"]

@@ -69,3 +69,18 @@ def test_feed_blocked(form, period, blocked):
 def test_forms_cover_all_sixteen():
     assert len(E.FORMS) == 16
     assert all(f.glyph for f in E.FORMS.values())
+
+
+def test_output_coins_softcap_split():
+    cap = E.DAILY_SOFTCAP_OUT
+    assert E.output_coins(80_000) == pytest.approx(160)
+    assert E.output_coins(439_000) == pytest.approx(600 + 139_000 * E.COIN_PER_OUTPUT_TOKEN_OVER_CAP)
+    # a turn straddling the cap pays the high rate only for the part below it
+    assert E.output_coins(10_000, cap - 4_000) == pytest.approx(4_000 * E.COIN_PER_OUTPUT_TOKEN
+                                                               + 6_000 * E.COIN_PER_OUTPUT_TOKEN_OVER_CAP)
+    assert E.output_coins(1_000, cap + 1) == pytest.approx(1_000 * E.COIN_PER_OUTPUT_TOKEN_OVER_CAP)
+
+
+def test_turn_coins_softcap_then_form_multiplier():
+    over = E.DAILY_SOFTCAP_OUT
+    assert E.turn_coins(1000, 0, 0, 0, "model", "day", over) == pytest.approx(1000 * E.COIN_PER_OUTPUT_TOKEN_OVER_CAP * 1.1)
