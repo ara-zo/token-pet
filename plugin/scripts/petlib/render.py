@@ -36,12 +36,19 @@ def _ago(ts: Optional[str], now: dt.datetime) -> str:
     return f"{int(h // 24)}일 전"
 
 
+def _species_name(state: dict) -> str:
+    from . import species
+    sp = species.SPECIES.get(state.get("species", "mochi"))
+    return sp.ko if sp else state.get("species", "")
+
+
 def status_text(state: dict, now: dt.datetime) -> str:
     form = economy.FORMS[state["form"]]
     day = schema.today(state, now)
     next_xp = economy.xp_for_level(state["level"] + 1)
     lines = [
-        f"{form.glyph} {state['name']}  Lv.{state['level']}  {form.ko}",
+        f"{form.glyph} {state['name']}  Lv.{state['level']}  {form.ko}"
+        + ("" if state.get("species", "mochi") == "mochi" else f"  · {_species_name(state)}"),
         f"🪙 {state['coins']:,}   (xp {state['xp']:,} / 다음 레벨 {next_xp:,})",
         f"배고픔 {bars(state['hunger'])} {int(state['hunger'])}    기분 {bars(state['mood'])} {int(state['mood'])}",
         f"💬 {state['speech'] or '...'}",

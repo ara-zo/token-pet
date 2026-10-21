@@ -50,6 +50,7 @@ def pat(state: dict, now: dt.datetime) -> dict:
     if day["pats"] >= economy.PAT_DAILY_LIMIT:
         raise ActionError("오늘은 충분히 쓰다듬었어. 내일 또 해 줘")
     day["pats"] += 1
+    state["lifetime"]["pats"] = state["lifetime"].get("pats", 0) + 1
     state["mood"] = round(min(100.0, float(state["mood"]) + economy.PAT_MOOD), 2)
     return {"mood": state["mood"], "left": economy.PAT_DAILY_LIMIT - day["pats"]}
 
@@ -127,10 +128,16 @@ def find(state: dict, now: dt.datetime) -> dict:
     return {"found": False, "days": len(days)}
 
 
-def reset(state: dict, now: dt.datetime, confirm: bool = False) -> dict:
+def reset(state: dict, now: dt.datetime, confirm: bool = False, species: str = None) -> dict:
+    from . import species as sp
     boss = state["form"] == "boss"
     if not boss and not confirm:
         raise ActionError("정말 새로 시작하려면 --confirm 을 붙여")
+    kind = species or state.get("species", "mochi")
+    if kind not in sp.SPECIES:
+        raise ActionError(f"그런 종족은 없어: {kind}. /pet dex 로 목록을 봐")
+    if kind not in state.get("dex", ["mochi"]):
+        raise ActionError(f"{sp.SPECIES[kind].ko}은(는) 아직 도감에 없어. 조건: {sp.SPECIES[kind].condition} (/pet dex)")
     badges = list(state["badges"])
     if boss and "independence" not in badges:
         badges.append("independence")
@@ -139,7 +146,12 @@ def reset(state: dict, now: dt.datetime, confirm: bool = False) -> dict:
     # Keep transcript read positions: tokens spent before the reset must not be credited again.
     fresh["sessions"] = state.get("sessions", {})
     fresh["plugin_root"] = state.get("plugin_root", fresh.get("plugin_root"))
+    # the dex, lifetime counters and settings belong to the player, not to this pet
+    for key in ("dex", "lifetime", "settings"):
+        if key in state:
+            fresh[key] = state[key]
+    fresh["species"] = kind
     state.clear()
     state.update(fresh)
     schema.push_event(state, now, "born", f"{clock.josa(state['name'], '이/가')} 새로 태어났다")
-    return {"reset": True, "badges": badges}
+    return {"reset": True, "badges": badges, "species": kind}

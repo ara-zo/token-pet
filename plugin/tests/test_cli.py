@@ -79,7 +79,8 @@ def test_collect_levels_up_and_evolves(pet_home):
     cli.main_collect(STOP, NOW)
     s = store.load()
     assert s["level"] == 5 and s["form"] == "owl"      # fixture turns are all at night (KST)
-    assert [e["type"] for e in s["events"]] == ["levelup", "evolve"]
+    # the first evolution also registers the antenna rabbit in the dex
+    assert [e["type"] for e in s["events"]] == ["levelup", "evolve", "dex"] and "rabbit" in s["dex"]
 
 
 def test_collect_ignores_missing_fields(pet_home):

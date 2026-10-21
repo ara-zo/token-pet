@@ -1,7 +1,7 @@
 ---
 name: pet
-description: 토큰 펫 돌보기 — 상태, 먹이, 쓰다듬기, 기록, 상점, 꾸미기. /pet [status|feed|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|find|reset|setup|widget [on|off|install]]
-argument-hint: "[status | feed | pat | stats | shop | buy <id> | equip <id> | unequip <slot> | name <이름> | find | reset | setup | widget [on|off|install]]"
+description: 토큰 펫 돌보기 — 상태, 먹이, 쓰다듬기, 기록, 상점, 꾸미기, 도감. /pet [status|feed|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|find|reset|setup|widget [on|off|install]]
+argument-hint: "[status | feed | pat | stats | shop | buy <id> | equip <id> | unequip <slot> | name <이름> | dex | find | reset [--confirm] [종족] | setup | widget [on|off|install]]"
 allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/pet.py" *)
 ---
 

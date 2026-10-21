@@ -86,6 +86,9 @@ def judge_second(state: dict) -> str:
 def set_form(state: dict, form: str, now: dt.datetime, reason: str) -> dict:
     old = state["form"]
     state["form"] = form
+    if form != "runaway" and form != old:
+        life = state.setdefault("lifetime", schema.new_lifetime())
+        life["evolutions"] = life.get("evolutions", 0) + 1
     state["form_since"] = clock.fmt(now)
     state["since_form"] = schema.new_since_form()
     flags = state["flags"]

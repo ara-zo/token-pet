@@ -161,4 +161,6 @@ def apply(state: dict, now: dt.datetime) -> List[dict]:
     from . import evolve
     events += evolve.check(state, now)
     state["forecast"] = evolve.forecast(state)
+    from . import species
+    events += species.check(state, now)
     return events

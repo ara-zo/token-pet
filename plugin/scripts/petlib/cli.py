@@ -8,11 +8,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, clock, economy, evolve, render, schema, speech, speech_lines, store, transcript, widget
+from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, widget
 from .actions import ActionError
 
-NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|find|reset [--confirm]|setup [--write]|widget [on|off|install]]"""
+NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex")
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|find|reset [--confirm] [종족]|setup [--write]|widget [on|off|install]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -81,6 +81,12 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             day["cache_read"] += u.cache_read
             if per == "night":
                 day["night_out"] += u.output
+            life = s["lifetime"]
+            life["tokens_out"] += u.output
+            if per == "night":
+                life["night_out"] += u.output
+        if usages:
+            species.record_attendance(s, now)
         s["coin_carry"] = round(s["coin_carry"] + total, 4)
         earned = int(s["coin_carry"])
         if earned > 0:
@@ -100,6 +106,7 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             s["level"] = new_level
             schema.push_event(s, now, "levelup", speech_lines.EVENTS["levelup"].format(lv=new_level))
             evolve.check(s, now)
+        species.check(s, now)
         s["speech"] = speech.choose(s, now, "EARN" if earned > 0 else None, n=earned)
         return earned
 
@@ -223,7 +230,7 @@ def _shop_payload(s: dict) -> dict:
 def _summary(s: dict) -> dict:
     return {k: s[k] for k in ("name", "level", "xp", "coins", "hunger", "mood", "form", "speech",
                               "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges")} \
-        | {"forecast": s.get("forecast")}
+        | {"forecast": s.get("forecast"), "species": s.get("species", "mochi"), "dex": s.get("dex", ["mochi"])}
 
 
 def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
@@ -267,6 +274,9 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 r = actions.pat(s, now)
                 s["speech"] = speech.choose(s, now, "PAT")
                 return out(0, f"쓰담쓰담… 기분 {round(r['mood'])} (오늘 {r['left']}번 더)", r, s)
+            if cmd == "dex":
+                species.check(s, now)
+                return out(0, species.dex_text(s), species.dex_payload(s), s)
             if cmd == "stats":
                 return out(0, render.stats_text(s, now), render.stats_payload(s, now), s)
             if cmd == "buy":
@@ -298,8 +308,9 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 msg = f"{clock.josa(s['name'], '을/를')} 찾았다! 집으로 돌아왔어" if r["found"] else f"오늘도 찾아봤지만 아직… ({r['days']}/3일)"
                 return out(0, msg, r, s)
             if cmd == "reset":
-                r = actions.reset(s, now, confirm="--confirm" in flags)
-                return out(0, f"{clock.josa(s['name'], '이/가')} 새로 태어났어요", r, s)
+                r = actions.reset(s, now, confirm="--confirm" in flags, species=pos[1] if len(pos) > 1 else None)
+                kind = species.SPECIES[r["species"]].ko
+                return out(0, f"{clock.josa(s['name'], '이/가')} {kind}(으)로 새로 태어났어요", r, s)
             raise ActionError(f"모르는 명령: {cmd}\n{USAGE}")
     except ActionError as e:
         if cmd not in ("feed", "pat", "buy", "equip"):

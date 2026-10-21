@@ -40,6 +40,12 @@ def new_flags() -> dict:
     }
 
 
+def new_lifetime() -> dict:
+    """Counters that survive /pet reset; the dex unlocks read them."""
+    return {"tokens_out": 0, "night_out": 0, "pats": 0, "max_coins": 0, "evolutions": 0,
+            "attend_streak": 0, "attend_streak_max": 0, "last_attend": None}
+
+
 def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
     ts = clock.fmt(now)
     return {
@@ -60,6 +66,9 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "flags": new_flags(),
         "badges": [],
         "settings": {"widget": True, "widget_install_tried": None},
+        "species": "mochi",
+        "dex": ["mochi"],
+        "lifetime": new_lifetime(),
     }
 
 
@@ -74,7 +83,25 @@ def migrate(state: dict) -> dict:
     """Fill missing keys with defaults. Never drops user data."""
     base = new_state(clock.now())
     base["daily_log"] = []
+    if "lifetime" not in state:                 # pets born before the dex: start from what the log still has
+        life = new_lifetime()
+        for day in state.get("daily_log", []):
+            for k in ("tokens_out", "night_out", "pats"):
+                life[k] += int(day.get(k, 0) or 0)
+        life["max_coins"] = int(state.get("coins", 0))
+        # attendance: the run of consecutive logged days with a session, ending at the newest one
+        days = sorted(d["date"] for d in state.get("daily_log", []) if d.get("sessions", 0) > 0)
+        run = 0
+        for i, d in enumerate(days):
+            prev = days[i - 1] if i else None
+            consecutive = prev and (dt.date.fromisoformat(d) - dt.date.fromisoformat(prev)).days == 1
+            run = run + 1 if consecutive else 1
+            life["attend_streak_max"] = max(life["attend_streak_max"], run)
+        if days:
+            life["attend_streak"], life["last_attend"] = run, days[-1]
+        state["lifetime"] = life
     _fill(state, base)
+    _fill(state["lifetime"], new_lifetime())
     _fill(state["flags"], new_flags())
     _fill(state["since_form"], new_since_form())
     _fill(state["settings"], base["settings"])
