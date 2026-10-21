@@ -51,13 +51,13 @@ body.expanded #collapsed { display: none; }
   display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
 }
 .stage .sprite { margin-bottom: 6px; }
-/* while dressing, the stage shrinks so the pet stays visible above a taller item list */
+/* while a panel (dress-up, stats) is open, the stage shrinks so the pet stays visible above a taller panel */
 .stage { transition: height .2s; }
-.dressing .stage { height: 96px; }
-.dressing #sprite-large { width: 80px; height: 80px; }
-.dressing .shadow-large { width: 76px; bottom: 6px; }
-.dressing .speech { display: none; }
-.dressing #dress-panel { top: 146px; }
+.panel-open .stage { height: 96px; }
+.panel-open #sprite-large { width: 80px; height: 80px; }
+.panel-open .shadow-large { width: 76px; bottom: 6px; }
+.panel-open .speech { display: none; }
+.panel-open .dress-panel { top: 146px; }
 .stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; shape-rendering: crispEdges; }
 .speech {
   position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;

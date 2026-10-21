@@ -468,6 +468,7 @@ async function openStats() {
   const res = await runPet(["stats"]);
   if (!res) return;
   stats = res.result;
+  $("expanded").classList.add("panel-open");
   $("stats-panel").classList.remove("hidden");
   renderStats();
 }
@@ -476,6 +477,7 @@ function closeStats() {
   stats = null;
   $("stats-panel").classList.add("hidden");
   $("chart-tip").classList.add("hidden");
+  $("expanded").classList.remove("panel-open");
 }
 
 function svgEl(tag, attrs) {
@@ -545,7 +547,7 @@ async function openDress() {
   shop = res.result;
   feedCost = shop.feed_cost || FEED_COST;
   dressTab = "wear";
-  $("expanded").classList.add("dressing");
+  $("expanded").classList.add("panel-open");
   $("dress-panel").classList.remove("hidden");
   renderDress();
 }
@@ -553,7 +555,7 @@ async function openDress() {
 function closeDress() {
   shop = null;
   $("dress-panel").classList.add("hidden");
-  $("expanded").classList.remove("dressing");
+  $("expanded").classList.remove("panel-open");
 }
 
 function itemRow(it) {
