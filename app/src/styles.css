@@ -54,7 +54,7 @@ body.expanded #collapsed { display: none; }
 .stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; shape-rendering: crispEdges; }
 .speech {
   position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;
-  font-weight: 500; padding: 6px 9px; border-radius: 11px 11px 11px 3px; max-width: 150px; line-height: 1.35; z-index: 1;
+  font-weight: 500; padding: 6px 9px; border-radius: 11px 11px 3px 11px; max-width: 150px; line-height: 1.35; z-index: 1;
 }
 .speech.error { background: var(--warn); color: var(--bg); }
 .shadow-large { position: absolute; bottom: 10px; width: 120px; height: 14px; border-radius: 50%; background: #1C1A2E; }
