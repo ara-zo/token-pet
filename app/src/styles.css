@@ -326,17 +326,19 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes tp-coin-spin { from { transform: scaleX(1); } to { transform: scaleX(.3); } }
 
 /* ---------- PR mailbox ---------- */
-/* collapsed: a speech bubble from the pet, tail pointing down-right at it */
+/* collapsed: while mail waits the window grows a 36px band above the pet for a full sentence */
+.collapsed-view.with-band { height: 156px; }
+.collapsed-view.with-band .earn-bubble { top: 38px; }
 .mail-bubble {
-  position: absolute; top: 7px; left: 2px; z-index: 4; max-width: 76px;
-  border: 0; background: var(--coin); color: #23203A; cursor: pointer;
-  font: 700 10px/1.25 var(--sans); padding: 5px 8px; border-radius: 10px 10px 2px 10px;
-  box-shadow: 0 2px 0 #9A6E12; white-space: nowrap;
+  position: absolute; top: 3px; left: 4px; right: 4px; z-index: 4;
+  border: 0; background: var(--coin); color: #23203A; cursor: pointer; text-align: center;
+  font: 700 10px/1.25 var(--sans); padding: 4px 6px; border-radius: 9px;
+  box-shadow: 0 2px 0 #9A6E12; word-break: keep-all;
   animation: tp-mail-in .35s cubic-bezier(.2, 1.4, .4, 1) both, tp-mail-float 2.4s ease-in-out .35s infinite;
 }
 .mail-bubble::after {
-  content: ""; position: absolute; right: -5px; bottom: 0; width: 7px; height: 6px;
-  background: var(--coin); clip-path: polygon(0 0, 0 100%, 100% 100%);
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 9px; height: 6px; margin-left: -4px;
+  background: var(--coin); clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .mail-bubble.review { background: #FFE59A; box-shadow: 0 2px 0 #C9A23A; }
 .mail-bubble.review::after { background: #FFE59A; }

@@ -9,6 +9,11 @@ const LogicalSize = T.dpi.LogicalSize;
 const LogicalPosition = T.dpi.LogicalPosition;
 
 const SMALL = { w: 120, h: 120 };
+// While mail is waiting the collapsed window grows a band above the pet for a full sentence.
+// Positions are always stored for the 120x120 pet area; the band hangs above it.
+const BAND = 36;
+let bandOn = false;
+const bandH = () => (bandOn ? BAND : 0);
 const LARGE = { w: 300, h: 390 };
 const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
@@ -400,7 +405,7 @@ async function restorePos() {
     const mons = await T.window.availableMonitors();
     const visible = mons.map(monitorRect).some((r) =>
       p.x + SMALL.w > r.x + 20 && p.x < r.x + r.w - 20 && p.y + SMALL.h > r.y + 20 && p.y < r.y + r.h - 20);
-    if (visible) await win.setPosition(new LogicalPosition(p.x, p.y));
+    if (visible) await win.setPosition(new LogicalPosition(p.x, p.y - bandH()));
   } catch (e) {}
 }
 
@@ -409,23 +414,24 @@ async function setExpanded(on) {
   expanded = on;
   try {
     const here = await currentPos();
-    let target;
+    let target, petArea;
     if (on) {
-      collapsedPos = here;
+      collapsedPos = { x: here.x, y: here.y + bandH() };          // the pet area, below any band
       movedWhileExpanded = false;
       target = await clampToMonitor(
-        { x: here.x + SMALL.w - LARGE.w, y: here.y + SMALL.h - LARGE.h }, LARGE);
+        { x: here.x + SMALL.w - LARGE.w, y: collapsedPos.y + SMALL.h - LARGE.h }, LARGE);
     } else {
       // Not dragged: go back exactly where the pet was, whatever the OS did to the big window.
-      target = !movedWhileExpanded && collapsedPos
+      petArea = !movedWhileExpanded && collapsedPos
         ? collapsedPos
         : await clampToMonitor({ x: here.x + LARGE.w - SMALL.w, y: here.y + LARGE.h - SMALL.h }, SMALL);
+      target = { x: petArea.x, y: petArea.y - bandH() };
     }
     document.body.className = on ? "expanded" : "collapsed";
-    const size = on ? LARGE : SMALL;
+    const size = on ? LARGE : { w: SMALL.w, h: SMALL.h + bandH() };
     await win.setSize(new LogicalSize(size.w, size.h));
     await win.setPosition(new LogicalPosition(target.x, target.y));
-    if (!on) savePos(target);
+    if (!on) savePos(petArea);
   } catch (e) {
     document.body.className = on ? "expanded" : "collapsed";
   }
@@ -458,7 +464,11 @@ win.onMoved(() => {
   // remember where the user left the collapsed pet (programmatic moves while expanded are ignored)
   if (expanded) return;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => { if (!expanded) savePos(await currentPos()); }, 300);
+  saveTimer = setTimeout(async () => {
+    if (expanded) return;
+    const p = await currentPos();
+    savePos({ x: p.x, y: p.y + bandH() });
+  }, 300);
 }).catch(() => {});
 
 // ---------------------------------------------------------------- actions
@@ -622,6 +632,19 @@ function speakNote(msg) {
   setTimeout(render, 6000);
 }
 
+// Grow or drop the sentence band above the collapsed pet, keeping the pet where it is on screen.
+async function setBand(on) {
+  if (on === bandOn) return;
+  bandOn = on;
+  $("collapsed").classList.toggle("with-band", on);
+  if (expanded) return;                    // applied when the widget collapses again
+  try {
+    const here = await currentPos();
+    await win.setSize(new LogicalSize(SMALL.w, SMALL.h + bandH()));
+    await win.setPosition(new LogicalPosition(here.x, here.y + (on ? -BAND : BAND)));
+  } catch (e) {}
+}
+
 function renderMail() {
   const on = mailEnabled();
   const n = mail.items.length;
@@ -629,8 +652,11 @@ function renderMail() {
   $("mail-small").classList.toggle("hidden", !on || n === 0);
   const reviews = mail.items.filter((it) => it.category === "review").length;
   $("mail-small").classList.toggle("review", reviews > 0);
-  $("mail-count-small").textContent = reviews ? `리뷰 요청 ${reviews}개!` : `우편 ${n > 99 ? "99+" : n}통`;
-  $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${$("mail-count-small").textContent}`);
+  const shown = n > 99 ? "99+" : n;
+  const full = reviews ? `리뷰 기다리는 PR이 ${reviews}개 왔어요!` : `우편이 ${shown}통 와 있어요`;
+  $("mail-count-small").textContent = full;
+  $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
+  setBand(on && n > 0);
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
   if (!mailOpen) return;
