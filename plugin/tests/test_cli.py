@@ -33,12 +33,13 @@ def test_collect_earns_once(pet_home):
 
 def test_reset_does_not_recount_old_transcript(pet_home):
     cli.main_collect(STOP, NOW)
-    assert store.load()["coins"] > 0
+    coins = store.load()["coins"]
+    assert coins > 0
     assert cli.main_pet(["reset", "--confirm"], NOW)[0] == 0
     # same session, nothing new written to the transcript → nothing new to earn
     assert cli.main_collect(STOP, at(20, 15)) == 0
     s = store.load()
-    assert s["coins"] == 0 and s["xp"] == 0
+    assert s["coins"] == coins and s["xp"] == 0          # the pet restarts, the shared wallet stays
 
 
 def _agent_line(mid, out, ts="2026-10-20T14:40:00.000Z"):

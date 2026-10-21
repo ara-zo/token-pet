@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 
 import pytest
@@ -71,35 +72,32 @@ def test_pat_and_evolution_feed_the_lifetime_counters():
     assert s["lifetime"]["evolutions"] == 1
 
 
-def test_reset_picks_a_registered_species_and_keeps_the_dex():
+def test_reset_restarts_only_the_active_pet_and_keeps_the_dex():
     s = fresh(coins=500)
     s["dex"].append("mole")
     s["lifetime"]["pats"] = 12
-    with pytest.raises(ActionError, match="도감"):
-        actions.reset(s, NOW, confirm=True, species="robot")
-    actions.reset(s, NOW, confirm=True, species="mole")
-    assert s["species"] == "mole" and s["coins"] == 0 and s["dex"] == ["mochi", "mole"]
-    assert s["lifetime"]["pats"] == 12
-    actions.reset(s, NOW, confirm=True)                      # no choice: keep the current species
-    assert s["species"] == "mole"
-    with pytest.raises(ActionError, match="그런 종족"):
-        actions.reset(s, NOW, confirm=True, species="dragon")
+    s["pets"] = {"mole": {"species": "mole", "level": 3}}
+    s["level"], s["form"] = 6, "owl"
+    actions.reset(s, NOW, confirm=True)
+    assert s["species"] == "mochi" and s["level"] == 1 and s["form"] == "base"
+    assert s["coins"] == 500                                 # the wallet is shared by every pet
+    assert s["dex"] == ["mochi", "mole"] and s["lifetime"]["pats"] == 12
+    assert s["pets"]["mole"]["level"] == 3                   # the resting pet is untouched
 
 
-def test_cli_dex_and_reset_with_species(pet_home):
+def test_cli_dex_lists_progress_ownership_and_price(pet_home):
     with store.transaction(NOW, tick=False) as s:
         s["lifetime"]["tokens_out"] = 400_000
         s["lifetime"]["pats"] = 50
     code, text = cli.main_pet(["dex", "--json"], NOW)
     r = json.loads(text)["result"]
     rows = {row["id"]: row for row in r["species"]}
-    assert r["current"] == "mochi" and rows["hamster"]["unlocked"]          # unlocked by the tick
-    assert rows["mole"]["cur"] == 400_000 and rows["mole"]["goal"] == 1_000_000 and not rows["mole"]["unlocked"]
+    assert r["current"] == "mochi" and rows["hamster"]["unlocked"] and not rows["hamster"]["owned"]
+    assert rows["hamster"]["adopt_cost"] == species.ADOPT_COST["hamster"]
+    assert rows["mochi"]["owned"] and rows["mochi"]["current"]
+    assert rows["mole"]["cur"] == 400_000 and not rows["mole"]["unlocked"]
     code, text = cli.main_pet(["dex"], NOW)
-    assert code == 0 and "유리볼 햄스터" in text and "400,000" in text
-    code, text = cli.main_pet(["reset", "--confirm", "hamster"], NOW)
-    assert code == 0 and store.load()["species"] == "hamster"
-    assert "유리볼 햄스터" in cli.main_pet(["status"], NOW)[1]
+    assert code == 0 and "유리볼 햄스터" in text and "입양" in text and "400,000" in text
 
 
 def test_collect_counts_lifetime_tokens_and_attendance(pet_home):
@@ -119,3 +117,62 @@ def test_migrate_seeds_attendance_streak_from_log():
         d["sessions"] = 1
     schema.migrate(s)
     assert s["lifetime"]["attend_streak"] == 3 and s["lifetime"]["last_attend"] == "2026-10-19"
+
+
+# ------------------------------------------------------------ roster: adopt and switch
+
+def unlocked(**over):
+    over.setdefault("coins", 5000)
+    s = fresh(**over)
+    s["dex"] += ["hamster", "mole"]
+    return s
+
+
+def test_adopt_needs_dex_coins_and_makes_the_new_pet_active():
+    s = unlocked(level=4, xp=8000, hunger=33)
+    with pytest.raises(ActionError, match="도감"):
+        species.adopt(s, NOW, "robot")
+    poor = unlocked(coins=10)
+    with pytest.raises(ActionError, match="모자라"):
+        species.adopt(poor, NOW, "hamster")
+    r = species.adopt(s, NOW, "hamster")
+    cost = species.ADOPT_COST["hamster"]
+    assert r["species"] == "hamster" and s["coins"] == 5000 - cost
+    assert s["species"] == "hamster" and s["level"] == 1 and s["xp"] == 0 and s["form"] == "base"
+    assert s["name"] == species.SPECIES["hamster"].ko
+    assert s["pets"]["mochi"]["level"] == 4 and s["pets"]["mochi"]["hunger"] == 33   # mochi rests as it was
+    with pytest.raises(ActionError, match="이미"):
+        species.adopt(s, NOW, "mochi")
+    with pytest.raises(ActionError, match="이미"):
+        species.adopt(s, NOW, "hamster")
+
+
+def test_switch_swaps_pets_and_rest_freezes_time():
+    s = unlocked(level=4, xp=8000, hunger=60)
+    s["equipped"]["head"] = "party_hat"
+    species.adopt(s, NOW, "hamster", name="콩이")
+    assert s["name"] == "콩이" and "head" not in s["equipped"]               # equipped belongs to each pet
+    coins = s["coins"]
+    later = NOW + dt.timedelta(days=10)                                    # mochi rested ten days
+    species.switch(s, later, "mochi")
+    assert s["species"] == "mochi" and s["level"] == 4 and s["hunger"] == 60
+    assert s["equipped"]["head"] == "party_hat" and s["coins"] == coins     # one shared wallet
+    # the rest does not count as being left unfed: no runaway on return
+    assert clock.hours_between(clock.parse(s["last_fed_at"]), later) < 24
+    assert s["pets"]["hamster"]["name"] == "콩이"
+    with pytest.raises(ActionError, match="없어"):
+        species.switch(s, later, "mole")                                  # unlocked but never adopted
+    with pytest.raises(ActionError, match="이미"):
+        species.switch(s, later, "mochi")
+
+
+def test_cli_adopt_and_switch(pet_home):
+    with store.transaction(NOW, tick=False) as s:
+        s["coins"] = 3000
+        s["dex"].append("hamster")
+    payload = json.loads(cli.main_pet(["adopt", "hamster", "--json"], NOW)[1])
+    assert payload["ok"] and payload["state"]["species"] == "hamster"
+    assert {r["id"]: r for r in payload["result"]["species"]}["mochi"]["resting"]["level"] == 1
+    code, text = cli.main_pet(["switch", "mochi"], NOW)
+    assert code == 0 and store.load()["species"] == "mochi" and "모찌" in text
+    assert "쉬는 중" in cli.main_pet(["status"], NOW)[1]

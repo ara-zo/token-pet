@@ -12,7 +12,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|find|reset [--confirm] [종족]|setup [--write]|widget [on|off|install]]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -274,6 +274,19 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 r = actions.pat(s, now)
                 s["speech"] = speech.choose(s, now, "PAT")
                 return out(0, f"쓰담쓰담… 기분 {round(r['mood'])} (오늘 {r['left']}번 더)", r, s)
+            if cmd == "adopt":
+                if len(pos) < 2:
+                    raise ActionError("어느 종족을 입양할지 알려줘: /pet adopt <id> [이름]")
+                r = species.adopt(s, now, pos[1], " ".join(pos[2:]) or None)
+                s["speech"] = speech.choose(s, now)
+                msg = f"{clock.josa(r['name'], '이/가')} 우리 집에 왔어요! 🪙 {r['coins']:,} (-{r['cost']:,})"
+                return out(0, msg, species.dex_payload(s), s)
+            if cmd == "switch":
+                if len(pos) < 2:
+                    raise ActionError("누구를 데려올지 알려줘: /pet switch <id>")
+                r = species.switch(s, now, pos[1])
+                s["speech"] = speech.choose(s, now)
+                return out(0, f"{clock.josa(r['name'], '이/가')} 돌아왔어요 (Lv.{r['level']})", species.dex_payload(s), s)
             if cmd == "dex":
                 species.check(s, now)
                 return out(0, species.dex_text(s), species.dex_payload(s), s)
@@ -308,9 +321,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 msg = f"{clock.josa(s['name'], '을/를')} 찾았다! 집으로 돌아왔어" if r["found"] else f"오늘도 찾아봤지만 아직… ({r['days']}/3일)"
                 return out(0, msg, r, s)
             if cmd == "reset":
-                r = actions.reset(s, now, confirm="--confirm" in flags, species=pos[1] if len(pos) > 1 else None)
-                kind = species.SPECIES[r["species"]].ko
-                return out(0, f"{clock.josa(s['name'], '이/가')} {kind}(으)로 새로 태어났어요", r, s)
+                r = actions.reset(s, now, confirm="--confirm" in flags)
+                return out(0, f"{clock.josa(s['name'], '이/가')} 새로 태어났어요", r, s)
             raise ActionError(f"모르는 명령: {cmd}\n{USAGE}")
     except ActionError as e:
         if cmd not in ("feed", "pat", "buy", "equip"):

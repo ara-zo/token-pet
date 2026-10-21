@@ -69,6 +69,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "species": "mochi",
         "dex": ["mochi"],
         "lifetime": new_lifetime(),
+        "pets": {},
     }
 
 

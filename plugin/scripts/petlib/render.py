@@ -54,6 +54,10 @@ def status_text(state: dict, now: dt.datetime) -> str:
         f"💬 {state['speech'] or '...'}",
         f"오늘 +{day['earned']} 코인 · 출력 {day['tokens_out']:,} 토큰 · 마지막 식사 {_ago(state['last_fed_at'], now)}",
     ]
+    from . import species as _sp
+    rest = _sp.resting_line(state)
+    if rest:
+        lines.append(rest)
     fc = state.get("forecast")
     if fc:
         lines.append(f"🔮 Lv.{fc['at_level']} 진화 예감: {fc['glyph']} {fc['ko']} · {fc['reason']}")

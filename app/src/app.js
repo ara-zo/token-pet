@@ -137,7 +137,9 @@ function setBackground(id) {
 function render() {
   if (!state) return;
   const s = state;
-  if (lastForm !== null && s.form !== lastForm && !walkingOut) {
+  const kind = s.species || "mochi";
+  const samePet = lastSpecies === null || kind === lastSpecies;     // a switch is not an evolution
+  if (lastForm !== null && s.form !== lastForm && !walkingOut && samePet) {
     if (s.form === "runaway") {
       walkOut();                         // packs up and walks off the screen, then the empty spot shows
     } else {
@@ -188,12 +190,13 @@ function render() {
     if (lastTurnAt !== null && fresh && s.last_turn_earned > 0) showEarn(s.last_turn_earned);
     lastTurnAt = s.last_turn_at;
   }
-  if (lastLevel !== null && s.level > lastLevel) {
+  if (lastLevel !== null && s.level > lastLevel && samePet) {
     fx("hop");
     burst("sparkle", 14);
     toast(`레벨 업! LV.${s.level}`);
   }
   lastLevel = s.level;
+  lastSpecies = kind;
 }
 
 // ---------------------------------------------------------------- animation
@@ -481,6 +484,7 @@ async function patPet() {
 // ---------------------------------------------------------------- event motions
 
 let lastForm = null;
+let lastSpecies = null;
 let walkingOut = false;
 
 // Coin in: species parts react (crystal grows, lamp, furnace, beak, cheeks).
@@ -735,11 +739,12 @@ async function openDexTab() {
   renderDress();
 }
 
-// 도감: every species with its base look; locked ones are silhouettes with the condition and progress.
+// 도감: every species with its base look. Owned pets can be brought back, registered ones adopted,
+// locked ones are silhouettes with the condition and progress.
 function renderDex() {
   const note = $("dress-note");
-  note.textContent = "등록된 종족은 새로 시작할 때 고를 수 있어요";
-  note.title = "/token-pet:pet reset --confirm <종족 id>  (오른쪽 이름이 id)";
+  note.textContent = "쉬는 펫은 상태가 멈춘 채 기다려요. 코인은 다 같이 써요";
+  note.title = "";
   note.classList.remove("hidden");
   note.classList.add("hint");
   if (!dex) { $("dress-list").replaceChildren(); return; }
@@ -758,7 +763,10 @@ function renderDex() {
     name.textContent = sp.name;
     const sub = document.createElement("span");
     sub.className = "item-sub";
-    sub.textContent = sp.current ? `${sp.part} · 지금 키우는 중` : sp.unlocked ? `${sp.part} · 등록됨` : sp.condition;
+    if (sp.current) sub.textContent = `${sp.part} · 지금 돌보는 중`;
+    else if (sp.resting) sub.textContent = `쉬는 중 · ${sp.resting.name} Lv.${sp.resting.level}`;
+    else if (sp.unlocked) sub.textContent = `입양 가능 · ${sp.adopt_cost ? `${sp.adopt_cost.toLocaleString()}코인` : "무료"}`;
+    else sub.textContent = sp.condition;
     meta.append(name, sub);
     if (!sp.unlocked && sp.goal) {
       const bar = document.createElement("div");
@@ -769,12 +777,50 @@ function renderDex() {
       bar.append(fill);
       meta.append(bar);
     }
-    const tag = document.createElement("span");
-    tag.className = "dex-tag";
-    tag.textContent = sp.current ? "키우는 중" : sp.unlocked ? sp.id : `${Math.floor((sp.cur / Math.max(1, sp.goal)) * 100)}%`;
-    li.append(icon, meta, tag);
+    let end;
+    if (sp.current) {
+      end = document.createElement("span");
+      end.className = "dex-tag";
+      end.textContent = "돌보는 중";
+    } else if (sp.owned) {
+      end = document.createElement("button");
+      end.type = "button";
+      end.className = "btn small mood";
+      end.textContent = "데려오기";
+      end.addEventListener("click", () => rosterAction(["switch", sp.id]));
+    } else if (sp.unlocked) {
+      const short = state.coins < sp.adopt_cost;
+      end = document.createElement("button");
+      end.type = "button";
+      end.className = "btn small primary";
+      end.textContent = "입양";
+      end.disabled = short;
+      if (short) sub.textContent += ` (${(sp.adopt_cost - state.coins).toLocaleString()} 부족)`;
+      sub.classList.toggle("short", short);
+      end.addEventListener("click", () => rosterAction(["adopt", sp.id]));
+    } else {
+      end = document.createElement("span");
+      end.className = "dex-tag";
+      end.textContent = `${Math.floor((sp.cur / Math.max(1, sp.goal)) * 100)}%`;
+    }
+    li.append(icon, meta, end);
     return li;
   }));
+}
+
+// adopt / switch: the result carries the fresh dex, the state carries the pet now on stage
+async function rosterAction(args) {
+  for (const b of $("dress-list").querySelectorAll("button")) b.disabled = true;
+  const res = await runPet(args);
+  if (res) {
+    dex = res.result;
+    toast(res.text);
+    fx("pop");
+    burst(args[0] === "adopt" ? "heart" : "sparkle", 8);
+    const fresh = await runPet(["shop"]);           // owned/equipped flags follow the new pet
+    if (fresh) shop = fresh.result;
+  }
+  renderDress();
 }
 
 async function dressAction(args) {

@@ -1,5 +1,9 @@
-"""토키 종족과 도감. 첫 펫은 모찌, 나머지는 평생 기록이 조건을 채우면 도감에 등록되고
-/pet reset 할 때 고를 수 있다. 지금 키우는 펫의 종은 바꾸지 않는다. (캔버스 '토키 도감', '종족 추가안')"""
+"""토키 종족, 도감, 여러 마리 키우기.
+
+첫 펫은 모찌. 평생 기록이 조건을 채우면 도감에 등록되고(입양 가능), 입양비를 내면 데려온다.
+한 번에 한 마리를 돌보고, 나머지는 마을에서 쉰다: 상태가 멈춘 채 state["pets"] 에 보관된다.
+코인·옷장·도감·평생 기록은 모두가 함께 쓰고, 레벨·진화·배고픔·기분·착용은 펫마다 따로다.
+(캔버스 '토키 도감', '종족 추가안'; 여러 마리 보유는 이후 결정)"""
 from __future__ import annotations
 
 import datetime as dt
@@ -35,6 +39,12 @@ SPECIES = {
                       "진화 1번 겪기", "evolutions", 1),
 }
 ORDER = list(SPECIES)
+
+ADOPT_COST = {"hamster": 500, "squirrel": 800, "robot": 800, "penguin": 1000, "mole": 1200, "rabbit": 1500}
+
+# Fields that belong to one pet. Everything else in state is the player's (wallet, wardrobe, logs).
+PET_FIELDS = ("name", "created_at", "level", "xp", "hunger", "mood", "form", "form_since",
+              "equipped", "last_fed_at", "since_form", "flags", "species", "forecast")
 
 
 def progress(state: dict, key: str) -> Tuple[int, int]:
@@ -74,13 +84,21 @@ def check(state: dict, now: dt.datetime) -> List[dict]:
     return events
 
 
+def owned(state: dict) -> List[str]:
+    return [k for k in ORDER if k == state["species"] or k in state.get("pets", {})]
+
+
 def dex_payload(state: dict) -> dict:
     rows = []
+    pets = state.get("pets", {})
     for key in ORDER:
         sp = SPECIES[key]
         cur, goal = progress(state, key)
+        rest = pets.get(key)
         rows.append({"id": key, "name": sp.ko, "part": sp.part, "desc": sp.desc, "condition": sp.condition,
                      "unlocked": key in state["dex"], "current": key == state["species"],
+                     "owned": key in owned(state), "adopt_cost": ADOPT_COST.get(key, 0),
+                     "resting": {"name": rest["name"], "level": rest["level"], "form": rest["form"]} if rest else None,
                      "cur": min(cur, goal) if goal else 0, "goal": goal})
     return {"current": state["species"], "species": rows}
 
@@ -92,11 +110,90 @@ def dex_text(state: dict) -> str:
     for r in p["species"]:
         mark = "✔" if r["unlocked"] else "·"
         if r["current"]:
-            note = "지금 키우는 중"
+            note = "지금 돌보는 중"
+        elif r["resting"]:
+            note = f"쉬는 중 · {r['resting']['name']} Lv.{r['resting']['level']}"
         elif r["unlocked"]:
-            note = r["part"]
+            note = "입양 가능 · " + (f"{r['adopt_cost']:,}코인" if r["adopt_cost"] else "무료")
         else:
             note = f"{r['condition']}  {r['cur']:,} / {r['goal']:,}"
         lines.append(f"  {mark} {r['id']:<9} {r['name']:<7} {note}")
-    lines.append("새로 시작할 때 고르기: /pet reset --confirm <id>  (레벨·진화·코인은 처음부터, 도감은 유지)")
+    lines.append("입양: /pet adopt <id> [이름]   데려오기: /pet switch <id>")
     return "\n".join(lines)
+
+
+# ----------------------------------------------------------------- roster
+
+def _shift(state: dict, key: str, delta: dt.timedelta, container: Optional[dict] = None) -> None:
+    box = container if container is not None else state
+    if box.get(key):
+        box[key] = clock.fmt(clock.parse(box[key]) + delta)
+
+
+def _put_to_rest(state: dict, now: dt.datetime) -> None:
+    import copy
+    snap = {k: copy.deepcopy(state[k]) for k in PET_FIELDS if k in state}
+    snap["rested_at"] = clock.fmt(now)
+    state.setdefault("pets", {})[state["species"]] = snap
+
+
+def _bring_back(state: dict, key: str, now: dt.datetime) -> None:
+    snap = state["pets"].pop(key)
+    rested = clock.parse(snap.pop("rested_at", clock.fmt(now)))
+    for k in PET_FIELDS:
+        if k in snap:
+            state[k] = snap[k]
+    # time stood still while resting: move the pet's clocks forward by the rest
+    delta = now - rested
+    _shift(state, "last_fed_at", delta)
+    _shift(state, "form_since", delta)
+    for flag in ("burnout_until", "demand_since"):
+        _shift(state, flag, delta, state["flags"])
+
+
+def adopt(state: dict, now: dt.datetime, key: str, name: Optional[str] = None) -> dict:
+    from .actions import ActionError, MAX_NAME_LEN
+    if key not in SPECIES:
+        raise ActionError(f"그런 종족은 없어: {key}. /pet dex 로 목록을 봐")
+    if key in owned(state):
+        raise ActionError(f"{SPECIES[key].ko}은(는) 이미 우리 집에 있어. /pet switch {key}")
+    if key not in state["dex"]:
+        raise ActionError(f"{SPECIES[key].ko}은(는) 아직 도감에 없어. 조건: {SPECIES[key].condition}")
+    cost = ADOPT_COST.get(key, 0)
+    if state["coins"] < cost:
+        raise ActionError(f"코인이 모자라. 입양비 {cost:,}코인 필요한데 {state['coins']:,}코인뿐이야")
+    pet_name = (name or SPECIES[key].ko).strip()
+    if not 1 <= len(pet_name) <= MAX_NAME_LEN:
+        raise ActionError(f"이름은 1~{MAX_NAME_LEN}자")
+    state["coins"] -= cost
+    schema.today(state, now)["spent"] += cost
+    _put_to_rest(state, now)
+    fresh = schema.new_state(now, name=pet_name)
+    for k in PET_FIELDS:
+        if k in fresh:
+            state[k] = fresh[k]
+    state["species"] = key
+    state["equipped"] = {"bg": state.get("pets", {}).get("mochi", {}).get("equipped", {}).get("bg", "street")}
+    schema.push_event(state, now, "born", f"{clock.josa(pet_name, '이/가')} 우리 집에 왔다! ({SPECIES[key].ko})")
+    return {"species": key, "name": pet_name, "cost": cost, "coins": state["coins"]}
+
+
+def switch(state: dict, now: dt.datetime, key: str) -> dict:
+    from .actions import ActionError
+    if key not in SPECIES:
+        raise ActionError(f"그런 종족은 없어: {key}. /pet dex 로 목록을 봐")
+    if key == state["species"]:
+        raise ActionError(f"{state['name']}은(는) 이미 지금 돌보는 중이야")
+    if key not in state.get("pets", {}):
+        raise ActionError(f"{SPECIES[key].ko}은(는) 우리 집에 없어. /pet adopt {key} 로 먼저 입양해")
+    _put_to_rest(state, now)
+    _bring_back(state, key, now)
+    return {"species": key, "name": state["name"], "level": state["level"]}
+
+
+def resting_line(state: dict) -> Optional[str]:
+    pets = state.get("pets", {})
+    if not pets:
+        return None
+    parts = [f"{p['name']} Lv.{p['level']}" for k, p in sorted(pets.items(), key=lambda kv: ORDER.index(kv[0]))]
+    return "🏘 마을에서 쉬는 중: " + ", ".join(parts)

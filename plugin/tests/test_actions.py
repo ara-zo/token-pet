@@ -151,7 +151,7 @@ def test_reset_requires_confirm_unless_boss():
         actions.reset(s, NOW)
     s["badges"] = ["rehab"]
     actions.reset(s, NOW, confirm=True)
-    assert s["coins"] == 0 and s["badges"] == ["rehab"] and s["level"] == 1
+    assert s["coins"] == 500 and s["badges"] == ["rehab"] and s["level"] == 1   # wallet is shared, kept
     b = st(form="boss")
     actions.reset(b, NOW)
     assert b["form"] == "base" and "independence" in b["badges"]
