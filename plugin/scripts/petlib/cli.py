@@ -169,8 +169,8 @@ def _pr_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
             s["settings"]["pr_inbox"] = sub == "on"
         if sub == "off":
             return 0, "PR 우편함을 껐어요. 위젯이 GitHub를 읽지 않아요"
-        return 0, ("PR 우편함을 켰어요. 위젯이 5분마다 gh 로 GitHub 알림을 확인해서 리뷰 요청, 내 PR 소식, 멘션, "
-                   "CI 실패를 알려 줘요. gh 로그인이 필요해요 (gh auth login)")
+        return 0, ("PR 우편함을 켰어요. 위젯이 5분마다 gh 로 내 리뷰를 기다리는 열린 PR을 확인해서 알려 줘요. "
+                   "gh 로그인이 필요해요 (gh auth login)")
     on = store.load(now)["settings"].get("pr_inbox", False) if store.state_path().exists() else False
     return 0, f"PR 우편함이 {'켜져' if on else '꺼져'} 있어요. /pet pr on 또는 /pet pr off"
 

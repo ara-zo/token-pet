@@ -11,7 +11,7 @@ const LogicalPosition = T.dpi.LogicalPosition;
 const SMALL = { w: 120, h: 120 };
 // While mail is waiting the collapsed window grows a band above the pet for a full sentence.
 // Positions are always stored for the 120x120 pet area; the band hangs above it.
-const BAND = 36;
+const BAND = 46;
 let bandOn = false;
 const bandH = () => (bandOn ? BAND : 0);
 const LARGE = { w: 300, h: 390 };
@@ -578,12 +578,13 @@ function walkOut() {
 }
 
 // ---------------------------------------------------------------- PR mailbox
-// GitHub notifications through gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`.
-// New ones get a macOS notification and the pet mentions them; old ones only count on the badge.
+// Open PRs waiting for my review, through gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`.
+// A newly requested one gets a macOS notification and the pet mentions it; ones already waiting
+// when the mailbox was turned on only show in the bubble.
 
-const MAIL_SEEN_KEY = "token-pet.pr.seen";
-const MAIL_LABEL = { review: "리뷰 요청", mine: "내 PR", mention: "멘션", ci: "CI 실패" };
-const MAIL_TITLE = { review: "리뷰 요청이 왔어요", mine: "내 PR에 새 소식", mention: "멘션됐어요", ci: "CI가 실패했어요" };
+const MAIL_SEEN_KEY = "token-pet.pr.review-seen";   // new key: ids of review requests already shown
+const MAIL_LABEL = { review: "리뷰 요청" };
+const MAIL_TITLE = { review: "리뷰 요청이 왔어요" };
 let mail = { items: [], error: null };
 let mailOpen = false;
 let mailOn = false;
@@ -603,9 +604,9 @@ async function pollMail() {
   const items = res.items || [];
   let seen = null;
   try { seen = JSON.parse(localStorage.getItem(MAIL_SEEN_KEY) || "null"); } catch (e) {}
-  const fresh = seen ? items.filter((it) => seen[it.id] !== it.updated_at) : [];   // first run: nothing is "new"
+  const fresh = seen ? items.filter((it) => !(it.id in seen)) : [];   // first run: nothing is "new"
   const next = {};
-  for (const it of items) next[it.id] = it.updated_at;
+  for (const it of items) next[it.id] = 1;
   try { localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify(next)); } catch (e) {}
   mail = { items, error: null };
   renderMail();
@@ -615,9 +616,8 @@ async function pollMail() {
 function announceMail(fresh) {
   const ref = (it) => `${it.repo}${it.number ? `#${it.number}` : ""}`;
   fresh.slice(0, 3).forEach((it) => invoke("notify", { title: MAIL_TITLE[it.category], body: `${ref(it)} ${it.title}` }).catch(() => {}));
-  if (fresh.length > 3) invoke("notify", { title: "PR 우편함", body: `새 소식이 ${fresh.length - 3}개 더 있어요` }).catch(() => {});
-  const reviews = fresh.filter((it) => it.category === "review").length;
-  speakNote(reviews ? `리뷰 기다리는 PR이 ${reviews}개 왔어요!` : `우편이 ${fresh.length}통 왔어요`);
+  if (fresh.length > 3) invoke("notify", { title: "리뷰 요청", body: `리뷰 기다리는 PR이 ${fresh.length - 3}개 더 있어요` }).catch(() => {});
+  speakNote(`리뷰 기다리는 PR이 ${fresh.length}개 왔어요!`);
   const badge = $("mail-small");
   badge.classList.remove("fresh");
   void badge.offsetWidth;
@@ -650,10 +650,12 @@ function renderMail() {
   const n = mail.items.length;
   $("mail-btn").classList.toggle("hidden", !on);
   $("mail-small").classList.toggle("hidden", !on || n === 0);
-  const reviews = mail.items.filter((it) => it.category === "review").length;
+  const reviews = n;                            // every item is a review request
   $("mail-small").classList.toggle("review", reviews > 0);
+  $("collapsed").classList.toggle("review", reviews > 0);
+  $("mail-letter").classList.toggle("hidden", !on || n === 0);
   const shown = n > 99 ? "99+" : n;
-  const full = reviews ? `리뷰 기다리는 PR이 ${reviews}개 왔어요!` : `우편이 ${shown}통 와 있어요`;
+  const full = `리뷰 기다리는 PR이 ${shown}개 있어요!`;
   $("mail-count-small").textContent = full;
   $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
   setBand(on && n > 0);
@@ -663,11 +665,10 @@ function renderMail() {
   const note = $("mail-note");
   note.textContent = mail.error || "";
   note.classList.toggle("hidden", !mail.error);
-  $("mail-readall").disabled = n === 0;
   if (!n) {
     const li = document.createElement("li");
     li.className = "mail-empty";
-    li.textContent = mail.error ? "" : "새 소식이 없어요. 우편함이 조용해요";
+    li.textContent = mail.error ? "" : "리뷰를 기다리는 PR이 없어요";
     $("mail-list").replaceChildren(li);
     return;
   }
@@ -686,7 +687,7 @@ function renderMail() {
     title.textContent = it.title;
     const sub = document.createElement("span");
     sub.className = "item-sub";
-    sub.textContent = `${it.repo}${it.number ? ` #${it.number}` : ""}`;
+    sub.textContent = `${it.repo}${it.number ? ` #${it.number}` : ""}${it.draft ? " · 초안" : ""}`;
     meta.append(title, sub);
     li.append(chip, meta);
     const go = () => openMail(it);
@@ -696,20 +697,9 @@ function renderMail() {
   }));
 }
 
-// open in the browser and mark it read on GitHub, like clicking it there
-async function openMail(it) {
+// open the PR in the browser; it leaves the list by itself once reviewed (next check)
+function openMail(it) {
   invoke("open_url", { url: it.url }).catch((e) => toast(String(e)));
-  mail.items = mail.items.filter((x) => x.id !== it.id);
-  renderMail();
-  invoke("pr_mark_read", { id: String(it.id) }).catch(() => {});
-}
-
-async function readAllMail() {
-  const ids = mail.items.map((it) => String(it.id));
-  mail.items = [];
-  renderMail();
-  await Promise.all(ids.map((id) => invoke("pr_mark_read", { id }).catch(() => {})));
-  toast("우편함을 비웠어요");
 }
 
 function openMailbox() {
@@ -1079,13 +1069,21 @@ window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
 $("mail-close").addEventListener("click", closeMailbox);
-$("mail-readall").addEventListener("click", readAllMail);
 $("mail-small").addEventListener("click", (e) => {
   e.stopPropagation();                      // don't also count as a click on the pet
   if (dragged) { dragged = false; return; }
   setExpanded(true).then(openMailbox);
 });
 setInterval(pollMail, 5 * 60 * 1000);
+// while mail waits, every 10 s the bubble rings and the pet hops (collapsed only)
+setInterval(() => {
+  if (!bandOn || expanded) return;
+  const b = $("mail-small");
+  b.classList.remove("ring", "fresh");
+  void b.offsetWidth;
+  b.classList.add("ring");
+  fx("hop", "small");
+}, 10 * 1000);
 setInterval(render, 10 * 1000);
 scheduleBlink();
 setInterval(() => { if (petMood === "sleep") burst("z", 1); }, 1800);   // bars visibly tick down between file updates

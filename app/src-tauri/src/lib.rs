@@ -80,7 +80,7 @@ fn sync_autostart(app: &tauri::AppHandle, state: Option<&serde_json::Value>) {
 }
 
 // ---------------------------------------------------------------- PR mailbox
-// Reads the player's GitHub notifications through the gh CLI (its own login, nothing stored here).
+// Asks GitHub, through the gh CLI (its own login, nothing stored here), which open PRs wait for the player's review.
 // Only runs when the player turned it on with `/pet pr on`.
 
 fn find_gh() -> Option<PathBuf> {
@@ -115,53 +115,24 @@ fn gh(args: &[&str]) -> Result<String, String> {
 }
 
 fn pr_item(n: &serde_json::Value) -> Option<serde_json::Value> {
-    let reason = n["reason"].as_str()?;
-    let subject = &n["subject"];
-    let kind = subject["type"].as_str()?;
-    let title = subject["title"].as_str().unwrap_or("");
-    let repo = n["repository"]["full_name"].as_str()?;
-    let category = match (kind, reason) {
-        ("PullRequest", "review_requested") => "review",
-        ("PullRequest", "author" | "comment" | "state_change" | "assign") => "mine",
-        ("PullRequest", "mention" | "team_mention") => "mention",
-        ("CheckSuite", "ci_activity") if title.contains("failed") => "ci",
-        _ => return None,
-    };
-    let api = subject["url"].as_str().unwrap_or("");
-    let url = match api.strip_prefix("https://api.github.com/repos/") {
-        Some(rest) => format!("https://github.com/{}", rest.replacen("/pulls/", "/pull/", 1)),
-        None => format!("https://github.com/{repo}/actions"),
-    };
-    let number = api
-        .rsplit('/')
-        .next()
-        .filter(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()))
-        .map(|t| t.to_string());
+    let repo = n["repository_url"].as_str()?.strip_prefix("https://api.github.com/repos/")?;
     Some(serde_json::json!({
-        "id": n["id"], "category": category, "repo": repo, "title": title,
-        "url": url, "number": number, "updated_at": n["updated_at"],
+        "id": n["id"], "category": "review", "repo": repo,
+        "title": n["title"].as_str().unwrap_or(""), "url": n["html_url"],
+        "number": n["number"].as_u64().map(|v| v.to_string()), "updated_at": n["updated_at"],
+        "draft": n["draft"].as_bool().unwrap_or(false),
     }))
 }
 
+/// Open PRs that are waiting for the player's review right now. A PR leaves the list by itself once
+/// reviewed or when the request is withdrawn, so there is nothing to mark as read.
 #[tauri::command]
 async fn pr_inbox() -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let text = gh(&["api", "notifications?per_page=50"])?;
-        let list: Vec<serde_json::Value> = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-        let items: Vec<serde_json::Value> = list.iter().filter_map(pr_item).collect();
+        let text = gh(&["api", "search/issues?q=is:pr+is:open+review-requested:@me+archived:false&per_page=50"])?;
+        let res: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        let items: Vec<serde_json::Value> = res["items"].as_array().map(|a| a.iter().filter_map(pr_item).collect()).unwrap_or_default();
         Ok(serde_json::json!({ "items": items }))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-async fn pr_mark_read(id: String) -> Result<(), String> {
-    if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
-        return Err("잘못된 알림 id".into());
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        gh(&["api", "-X", "PATCH", &format!("notifications/threads/{id}")]).map(|_| ())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -217,7 +188,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![read_state, pet, notify, pr_inbox, pr_mark_read, open_url])
+        .invoke_handler(tauri::generate_handler![read_state, pet, notify, pr_inbox, open_url])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);

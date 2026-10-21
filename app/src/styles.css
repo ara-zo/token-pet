@@ -327,25 +327,50 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 
 /* ---------- PR mailbox ---------- */
 /* collapsed: while mail waits the window grows a 36px band above the pet for a full sentence */
-.collapsed-view.with-band { height: 156px; }
-.collapsed-view.with-band .earn-bubble { top: 38px; }
+.collapsed-view.with-band { height: 166px; }
+.collapsed-view.with-band .earn-bubble { top: 48px; }
 .mail-bubble {
-  position: absolute; top: 3px; left: 4px; right: 4px; z-index: 4;
-  border: 0; background: var(--coin); color: #23203A; cursor: pointer; text-align: center;
-  font: 700 10px/1.25 var(--sans); padding: 4px 6px; border-radius: 9px;
-  box-shadow: 0 2px 0 #9A6E12; word-break: keep-all;
-  animation: tp-mail-in .35s cubic-bezier(.2, 1.4, .4, 1) both, tp-mail-float 2.4s ease-in-out .35s infinite;
+  position: absolute; top: 2px; left: 3px; right: 3px; z-index: 4;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  border: 2px solid #23203A; background: var(--coin); color: #23203A; cursor: pointer; text-align: left;
+  font: 800 10.5px/1.2 var(--sans); padding: 3px 5px; border-radius: 6px; word-break: keep-all;
+  box-shadow: 0 3px 0 #23203A;
+  animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-float 2.4s ease-in-out .4s infinite,
+    tp-mail-ping 1.6s ease-out .4s infinite;
 }
-.mail-bubble::after {
-  content: ""; position: absolute; left: 50%; bottom: -5px; width: 9px; height: 6px; margin-left: -4px;
-  background: var(--coin); clip-path: polygon(0 0, 100% 0, 50% 100%);
+.mail-bubble.review { animation-name: tp-mail-in, tp-mail-float, tp-mail-ping-r; }
+.mail-bubble .mail-ico { flex: none; color: #23203A; shape-rendering: crispEdges; }
+/* pixel tail: dark outline triangle with the fill on top */
+.mail-bubble::before, .mail-bubble::after { content: ""; position: absolute; left: 50%; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.mail-bubble::before { bottom: -10px; width: 14px; height: 8px; margin-left: -7px; background: #23203A; }
+.mail-bubble::after { bottom: -6px; width: 9px; height: 5px; margin-left: -4.5px; background: var(--coin); }
+/* review requests are urgent: hot pink */
+.mail-bubble.review { background: #FF8FA8; }
+.mail-bubble.review::after { background: #FF8FA8; }
+/* a ring of light keeps spreading from the bubble (kept with its pixel drop shadow) */
+@keyframes tp-mail-ping {
+  from { box-shadow: 0 3px 0 #23203A, 0 0 0 0 rgba(245, 196, 81, .8); }
+  to { box-shadow: 0 3px 0 #23203A, 0 0 0 10px rgba(245, 196, 81, 0); }
 }
-.mail-bubble.review { background: #FFE59A; box-shadow: 0 2px 0 #C9A23A; }
-.mail-bubble.review::after { background: #FFE59A; }
-.mail-bubble.fresh { animation: tp-mail-in .35s cubic-bezier(.2, 1.4, .4, 1) both, tp-mail-jump .5s ease-out .35s 3; }
+@keyframes tp-mail-ping-r {
+  from { box-shadow: 0 3px 0 #23203A, 0 0 0 0 rgba(255, 143, 168, .85); }
+  to { box-shadow: 0 3px 0 #23203A, 0 0 0 10px rgba(255, 143, 168, 0); }
+}
+.mail-bubble.fresh, .mail-bubble.ring { animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-ring .7s ease-in-out .4s 2, tp-mail-ping 1.6s ease-out .4s infinite; }
+.mail-bubble.review.fresh, .mail-bubble.review.ring { animation-name: tp-mail-in, tp-mail-ring, tp-mail-ping-r; }
+@keyframes tp-mail-ring {
+  0%, 100% { transform: none; } 15% { transform: translateY(-5px) rotate(-4deg); } 30% { transform: translateY(-5px) rotate(4deg); }
+  45% { transform: translateY(-3px) rotate(-3deg); } 60% { transform: translateY(0) rotate(2deg); }
+}
+/* the pet holds the letter at its side */
+.mail-letter {
+  position: absolute; left: 12px; bottom: 30px; z-index: 3; line-height: 0; transform-origin: 50% 100%;
+  animation: tp-letter 1.6s ease-in-out infinite; filter: drop-shadow(0 2px 0 rgba(20, 19, 30, .5));
+}
+.mail-letter svg { shape-rendering: crispEdges; }
+@keyframes tp-letter { 0%, 100% { transform: rotate(-12deg) translateY(0); } 50% { transform: rotate(-4deg) translateY(-3px); } }
 @keyframes tp-mail-in { from { transform: scale(.3) translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes tp-mail-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes tp-mail-jump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-7px) rotate(-3deg); } }
 .mail-btn { position: relative; }
 .mail-btn svg { shape-rendering: crispEdges; }
 .mail-dot {
