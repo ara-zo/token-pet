@@ -300,3 +300,15 @@ def test_backgrounds_in_shop_buy_and_grant(pet_home):
     assert cli.main_pet(["buy", "vault"], NOW)[0] == 0
     assert cli.main_pet(["equip", "vault"], NOW)[0] == 0
     assert store.load(NOW)["equipped"]["bg"] == "vault"
+
+
+def test_pr_inbox_setting_is_off_by_default_and_toggles(pet_home):
+    # the widget reads GitHub only after the player opts in
+    cli.main_pet(["status"], NOW)
+    assert store.load()["settings"]["pr_inbox"] is False
+    code, text = cli.main_pet(["pr", "on"], NOW)
+    assert code == 0 and store.load()["settings"]["pr_inbox"] is True and "gh" in text
+    code, text = cli.main_pet(["pr", "off"], NOW)
+    assert code == 0 and store.load()["settings"]["pr_inbox"] is False
+    code, text = cli.main_pet(["pr"], NOW)
+    assert code == 0 and "꺼져" in text

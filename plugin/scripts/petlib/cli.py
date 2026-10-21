@@ -12,7 +12,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install]]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -162,6 +162,19 @@ def _setup(write: bool) -> Tuple[int, str]:
     return 0, f"SETUP_DONE 상태표시줄 설정 완료. 새 세션부터 보여요. ({settings_path})"
 
 
+def _pr_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
+    """PR mailbox in the desktop widget: it reads your GitHub notifications with the gh CLI."""
+    if sub in ("on", "off"):
+        with store.transaction(now) as s:
+            s["settings"]["pr_inbox"] = sub == "on"
+        if sub == "off":
+            return 0, "PR 우편함을 껐어요. 위젯이 GitHub를 읽지 않아요"
+        return 0, ("PR 우편함을 켰어요. 위젯이 5분마다 gh 로 GitHub 알림을 확인해서 리뷰 요청, 내 PR 소식, 멘션, "
+                   "CI 실패를 알려 줘요. gh 로그인이 필요해요 (gh auth login)")
+    on = store.load(now)["settings"].get("pr_inbox", False) if store.state_path().exists() else False
+    return 0, f"PR 우편함이 {'켜져' if on else '꺼져'} 있어요. /pet pr on 또는 /pet pr off"
+
+
 def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
     if sub in ("on", "off"):
         with store.transaction(now) as s:
@@ -255,6 +268,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
         return out(0, USAGE)
     if cmd == "widget":
         return out(*_widget_cmd(pos[1] if len(pos) > 1 else "", now))
+    if cmd == "pr":
+        return out(*_pr_cmd(pos[1] if len(pos) > 1 else "", now))
 
     try:
         with store.transaction(now) as s:

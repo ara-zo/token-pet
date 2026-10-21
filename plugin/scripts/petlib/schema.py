@@ -65,7 +65,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "since_form": new_since_form(),
         "flags": new_flags(),
         "badges": [],
-        "settings": {"widget": True, "widget_install_tried": None},
+        "settings": {"widget": True, "widget_install_tried": None, "pr_inbox": False},
         "species": "mochi",
         "dex": ["mochi"],
         "lifetime": new_lifetime(),

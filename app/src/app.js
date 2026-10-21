@@ -197,6 +197,10 @@ function render() {
   }
   lastLevel = s.level;
   lastSpecies = kind;
+  if (mailEnabled() !== mailOn) {           // turned on/off with /pet pr
+    mailOn = mailEnabled();
+    pollMail();
+  }
 }
 
 // ---------------------------------------------------------------- animation
@@ -563,6 +567,138 @@ function walkOut() {
   }, 1700);
 }
 
+// ---------------------------------------------------------------- PR mailbox
+// GitHub notifications through gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`.
+// New ones get a macOS notification and the pet mentions them; old ones only count on the badge.
+
+const MAIL_SEEN_KEY = "token-pet.pr.seen";
+const MAIL_LABEL = { review: "리뷰 요청", mine: "내 PR", mention: "멘션", ci: "CI 실패" };
+const MAIL_TITLE = { review: "리뷰 요청이 왔어요", mine: "내 PR에 새 소식", mention: "멘션됐어요", ci: "CI가 실패했어요" };
+let mail = { items: [], error: null };
+let mailOpen = false;
+let mailOn = false;
+
+function mailEnabled() { return !!(state && state.settings && state.settings.pr_inbox); }
+
+async function pollMail() {
+  if (!mailEnabled()) { mail = { items: [], error: null }; renderMail(); return; }
+  let res;
+  try {
+    res = await invoke("pr_inbox");
+  } catch (e) {
+    mail = { items: mail.items, error: String(e) };
+    renderMail();
+    return;
+  }
+  const items = res.items || [];
+  let seen = null;
+  try { seen = JSON.parse(localStorage.getItem(MAIL_SEEN_KEY) || "null"); } catch (e) {}
+  const fresh = seen ? items.filter((it) => seen[it.id] !== it.updated_at) : [];   // first run: nothing is "new"
+  const next = {};
+  for (const it of items) next[it.id] = it.updated_at;
+  try { localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify(next)); } catch (e) {}
+  mail = { items, error: null };
+  renderMail();
+  if (fresh.length) announceMail(fresh);
+}
+
+function announceMail(fresh) {
+  const ref = (it) => `${it.repo}${it.number ? `#${it.number}` : ""}`;
+  fresh.slice(0, 3).forEach((it) => invoke("notify", { title: MAIL_TITLE[it.category], body: `${ref(it)} ${it.title}` }).catch(() => {}));
+  if (fresh.length > 3) invoke("notify", { title: "PR 우편함", body: `새 소식이 ${fresh.length - 3}개 더 있어요` }).catch(() => {});
+  const reviews = fresh.filter((it) => it.category === "review").length;
+  speakNote(reviews ? `리뷰 기다리는 PR이 ${reviews}개 왔어요!` : `우편이 ${fresh.length}통 왔어요`);
+  const badge = $("mail-small");
+  badge.classList.remove("fresh");
+  void badge.offsetWidth;
+  badge.classList.add("fresh");
+  fx("hop");
+}
+
+function speakNote(msg) {
+  const el = $("speech");
+  el.textContent = msg;
+  el.classList.remove("error");
+  setTimeout(render, 6000);
+}
+
+function renderMail() {
+  const on = mailEnabled();
+  const n = mail.items.length;
+  $("mail-btn").classList.toggle("hidden", !on);
+  $("mail-small").classList.toggle("hidden", !on || n === 0);
+  $("mail-count-small").textContent = n > 99 ? "99+" : String(n);
+  $("mail-count").textContent = n > 99 ? "99+" : String(n);
+  $("mail-count").classList.toggle("hidden", n === 0);
+  if (!mailOpen) return;
+  const note = $("mail-note");
+  note.textContent = mail.error || "";
+  note.classList.toggle("hidden", !mail.error);
+  $("mail-readall").disabled = n === 0;
+  if (!n) {
+    const li = document.createElement("li");
+    li.className = "mail-empty";
+    li.textContent = mail.error ? "" : "새 소식이 없어요. 우편함이 조용해요";
+    $("mail-list").replaceChildren(li);
+    return;
+  }
+  $("mail-list").replaceChildren(...mail.items.map((it) => {
+    const li = document.createElement("li");
+    li.className = "item mail-item";
+    li.tabIndex = 0;
+    li.setAttribute("role", "link");
+    const chip = document.createElement("span");
+    chip.className = `mail-chip ${it.category}`;
+    chip.textContent = MAIL_LABEL[it.category];
+    const meta = document.createElement("div");
+    meta.className = "item-meta";
+    const title = document.createElement("span");
+    title.className = "item-name";
+    title.textContent = it.title;
+    const sub = document.createElement("span");
+    sub.className = "item-sub";
+    sub.textContent = `${it.repo}${it.number ? ` #${it.number}` : ""}`;
+    meta.append(title, sub);
+    li.append(chip, meta);
+    const go = () => openMail(it);
+    li.addEventListener("click", go);
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+    return li;
+  }));
+}
+
+// open in the browser and mark it read on GitHub, like clicking it there
+async function openMail(it) {
+  invoke("open_url", { url: it.url }).catch((e) => toast(String(e)));
+  mail.items = mail.items.filter((x) => x.id !== it.id);
+  renderMail();
+  invoke("pr_mark_read", { id: String(it.id) }).catch(() => {});
+}
+
+async function readAllMail() {
+  const ids = mail.items.map((it) => String(it.id));
+  mail.items = [];
+  renderMail();
+  await Promise.all(ids.map((id) => invoke("pr_mark_read", { id }).catch(() => {})));
+  toast("우편함을 비웠어요");
+}
+
+function openMailbox() {
+  closeDress();
+  closeStats();
+  mailOpen = true;
+  $("expanded").classList.add("panel-open");
+  $("mail-panel").classList.remove("hidden");
+  renderMail();
+  pollMail();
+}
+
+function closeMailbox() {
+  mailOpen = false;
+  $("mail-panel").classList.add("hidden");
+  $("expanded").classList.remove("panel-open");
+}
+
 // ---------------------------------------------------------------- notifications
 // One macOS notification per stage until the pet is fed again: hungry, starving, about to run away.
 
@@ -602,6 +738,7 @@ const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 async function openStats() {
   closeDress();
+  closeMailbox();
   const res = await runPet(["stats"]);
   if (!res) return;
   stats = res.result;
@@ -679,6 +816,7 @@ function showTip(d, cx, wd, isToday) {
 
 async function openDress() {
   closeStats();
+  closeMailbox();
   const res = await runPet(["shop"]);
   if (!res) return;
   shop = res.result;
@@ -885,7 +1023,7 @@ $("collapsed").addEventListener("click", () => {
   setExpanded(true);
 });
 
-$("collapse").addEventListener("click", () => { closeDress(); closeStats(); setExpanded(false); });
+$("collapse").addEventListener("click", () => { closeDress(); closeStats(); closeMailbox(); setExpanded(false); });
 $("feed").addEventListener("click", feed);
 $("dress").addEventListener("click", openDress);
 $("dress-close").addEventListener("click", closeDress);
@@ -905,11 +1043,20 @@ $("fx-large").addEventListener("click", () => {
 });
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (shop) closeDress(); else if (stats) closeStats(); else setExpanded(false);
+  if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else setExpanded(false);
 });
-window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); setExpanded(false); } });
+window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); closeMailbox(); setExpanded(false); } });
 
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
+$("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
+$("mail-close").addEventListener("click", closeMailbox);
+$("mail-readall").addEventListener("click", readAllMail);
+$("mail-small").addEventListener("click", (e) => {
+  e.stopPropagation();                      // don't also count as a click on the pet
+  if (dragged) { dragged = false; return; }
+  setExpanded(true).then(openMailbox);
+});
+setInterval(pollMail, 5 * 60 * 1000);
 setInterval(render, 10 * 1000);
 scheduleBlink();
 setInterval(() => { if (petMood === "sleep") burst("z", 1); }, 1800);   // bars visibly tick down between file updates
