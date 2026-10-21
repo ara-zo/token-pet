@@ -296,6 +296,24 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .dex-tag { flex: none; font-family: var(--pixel); font-size: 9px; color: var(--sub); }
 .item.dex.equipped .dex-tag { color: var(--mood); }
 
+/* coin rain on earn */
+.coin-drop {
+  position: absolute; left: 0; top: 0; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  animation: tp-coin-fall var(--dur, .9s) cubic-bezier(.45, 0, .7, 1) var(--d, 0s) both;
+}
+.coin-drop svg { width: 10px; height: 10px; display: block; shape-rendering: crispEdges;
+  animation: tp-coin-spin .32s steps(2) infinite; }
+.expanded-view .coin-drop, .expanded-view .coin-drop svg { width: 12px; height: 12px; }
+@keyframes tp-coin-fall {
+  0% { transform: translate(var(--x0), -14px); opacity: 0; }
+  12% { opacity: 1; }
+  68% { transform: translate(var(--tx), var(--ty)); }
+  80% { transform: translate(var(--tx), calc(var(--ty) - 7px)); }
+  90% { transform: translate(var(--tx), var(--ty)); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(.3); opacity: 0; }
+}
+@keyframes tp-coin-spin { 50% { transform: scaleX(.35); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

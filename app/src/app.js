@@ -281,14 +281,42 @@ function scheduleBlink() {
 }
 
 let earnTimer = null;
+// Coins rain into the coin counter on every earn, collapsed or not. More coins for bigger turns.
+const COIN_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>';
+function coinRain(n) {
+  const where = expanded ? "large" : "small";
+  const layer = $(`particles-${where}`);
+  const box = layer.getBoundingClientRect();
+  // collapsed: into the coin pill under the pet. expanded: onto the stage floor
+  const pill = expanded ? null : $("coins-small").parentElement.getBoundingClientRect();
+  const tx = pill ? pill.left - box.left + 10 : box.width / 2;
+  const ty = pill ? pill.top - box.top + 2 : box.height - 26;
+  const count = Math.min(6, Math.max(1, Math.round(Math.log2(n + 1))));
+  const dur = 0.9;
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement("span");
+    c.className = "coin-drop";
+    c.innerHTML = COIN_SVG;
+    const x0 = tx + (Math.random() - 0.5) * (expanded ? 160 : 70);
+    c.style.setProperty("--x0", `${x0}px`);
+    c.style.setProperty("--tx", `${tx + (expanded ? (Math.random() - 0.5) * 90 : (Math.random() - 0.5) * 8)}px`);
+    c.style.setProperty("--ty", `${ty}px`);
+    c.style.setProperty("--d", `${i * 0.12}s`);
+    c.style.setProperty("--dur", `${dur}s`);
+    c.addEventListener("animationend", (e) => { if (e.target === c) c.remove(); });
+    layer.append(c);
+  }
+  // the counter bumps as the first coins land
+  setTimeout(() => { pulse($("coins-small").parentElement); pulse($("coins").parentElement); }, dur * 700);
+}
+
 function showEarn(n) {
   const el = $("earn-bubble");
   el.textContent = `+${n}`;
   el.classList.remove("hidden");
   fx("hop", "small");
   earning();
-  pulse($("coins-small").parentElement);
-  pulse($("coins").parentElement);
+  coinRain(n);
   clearTimeout(earnTimer);
   earnTimer = setTimeout(() => el.classList.add("hidden"), 2000);
 }
