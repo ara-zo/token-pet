@@ -1,6 +1,6 @@
 import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
-import { speciesMarkup, itemOffset, formOwnsSlot, anchor } from "./species.js";
+import { speciesMarkup, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
 import { mailLine, eventLine, SPOKEN_EVENTS } from "./lines.js";
 
 const T = window.__TAURI__;
@@ -41,7 +41,7 @@ function spriteMarkup(s) {
   const kind = s.species || "mochi";
   const eq = s.equipped || {};
   const sp = kind !== "mochi" ? speciesMarkup(kind, form) : null;
-  let items = "";
+  let items = "", worn = "";
   for (const slot of ["room", "body", "face", "head"]) {
     const item = eq[slot];
     if (!item || !ITEMS[item] || form === "runaway") continue;
@@ -53,8 +53,12 @@ function spriteMarkup(s) {
     // other species: clothes are cut for mochi's body, hats and glasses move to this head and eyes
     if (slot === "body" || formOwnsSlot(form, slot)) continue;
     const [dx, dy] = itemOffset(kind, slot) || [0, 0];
-    items += dx || dy ? `<g transform="translate(${dx} ${dy})">${ITEMS[item]}</g>` : ITEMS[item];
+    const drawn = dx || dy ? `<g transform="translate(${dx} ${dy})">${ITEMS[item]}</g>` : ITEMS[item];
+    if (slot === "room") items += drawn; else worn += drawn;
   }
+  // a hat on the mole ducks into the hole with it (same clip and motion as its body)
+  items += worn && sp && peeks(kind) && sp.markup.includes("tp-peek-clip")
+    ? `<g clip-path="url(#tp-peek-clip)"><g class="m-peek">${worn}</g></g>` : worn;
   if (sp) return { body: sp.markup, items, grouped: true, wrap: sp.wrap, whole: sp.whole, form, kind };
   return { body: SPRITES[form], items, grouped: false, wrap: "", whole: "", form, kind };
 }

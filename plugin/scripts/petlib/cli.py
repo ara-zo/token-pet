@@ -288,8 +288,8 @@ def _shop_payload(s: dict) -> dict:
         owned = key in s["items_owned"]
         if blocked and not owned:          # shop closed: only what the pet already has, to wear
             continue
-        # starters are listed only where they can be put back on (the default background)
-        if not economy.for_sale(key) and not item.grant and not (owned and item.slot == "bg"):
+        # starters aren't sold: listed once owned, so the closet can take them off and put them back on
+        if not economy.for_sale(key) and not item.grant and not owned:
             continue
         catalog.append({
             "id": key, "name": item.name, "slot": item.slot,

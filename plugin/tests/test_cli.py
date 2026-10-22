@@ -140,7 +140,8 @@ def test_pet_shop_json_catalog(pet_home):
     assert payload["ok"] and payload["result"]["blocked"] is False
     assert payload["result"]["feed_cost"] == economy.FEED_COST
     items = {i["id"]: i for i in payload["result"]["catalog"]}
-    assert "party_hat" not in items                      # free starter item is not for sale
+    # the free starter hat isn't for sale, but it's listed so the closet can take it off
+    assert items["party_hat"]["owned"] and items["party_hat"]["equipped"] and items["party_hat"]["price"] == 0
     assert items["plant"]["owned"] and items["plant"]["equipped"]
     assert items["fedora"] == {"id": "fedora", "name": "중절모", "slot": "head", "price": economy.CATALOG["fedora"].price,
                                "owned": False, "equipped": False, "unlocked": True, "min_level": None,
@@ -151,7 +152,7 @@ def test_pet_shop_json_catalog(pet_home):
         s["form"] = "thug"
     payload = json.loads(cli.main_pet(["shop", "--json"], NOW)[1])
     assert payload["result"]["blocked"] is True
-    assert {i["id"] for i in payload["result"]["catalog"]} == {"plant", "street"}   # only what it can still wear
+    assert {i["id"] for i in payload["result"]["catalog"]} == {"party_hat", "plant", "street"}   # only what it can still wear
 
 
 def test_pet_pat_json(pet_home):

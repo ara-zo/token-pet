@@ -288,6 +288,7 @@ export function itemOffset(key, slot) {
   }
   return [0, 0];
 }
+export function peeks(key) { return !!(MOTION[key] || {}).peek; }
 export function formOwnsSlot(form, slot) { return slot === 'head' ? !!OWN_HEAD[form] : slot === 'face' ? !!OWN_FACE[form] : false; }
 
 // SVG markup for one species in one form. Eyes are grouped (<g class="eyes">) for blinking,
