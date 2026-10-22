@@ -28,6 +28,26 @@ body.expanded #collapsed { display: none; }
   font-family: var(--pixel); font-size: 8px; padding: 4px 6px; border-radius: 10px 10px 2px 10px;
   animation: pop .25s ease-out;
 }
+/* the collapsed pet says something now and then, from a 40px strip the window grows above its head
+   (above the mail band too, when there is one) */
+.collapsed-view.with-talk { height: 160px; }
+.collapsed-view.with-band.with-talk { height: 206px; }
+.collapsed-view.with-talk .mail-bubble { top: 42px; }
+.collapsed-view.with-talk .earn-bubble { top: 42px; }
+.collapsed-view.with-band.with-talk .earn-bubble { top: 88px; }
+.say-bubble {
+  position: absolute; left: 50%; translate: -50% 0; width: max-content; max-width: 112px;
+  z-index: 5; pointer-events: none; text-align: center;
+  background: var(--text); color: var(--bg); font: 700 10px/1.25 var(--sans);
+  padding: 4px 7px; border-radius: 8px; word-break: keep-all;
+  transform-origin: 50% 100%; animation: pop .25s ease-out;
+}
+.say-bubble span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* pointed tail down to the head */
+.say-bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 6px; margin-left: -5px;
+  background: var(--text); clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .coin-pill {
   position: relative; display: flex; align-items: center; gap: 4px; background: var(--bg);

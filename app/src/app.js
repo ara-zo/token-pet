@@ -1,6 +1,7 @@
 import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
 import { speciesMarkup, itemOffset, formOwnsSlot, anchor } from "./species.js";
+import { mailLine, eventLine, SPOKEN_EVENTS } from "./lines.js";
 
 const T = window.__TAURI__;
 const invoke = T.core.invoke;
@@ -13,7 +14,10 @@ const SMALL = { w: 120, h: 120 };
 // Positions are always stored for the 120x120 pet area; the band hangs above it.
 const BAND = 46;
 let bandOn = false;
-const bandH = () => (bandOn ? BAND : 0);
+// While the collapsed pet is talking the window also grows a strip above, so the bubble never covers it.
+const TALK = 40;
+let talkOn = false;
+const bandH = () => (bandOn ? BAND : 0) + (talkOn ? TALK : 0);
 const LARGE = { w: 300, h: 390 };
 const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
@@ -162,6 +166,7 @@ function render() {
   $("level").textContent = `LV.${s.level}`;
   $("speech").textContent = s.speech || "…";
   $("speech").classList.remove("error");
+  sayNewEvent(s);
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
   maybeNotify(s, hunger);
@@ -416,11 +421,13 @@ async function restorePos() {
 async function setExpanded(on) {
   if (on === expanded) return;
   expanded = on;
+  const above = bandH();
+  if (on) hideSay();                        // the expanded view shows the speech itself
   try {
     const here = await currentPos();
     let target, petArea;
     if (on) {
-      collapsedPos = { x: here.x, y: here.y + bandH() };          // the pet area, below any band
+      collapsedPos = { x: here.x, y: here.y + above };            // the pet area, below any band
       movedWhileExpanded = false;
       target = await clampToMonitor(
         { x: here.x + SMALL.w - LARGE.w, y: collapsedPos.y + SMALL.h - LARGE.h }, LARGE);
@@ -691,12 +698,73 @@ async function doPollMail() {
 
 // No macOS notification: the pet says it and hops, and the bubble rings.
 function announceMail(fresh) {
-  speakNote(`새 PR이 ${fresh.length}개 왔어요!`);
+  speakNote(mailLine(state ? state.form : "base", "fresh", fresh.length));
   const badge = $("mail-small");
   badge.classList.remove("fresh");
   void badge.offsetWidth;
   badge.classList.add("fresh");
   fx("hop");
+}
+
+// The collapsed pet talks now and then: right away when something happens (a thug takes its cut,
+// an evolution, a level-up), otherwise its current line every few minutes. The bubble sits above
+// the pet's head, in a strip the window grows for it. The expanded view already shows the same speech.
+let lastEventAt = null;
+let sayTimer = null;
+async function say(text, ms = 5000) {
+  if (!text || expanded || walkingOut) return;
+  clearTimeout(sayTimer);
+  await setTalk(true);
+  if (expanded) return;
+  const el = $("say-small");
+  $("say-text").textContent = text;
+  el.classList.remove("hidden");
+  // the tail sits just above whatever is drawn highest (a hat, ears), not the top of the sprite box
+  const host = $("collapsed").getBoundingClientRect();
+  const svg = $("sprite-small");
+  const r = svg.getBoundingClientRect();
+  let top = r.top;
+  try { top = r.top + svg.getBBox().y * (r.height / svg.viewBox.baseVal.height); } catch (e) {}
+  el.style.bottom = `${Math.round(host.bottom - top + 9)}px`;
+  el.style.animation = "none";
+  void el.offsetWidth;
+  el.style.animation = "";
+  sayTimer = setTimeout(hideSay, ms);
+}
+
+function hideSay() {
+  clearTimeout(sayTimer);
+  $("say-small").classList.add("hidden");
+  setTalk(false);
+}
+
+// Grow or drop the talk strip above the collapsed pet, keeping the pet where it is on screen.
+async function setTalk(on) {
+  if (on === talkOn) return;
+  talkOn = on;
+  $("collapsed").classList.toggle("with-talk", on);
+  if (expanded) return;
+  try {
+    const here = await currentPos();
+    await win.setSize(new LogicalSize(SMALL.w, SMALL.h + bandH()));
+    await win.setPosition(new LogicalPosition(here.x, here.y + (on ? -TALK : TALK)));
+  } catch (e) {}
+}
+
+function sayNewEvent(s) {
+  const evs = s.events || [];
+  const newest = evs.length ? evs[evs.length - 1].at : "";
+  if (lastEventAt !== null && newest !== lastEventAt) {
+    const since = lastEventAt ? new Date(lastEventAt).getTime() : 0;
+    const ev = evs.filter((e) => SPOKEN_EVENTS.has(e.type) && new Date(e.at).getTime() > since).pop();
+    if (ev && Date.now() - new Date(ev.at).getTime() < 2 * 60 * 1000) say(eventLine(ev, s.form), 6000);
+  }
+  lastEventAt = newest;                    // nothing from before launch is said
+}
+
+function chatter() {
+  if (state && !document.hidden) say(state.speech);
+  setTimeout(chatter, (4 + Math.random() * 3) * 60 * 1000);
 }
 
 function speakNote(msg) {
@@ -730,7 +798,7 @@ function renderMail() {
   $("collapsed").classList.toggle("review", reviews > 0);
   $("mail-letter").classList.toggle("hidden", !on || n === 0);
   const shown = n > 99 ? "99+" : n;
-  const full = `안 읽은 PR이 ${shown}개 있어요!`;
+  const full = mailLine(state ? state.form : "base", reviews > 0 ? "review" : "wait", shown);
   $("mail-count-small").textContent = full;
   $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
   setBand(on && n > 0);
@@ -1253,6 +1321,7 @@ setInterval(() => {
 }, 10 * 1000);
 setInterval(render, 10 * 1000);
 scheduleBlink();
+setTimeout(chatter, 2 * 60 * 1000);
 setInterval(() => { if (petMood === "sleep") burst("z", 1); }, 1800);   // bars visibly tick down between file updates
 restorePos();
 load();
