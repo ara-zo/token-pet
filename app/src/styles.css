@@ -319,7 +319,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes tp-flashover { 0%, 55% { opacity: 0; } 62% { opacity: .9; } 100% { opacity: 0; } }
 
 /* 도감 tab */
-.tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .dress-note.hint { color: var(--sub); }
 .item.dex .item-icon { background: #1C1A2E; }
 .item-icon.silhouette rect { fill: #3A3660; }
@@ -518,6 +518,30 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .sprite[data-form="vacation"] .zz { animation: tp-zz 2.4s ease-in-out infinite; }
 .sprite[data-form="vacation"] .sign-star { animation: tp-zz 1.8s steps(2) infinite; }
 @keyframes tp-zz { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
+/* coming back from the hotel: each species' entrance (design board "휴가 모드 · 종족별 모습"), played once */
+@keyframes rb-mochi{0%{transform:translateY(26px) scale(.35);opacity:0}10%{opacity:1}22%{transform:translateY(0) scale(1.12,.88)}32%{transform:translateY(-16px) scale(.94,1.06)}42%{transform:translateY(0) scale(1.1,.9)}50%{transform:translateY(-6px)}58%,100%{transform:none}}
+@keyframes rb-squirrel{0%{transform:translateX(-80px)}9%{transform:translateX(56px)}10%{transform:translateX(56px) scaleX(-1)}19%{transform:translateX(-56px) scaleX(-1)}20%{transform:translateX(-56px)}29%{transform:translateX(56px)}30%{transform:translateX(56px) scaleX(-1)}39%{transform:translateX(0) scaleX(-1)}40%{transform:translateX(0)}45%{transform:scale(1.18,.8)}51%{transform:translateY(-8px)}57%,100%{transform:none}}
+@keyframes rb-mole{0%,22%{transform:translateY(70px)}38%{transform:translateY(-6px)}44%{transform:translateY(3px)}50%{transform:translateY(-2px)}55%,100%{transform:none}}
+@keyframes rb-robot{0%{transform:translateX(-64px)}8%{transform:translateX(-50px) rotate(-5deg)}16%{transform:translateX(-36px) rotate(5deg)}24%{transform:translateX(-22px) rotate(-5deg)}32%{transform:translateX(-8px) rotate(5deg)}38%{transform:translateX(0) rotate(0)}42%{transform:translateY(2px) scale(1.04,.96)}46%{transform:translateY(-3px)}50%,100%{transform:none}}
+@keyframes rb-penguin{0%{transform:translateX(-90px) rotate(-90deg)}30%{transform:translateX(0) rotate(-90deg)}36%{transform:translateX(6px) rotate(-90deg)}46%{transform:translateY(-8px) rotate(8deg)}52%{transform:rotate(-4deg)}58%,100%{transform:none}}
+@keyframes rb-hamster{0%{transform:translateX(-80px) rotate(-720deg)}34%{transform:translateX(0) rotate(0)}40%{transform:scale(1.2)}46%{transform:scale(.92)}52%{transform:scale(1.06)}58%,100%{transform:none}}
+@keyframes rb-rabbit{0%,24%{transform:none}32%{transform:scale(1.12,.78)}42%{transform:translateY(-22px) rotate(-10deg)}48%{transform:translateY(-22px) rotate(10deg)}56%{transform:translateY(0) scale(1.1,.9)}62%,100%{transform:none}}
+@keyframes fx-pop{0%,40%{opacity:0;transform:scale(0)}48%{opacity:1;transform:scale(1.3)}70%{opacity:1;transform:scale(1)}90%,100%{opacity:0}}
+@keyframes fx-dirt{0%,30%{opacity:0;transform:translateY(8px) scale(0)}40%{opacity:1;transform:translateY(-4px) scale(1.2)}70%{opacity:.8;transform:translateY(0) scale(1)}90%,100%{opacity:0}}
+@keyframes fx-rise{0%,36%{opacity:0;transform:translateY(10px) scale(.5)}44%{opacity:1;transform:translateY(0) scale(1)}80%{opacity:.6;transform:translateY(-14px) scale(1.4)}95%,100%{opacity:0;transform:translateY(-18px) scale(1.5)}}
+@keyframes fx-wave{0%{opacity:0;transform:scale(.4)}6%{opacity:1}22%{opacity:0;transform:scale(1.6)}23%{opacity:0;transform:scale(.4)}28%{opacity:1}44%,100%{opacity:0;transform:scale(1.6)}}
+.pet-fx.rb-mochi { animation: rb-mochi 2s ease-out; } .pet-fx.rb-squirrel { animation: rb-squirrel 2s ease-out; }
+.pet-fx.rb-mole { animation: rb-mole 2s ease-out; } .pet-fx.rb-robot { animation: rb-robot 2s ease-out; }
+.pet-fx.rb-penguin { animation: rb-penguin 2s ease-out; transform-origin: 50% 80%; }
+.pet-fx.rb-hamster { animation: rb-hamster 2s ease-out; transform-origin: 50% 60%; }
+.pet-fx.rb-rabbit { animation: rb-rabbit 2s ease-out; }
+.sprite .ret-fx { transform-box: fill-box; transform-origin: 50% 50%; animation-duration: 2s; animation-timing-function: ease-out; animation-fill-mode: both; }
+.sprite .ret-fx.fx-pop { animation-name: fx-pop; } .sprite .ret-fx.fx-dirt { animation-name: fx-dirt; transform-origin: 50% 100%; }
+.sprite .ret-fx.fx-rise { animation-name: fx-rise; } .sprite .ret-fx.fx-wave { animation-name: fx-wave; transform-origin: 50% 0; }
+.sprite[data-form="vacation"] .tw { animation: tp-zz 2.2s steps(2) infinite; }
+.collapsed-view .pet-fx[class*="rb-"], .stage .pet-fx[class*="rb-"] { overflow: visible; }
+.earn-bubble.mood { background: #6FE3B3; }
+
 .on-vacation .fill { background: #8C87A8 !important; }
 .on-vacation .bar-val { color: #8FB4FF; font-family: var(--sans); font-size: 10px; }
 .on-vacation #feed { background: #8FB4FF; color: var(--bg); }

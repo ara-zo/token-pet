@@ -419,6 +419,10 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 if len(pos) < 2:
                     raise ActionError("무엇을 착용할지 알려줘: /pet equip <id>")
                 r = actions.equip(s, pos[1])
+                if r["slot"] == "hotel":
+                    if vacation.active(s):           # moved hotels: the note says where it is now
+                        s["speech"] = vacation.line(s, "away")
+                    return out(0, f"휴가 숙소를 {economy.CATALOG[r['item']].name}(으)로 정했어요", r, s)
                 return out(0, f"{economy.CATALOG[r['item']].name} 착용 ({r['slot']})", r, s)
             if cmd == "unequip":
                 if len(pos) < 2:

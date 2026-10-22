@@ -1,6 +1,7 @@
-import { SPRITES, ITEMS, OWN_HEADWEAR, hotelMarkup } from "./sprites.js";
+import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
+import { hotelMarkup, returnMove } from "./hotel.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
-import { speciesMarkup, speciesInfo, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
+import { speciesMarkup, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
 import { mailLine, eventLine, SPOKEN_EVENTS } from "./lines.js";
 
 const T = window.__TAURI__;
@@ -25,7 +26,7 @@ const LARGE = { w: 300, h: 390 };
 const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
-const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경" };
+const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경", hotel: "호텔" };
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -46,6 +47,7 @@ const WEEKDAY_KO = "일월화수목금토";
 let returning = false;              // the few hundred ms the pet hops out of the hotel, outfit still off
 let lastAway = null;
 let coinsBefore = null;             // to fly the early-return refund into the coin pill
+let lastHotel = null;
 
 function away(s = state) {
   return !!(s && s.vacation && Date.now() < new Date(s.vacation.until).getTime());
@@ -77,8 +79,7 @@ function vacBlock(s, days) {
 
 function spriteMarkup(s) {
   if (away(s)) {
-    const info = speciesInfo(s.species || "mochi");
-    return { body: hotelMarkup(info ? info.color : undefined), items: "", grouped: true, wrap: "", whole: "",
+    return { body: hotelMarkup((s.equipped || {}).hotel, s.species || "mochi"), items: "", grouped: true, wrap: "", whole: "",
       form: "vacation", kind: s.species || "mochi" };
   }
   const form = SPRITES[s.form] ? s.form : "base";
@@ -273,6 +274,9 @@ function render() {
   if (lastAway !== null && lastAway !== isAway) vacationMove(isAway, s.coins - (coinsBefore ?? s.coins));
   lastAway = isAway;
   coinsBefore = s.coins;
+  const hotel = (s.equipped || {}).hotel;
+  if (isAway && lastHotel !== null && hotel !== lastHotel) { fx("pop"); fx("pop", "large"); }   // the pet moves
+  lastHotel = hotel;
   if (!walkingOut) setSprite(spriteMarkup(s));
   setBackground((s.equipped || {}).bg);
   $("sprite-small").setAttribute("aria-label", s.name);
@@ -773,11 +777,34 @@ function vacationMove(nowAway, refund) {
     fx("pop"); fx("pop", "large");
     return;
   }
+  // the species' own entrance, smiling, with its burst; the outfit comes back when it's over
   returning = true;
-  fx("hop"); fx("hop", "large");
-  burst("sparkle", 10);
-  if (refund > 0) setTimeout(() => showEarn(refund), 300);
-  setTimeout(() => { returning = false; lastMarkup = null; render(); }, 900);
+  const m = returnMove((state && state.species) || "mochi");
+  requestAnimationFrame(() => {
+    for (const [fxId, svgId] of [["fx-small", "sprite-small"], ["fx-large", "sprite-large"]]) {
+      const el = $(fxId);
+      el.classList.remove(m.anim); void el.offsetWidth; el.classList.add(m.anim);
+      const whole = $(svgId).querySelector(".whole");
+      if (whole) whole.insertAdjacentHTML("beforeend", `<g class="ret-eyes">${m.eyes}</g><g class="ret-fx ${m.fx}">${m.fxMarkup}</g>`);
+    }
+  });
+  setTimeout(() => showBadge("기분+10", "mood"), 700);
+  if (refund > 0) setTimeout(() => showEarn(refund), 1300);
+  setTimeout(() => {
+    returning = false;
+    for (const fxId of ["fx-small", "fx-large"]) $(fxId).classList.remove(m.anim);
+    lastMarkup = null;
+    render();
+  }, 2000);
+}
+
+// a short pill at the head's corner without coins flying, e.g. "기분+10"
+function showBadge(text, cls) {
+  const el = $("earn-bubble");
+  el.textContent = text;
+  el.classList.toggle("mood", cls === "mood");
+  el.classList.remove("hidden");
+  setTimeout(() => { el.classList.add("hidden"); el.classList.remove("mood"); }, 1600);
 }
 
 // "업데이트 확인…" in the menu bar: the pet tells how it went
@@ -1269,7 +1296,8 @@ function closeDress() {
 
 // which catalog items each tab shows
 function roomItems() {
-  const wear = shop.catalog.filter((it) => it.slot !== "bg");
+  const wear = shop.catalog.filter((it) => it.slot !== "bg" && it.slot !== "hotel");
+  if (dressTab === "hotel") return shop.catalog.filter((it) => it.slot === "hotel");
   if (dressTab === "wear") return wear.filter((it) => !it.owned);
   if (dressTab === "closet") return wear.filter((it) => it.owned);
   if (dressTab === "bg") return shop.catalog.filter((it) => it.slot === "bg");
@@ -1278,7 +1306,7 @@ function roomItems() {
 
 function cardSub(it) {
   if (it.owned) return it.equipped ? [it.slot === "bg" ? "사용 중" : "착용 중", "on"] : ["보유", "on"];
-  if (!it.unlocked) return [it.grant ? "특별" : `LV.${it.min_level}`, "lock"];
+  if (!it.unlocked) return [it.only || (it.grant ? "특별" : `LV.${it.min_level}`), "lock"];
   return [String(it.price), ""];
 }
 
@@ -1294,7 +1322,8 @@ function itemCard(it, selected) {
   icon.setAttribute("preserveAspectRatio", "xMidYMid slice");
   icon.setAttribute("class", isBg ? "card-icon bg" : "card-icon");
   icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = (isBg ? BACKGROUNDS[it.id] : ITEMS[it.id]) || "";
+  icon.innerHTML = (isBg ? BACKGROUNDS[it.id]
+    : it.slot === "hotel" ? hotelMarkup(it.id, (state && state.species) || "mochi", true) : ITEMS[it.id]) || "";
   const name = document.createElement("span");
   name.className = "card-name";
   name.textContent = it.name;
@@ -1313,11 +1342,12 @@ function itemCard(it, selected) {
 function roomAction(it) {
   if (!it) return ["골라 주세요", null, false];
   if (it.owned) {
+    if (it.slot === "hotel") return it.equipped ? ["사용 중", null, true] : ["이 호텔 쓰기", ["equip", it.id], false];
     if (away()) return ["복귀하면 할 수 있어요", null, true];
     if (it.slot === "bg") return it.equipped ? ["사용 중", null, true] : ["이 배경 쓰기", ["equip", it.id], false];
     return it.equipped ? [`${it.name} 벗기`, ["unequip", it.slot], true] : [`${it.name} 입히기`, ["equip", it.id], false];
   }
-  if (!it.unlocked) return [it.grant || `Lv.${it.min_level}에 열려요`, null, true];
+  if (!it.unlocked) return [it.only ? `${it.only} 살 수 있어요` : it.grant || `Lv.${it.min_level}에 열려요`, null, true];
   if (shop.blocked) return ["상점이 봉쇄됐어요", null, true];
   if (state.coins < it.price) return [`${(it.price - state.coins).toLocaleString()}코인 부족`, null, true];
   return [`${it.name} 구매 -${it.price}`, ["buy", it.id], false];
