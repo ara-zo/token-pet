@@ -2,9 +2,13 @@ name: release-widget
 
 # Tag vX.Y.Z → builds the desktop widget (universal macOS) and attaches
 # Token-Pet-macos.zip to the release. `/pet widget install` downloads that asset.
+# A tag build can only restore caches saved on main, so main also builds (without releasing)
+# whenever the widget's Rust dependencies (or this file) change, to keep that cache warm.
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths: ["app/src-tauri/Cargo.lock", "app/src-tauri/Cargo.toml", ".github/workflows/release-widget.yml"]
 
 permissions:
   contents: write
@@ -17,6 +21,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,11 +31,13 @@ jobs:
         working-directory: app
         run: npx -y @tauri-apps/cli@2 build --target universal-apple-darwin --bundles app,dmg
       - name: Package
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd app/src-tauri/target/universal-apple-darwin/release/bundle
           ditto -c -k --keepParent "macos/Token Pet.app" "$GITHUB_WORKSPACE/Token-Pet-macos.zip"
           cp dmg/*.dmg "$GITHUB_WORKSPACE/Token-Pet-macos.dmg"
       - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
