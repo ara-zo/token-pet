@@ -1,16 +1,20 @@
-"""Desktop widget (app/): find it, launch it on session start, install it from GitHub Releases."""
+"""Desktop widget (app/): find it, launch it on session start, install and update it from GitHub Releases."""
 from __future__ import annotations
 
 import os
+import plistlib
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
 APP_NAME = "Token Pet.app"
 RELEASE_URL = "https://github.com/ara-zo/token-pet/releases/latest/download/Token-Pet-macos.zip"
+LATEST_URL = "https://github.com/ara-zo/token-pet/releases/latest"     # redirects to .../tag/vX.Y.Z
 
 
 def _candidates() -> list:
@@ -36,11 +40,42 @@ def launch(app: Optional[Path] = None) -> bool:
     return True
 
 
-def install() -> Path:
-    """Download the latest release into ~/Applications and launch it. Raises RuntimeError with a user-facing message."""
+def _version_tuple(v: str) -> tuple:
+    return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+
+
+def installed_version(app: Path) -> Optional[str]:
+    try:
+        with open(app / "Contents" / "Info.plist", "rb") as f:
+            return plistlib.load(f).get("CFBundleShortVersionString")
+    except (OSError, ValueError):
+        return None
+
+
+def latest_version() -> Optional[str]:
+    """Tag of the latest release, read from the redirect so no API token or rate limit is involved."""
+    r = subprocess.run(["curl", "-fsSI", "--max-time", "10", LATEST_URL], capture_output=True, text=True)
+    m = re.search(r"^location:.*/tag/v?([\w.]+)\s*$", r.stdout, re.I | re.M)
+    return m.group(1) if m else None
+
+
+def _quit_running() -> None:
+    """Quit the widget and wait for it to exit; `open` on a still-quitting app does nothing."""
+    subprocess.run(["osascript", "-e", 'quit app "Token Pet"'], capture_output=True)
+    for _ in range(50):
+        if subprocess.run(["pgrep", "-f", APP_NAME + "/Contents/MacOS/"], capture_output=True).returncode != 0:
+            return
+        time.sleep(0.1)
+
+
+def install(dest_dir: Optional[Path] = None) -> Path:
+    """Download the latest release and launch it. Replaces an installed copy in place (so login items keep
+    pointing at it), else goes to ~/Applications. Raises RuntimeError with a user-facing message."""
     if sys.platform != "darwin":
         raise RuntimeError("위젯은 macOS에서만 돼요")
-    dest_dir = Path.home() / "Applications"
+    if dest_dir is None:
+        current = find_app()
+        dest_dir = current.parent if current else Path.home() / "Applications"
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = os.path.join(tmp, "widget.zip")
         r = subprocess.run(["curl", "-fsSL", "-o", zip_path, RELEASE_URL], capture_output=True, text=True)
@@ -53,9 +88,24 @@ def install() -> Path:
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / APP_NAME
         if dest.exists():
+            _quit_running()
             shutil.rmtree(dest)
         shutil.move(str(src), str(dest))
     # unsigned build: drop the quarantine flag so Gatekeeper doesn't block the first open
     subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(dest)], capture_output=True)
     launch(dest)
     return dest
+
+
+def update() -> Optional[tuple]:
+    """Install the latest release over an older installed widget. Returns (old, new) when it updated."""
+    app = find_app()
+    if app is None:
+        raise RuntimeError("위젯이 설치돼 있지 않아요. /pet widget install 로 설치해 주세요")
+    have, latest = installed_version(app), latest_version()
+    if latest is None:
+        raise RuntimeError("최신 버전을 확인하지 못했어요. 네트워크를 확인해 주세요")
+    if have and _version_tuple(have) >= _version_tuple(latest):
+        return None
+    install(app.parent)
+    return (have, latest)

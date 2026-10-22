@@ -275,7 +275,9 @@ def test_session_start_widget_launches_or_installs_once_a_day(pet_home, monkeypa
     launched = []
     monkeypatch.setattr(widget, "launch", lambda app=None: launched.append(1) or True)
     cli._session_start_widget(at(21, 10))
-    assert launched and len(spawned) == 2
+    assert launched and len(spawned) == 2           # already checked today
+    cli._session_start_widget(at(22, 9))            # installed: next day checks for an update instead
+    assert len(spawned) == 3 and spawned[-1][-2:] == ["widget", "update"]
 
     assert cli.main_pet(["widget", "off"], at(21, 11))[0] == 0
     launched.clear()
@@ -312,3 +314,19 @@ def test_pr_inbox_setting_is_off_by_default_and_toggles(pet_home):
     assert code == 0 and store.load()["settings"]["pr_inbox"] is False
     code, text = cli.main_pet(["pr"], NOW)
     assert code == 0 and "꺼져" in text
+
+
+def test_widget_update_only_when_newer(monkeypatch, tmp_path):
+    from petlib import widget
+    import plistlib
+    app = tmp_path / widget.APP_NAME
+    (app / "Contents").mkdir(parents=True)
+    with open(app / "Contents" / "Info.plist", "wb") as f:
+        plistlib.dump({"CFBundleShortVersionString": "0.2.0"}, f)
+    monkeypatch.setattr(widget, "find_app", lambda: app)
+    installed = []
+    monkeypatch.setattr(widget, "install", lambda dest_dir=None: installed.append(dest_dir) or app)
+    monkeypatch.setattr(widget, "latest_version", lambda: "0.2.0")
+    assert widget.update() is None and not installed
+    monkeypatch.setattr(widget, "latest_version", lambda: "0.10.0")       # numeric, not string compare
+    assert widget.update() == ("0.2.0", "0.10.0") and installed == [tmp_path]

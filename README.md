@@ -58,7 +58,7 @@ Claude Code 안에서:
 | `/pet reset --confirm` | 지금 돌보는 펫만 새로 시작 (코인·옷장·도감·쉬는 펫은 유지) |
 | `/pet pr on` / `off` | 위젯에 내 리뷰를 기다리는 PR 알림 켜기·끄기 (gh 로그인 필요. 기본은 꺼짐) |
 | `/pet setup` | 상태표시줄 설정 |
-| `/pet widget [on\|off\|install]` | 데스크톱 위젯 상태·자동 실행 켜고 끄기·설치 |
+| `/pet widget [on\|off\|install\|update]` | 데스크톱 위젯 상태·자동 실행 켜고 끄기·설치·업데이트 |
 
 ## 규칙
 
@@ -78,7 +78,7 @@ Claude Code 안에서:
 
 ## 데스크톱 위젯
 
-`app/`의 Tauri 앱은 화면 구석에 펫을 띄운다. 플러그인을 설치하고 첫 세션을 시작하면 GitHub Releases에서 위젯을 받아 `~/Applications`에 설치하고 바로 띄운다(백그라운드, 하루 한 번까지 재시도). 그 뒤로는 로그인할 때와 Claude Code 세션을 시작할 때 저절로 뜬다. 끄려면 `/pet widget off`, 직접 설치하려면 `/pet widget install`. 접힌 상태 120×120, 클릭하면 펼쳐져 먹이를 주고 상점에서 꾸밀 수 있다. 플러그인이 쓰는 `state.json`을 감시해서 읽기만 하고, 먹이주기·구매·착용은 플러그인 스크립트를 호출한다. 빌드는 `app/README.md` 참고. 없어도 플러그인만으로 전부 동작한다.
+`app/`의 Tauri 앱은 화면 구석에 펫을 띄운다. 플러그인을 설치하고 첫 세션을 시작하면 GitHub Releases에서 위젯을 받아 `~/Applications`에 설치하고 바로 띄운다(백그라운드, 하루 한 번까지 재시도). 그 뒤로는 로그인할 때와 Claude Code 세션을 시작할 때 저절로 뜬다. 하루 한 번 새 릴리스가 있는지 보고 있으면 그 자리에서 바꿔 끼운다. 끄려면 `/pet widget off`, 직접 설치하려면 `/pet widget install`, 바로 업데이트하려면 `/pet widget update`. 접힌 상태 120×120, 클릭하면 펼쳐져 먹이를 주고 상점에서 꾸밀 수 있다. 플러그인이 쓰는 `state.json`을 감시해서 읽기만 하고, 먹이주기·구매·착용은 플러그인 스크립트를 호출한다. 빌드는 `app/README.md` 참고. 없어도 플러그인만으로 전부 동작한다.
 
 ## 구조
 

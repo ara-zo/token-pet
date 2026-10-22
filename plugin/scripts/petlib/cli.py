@@ -12,7 +12,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -188,8 +188,14 @@ def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
         except RuntimeError as e:
             return 2, str(e)
         return 0, f"위젯을 설치하고 띄웠어요 ({path}). 다음부터는 로그인할 때 저절로 떠요"
+    if sub == "update":
+        try:
+            r = widget.update()
+        except RuntimeError as e:
+            return 2, str(e)
+        return 0, (f"위젯을 {r[0] or '?'} → {r[1]} 로 업데이트하고 다시 띄웠어요" if r else "위젯이 이미 최신이에요")
     if sub:
-        return 2, "사용법: /pet widget [on|off|install]"
+        return 2, "사용법: /pet widget [on|off|install|update]"
     app = widget.find_app()
     on = store.load(now)["settings"]["widget"] if store.state_path().exists() else True
     where = f"설치됨: {app}" if app else "설치 안 됨. /pet widget install 로 설치해요"
@@ -197,23 +203,23 @@ def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
 
 
 def _session_start_widget(now: dt.datetime) -> None:
-    """Bring the desktop widget up with the session; install it in the background on first use (once a day at most)."""
+    """Bring the desktop widget up with the session; install or update it in the background (once a day at most)."""
     if os.environ.get("TOKEN_PET_NO_WIDGET") or sys.platform != "darwin":
         return
     with store.transaction(now) as s:
         cfg = s["settings"]
         if not cfg["widget"]:
             return
-        if widget.launch():
-            return
+        installed = widget.launch()
+        # once a day: install it if missing, else check for a newer release
         today_key = clock.day_key(now)
         if cfg.get("widget_install_tried") == today_key:
             return
         cfg["widget_install_tried"] = today_key
     import subprocess
     script = Path(__file__).resolve().parent.parent / "pet.py"
-    subprocess.Popen([sys.executable, str(script), "widget", "install"], stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True)
+    subprocess.Popen([sys.executable, str(script), "widget", "update" if installed else "install"],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def _shop_payload(s: dict) -> dict:
