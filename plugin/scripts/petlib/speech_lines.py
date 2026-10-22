@@ -799,7 +799,7 @@ SPECIES_LINES = {
 
 # Vacation at the 토키 호텔: leaving, the note while away (narration), coming back, brought back early.
 VACATION = {
-    "mochi": {"leave": "다녀올게! 호텔 조식이 맛있대~", "away": "(토키 호텔 202호에서 꿀잠 중…)",
+    "mochi": {"leave": "다녀올게! 호텔 조식이 맛있대~", "away": "({hotel} 202호에서 꿀잠 중…)",
               "back": "다녀왔어! 푹 쉬었다~", "early": "벌써? 보고 싶었구나!"},
     "squirrel": {"leave": "끼양!! 휴가다!! 우다다 갔다 올게!!", "away": "(호텔 수영장을 백 바퀴째 돌고 있다)",
                  "back": "끼양!! 돌아왔다!! 꼬리 결정 반짝반짝!!", "early": "흐랏?! 벌써?! 좋아!! 우다다 간다!!"},
@@ -813,6 +813,14 @@ VACATION = {
                 "back": "근데근데 호텔 조식 맛있었어 볼에 좀 싸 왔어", "early": "근데근데 간식 다 못 먹고 왔는데 괜찮아 보고 싶었어"},
     "rabbit": {"leave": "주인도 좀 쉬어야 한다는 신호야. 나 먼저 간다.", "away": "(호텔 옥상 안테나가 주인 쪽을 향해 있다)",
                "back": "주인 신호 계속 듣고 있었어. 잘 지냈네.", "early": "부르는 신호 왔어. 바로 왔어."},
+}
+
+# A few species fit some hotels better: their note while away (design board "휴가 모드 · 호텔 상점").
+VACATION_HOTEL_NOTES = {
+    ("penguin", "space_hotel"): "(우주 호텔 창으로 진짜 별을 보고 있다)",
+    ("mole", "mushroom_inn"): "(버섯 여관 밑으로 굴을 파고 있다)",
+    ("robot", "space_hotel"): "보고: 무중력 충전 중.",
+    ("hamster", "beach_resort"): "근데근데 코코넛 볼에 안 들어가",
 }
 
 # Refusal when today's pats are used up: whatever the form, the species says it.

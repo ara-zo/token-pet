@@ -103,3 +103,27 @@ def test_statusline_shows_the_hotel():
     vacation.start(s, NOW, "3")
     line = render.statusline(s, {}, at(25, 9))
     assert "휴가 중" in line and "D-2" in line and "10/27 복귀" in line
+
+
+def test_hotels_buy_choose_and_notes():
+    from petlib import actions, economy
+    s = st(coins=5000, species="penguin")
+    assert s["equipped"]["hotel"] == "toki_hotel"
+    actions.buy(s, NOW, "space_hotel")
+    with pytest.raises(ActionError, match="재벌만"):
+        actions.buy(s, NOW, "golden_hotel")
+    s["form"] = "tycoon"
+    actions.buy(s, NOW, "golden_hotel")
+    s["form"] = "base"
+    vacation.start(s, NOW, "2")
+    actions.equip(s, "space_hotel")                 # can move hotels while away
+    assert vacation.line(s, "away") == "(우주 호텔 창으로 진짜 별을 보고 있다)"
+    with pytest.raises(ActionError, match="호텔에 묵고"):
+        actions.equip(s, "party_hat")
+    with pytest.raises(ActionError, match="하나는 있어야"):
+        actions.unequip(s, "hotel")
+    m = st(species="mochi")
+    m["equipped"]["hotel"] = "snow_lodge"
+    m["items_owned"].append("snow_lodge")
+    assert vacation.line(m, "away") == "(눈 산장 202호에서 꿀잠 중…)"
+    assert economy.bought_count(st()) == 1          # the starter hat as before; the free hotel adds nothing

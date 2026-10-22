@@ -39,10 +39,11 @@ BURNOUT_DAYS = 2
 @dataclass(frozen=True)
 class Item:
     name: str
-    slot: str          # head | face | body | room | bg
+    slot: str          # head | face | body | room | bg | hotel
     price: int
     min_level: Optional[int] = None
     grant: Optional[str] = None    # not for sale: handed over by an event, this says which
+    forms: Optional[tuple] = None  # for sale only while the pet has one of these forms
 
 
 CATALOG = {
@@ -60,9 +61,17 @@ CATALOG = {
     "alley": Item("환전소 뒷골목", "bg", 0, grant="불량배 계열만 해금"),
     "two_factories": Item("공장이 두 개인 마을", "bg", 0, grant="가출 후 찾아오면 해금"),
     "mansion": Item("황금 저택", "bg", 0, grant="재벌만 해금"),
+    # hotels: what the widget shows while the pet is on vacation (looks only, the stay is the same)
+    "toki_hotel": Item("토키 호텔", "hotel", 0),
+    "mushroom_inn": Item("버섯 여관", "hotel", 600),
+    "beach_resort": Item("바닷가 리조트", "hotel", 800),
+    "snow_lodge": Item("눈 산장", "hotel", 1000),
+    "space_hotel": Item("우주 호텔", "hotel", 1500),
+    "golden_hotel": Item("황금 호텔", "hotel", 2500, forms=("tycoon",)),
 }
-SLOTS = ("head", "face", "body", "room", "bg")
-STARTER_ITEMS = {"party_hat": "head", "street": "bg"}
+SLOTS = ("head", "face", "body", "room", "bg", "hotel")
+STARTER_ITEMS = {"party_hat": "head", "street": "bg", "toki_hotel": "hotel"}
+FORM_ONLY_KO = {"tycoon": "재벌만"}
 GRANT_ON_FORM = {"thug": "alley", "boss": "alley", "tycoon": "mansion"}
 GRANT_ON_RETURN = "two_factories"
 
@@ -149,7 +158,7 @@ def for_sale(item_id: str) -> bool:
 def bought_count(state: dict) -> int:
     """Item count for spender/influencer: free backgrounds (starter, granted) don't count, as before they existed."""
     return sum(1 for k in state["items_owned"]
-               if not (k in CATALOG and CATALOG[k].slot == "bg" and not for_sale(k)))
+               if not (k in CATALOG and CATALOG[k].slot in ("bg", "hotel") and not for_sale(k)))
 
 
 def bg_bonus(table: dict, state: dict):
@@ -166,6 +175,8 @@ def price(item_id: str, form: str) -> int:
 
 def is_unlocked(item_id: str, state: dict) -> bool:
     item = CATALOG[item_id]
+    if item.forms:
+        return state.get("form") in item.forms
     if state.get("form") == "tycoon":
         return True
     return item.min_level is None or state.get("level", 1) >= item.min_level

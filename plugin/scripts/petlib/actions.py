@@ -75,7 +75,10 @@ def buy(state: dict, now: dt.datetime, item_id: str) -> dict:
         item = economy.CATALOG[item_id]
         raise ActionError(f"{item.name}은(는) 파는 게 아니야" + (f". {item.grant}" if item.grant else ""))
     if not economy.is_unlocked(item_id, state):
-        raise ActionError(f"{economy.CATALOG[item_id].name}은(는) Lv.{economy.CATALOG[item_id].min_level}부터")
+        item = economy.CATALOG[item_id]
+        if item.forms:
+            raise ActionError(f"{item.name}은(는) {economy.FORM_ONLY_KO.get(item.forms[0], '특정 형태만')} 살 수 있어")
+        raise ActionError(f"{item.name}은(는) Lv.{item.min_level}부터")
     cost = economy.price(item_id, form)
     if state["coins"] < cost:
         raise ActionError(f"코인이 모자라. {cost}코인 필요한데 {state['coins']}코인뿐이야")
@@ -97,7 +100,8 @@ def buy(state: dict, now: dt.datetime, item_id: str) -> dict:
 
 
 def equip(state: dict, item_id: str) -> dict:
-    _at_home(state)
+    if item_id not in economy.CATALOG or economy.CATALOG[item_id].slot != "hotel":
+        _at_home(state)               # a hotel can be changed from afar: the pet just moves
     if item_id not in state["items_owned"]:
         raise ActionError("안 갖고 있는 아이템이야")
     slot = economy.CATALOG[item_id].slot
@@ -106,6 +110,8 @@ def equip(state: dict, item_id: str) -> dict:
 
 
 def unequip(state: dict, slot: str) -> dict:
+    if slot == "hotel":
+        raise ActionError("호텔은 하나는 있어야 해. 다른 호텔로 바꿔 줘")
     _at_home(state)
     if slot not in economy.SLOTS:
         raise ActionError(f"슬롯은 {', '.join(economy.SLOTS)} 중 하나")

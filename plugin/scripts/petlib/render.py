@@ -86,6 +86,8 @@ def shop_text(state: dict) -> str:
             mark = "보유"
         elif item.grant:
             mark = item.grant
+        elif item.forms and not economy.is_unlocked(key, state):
+            mark = economy.FORM_ONLY_KO.get(item.forms[0], "특정 형태만")
         elif not economy.is_unlocked(key, state):
             mark = f"Lv.{item.min_level} 해금"
         else:

@@ -40,7 +40,8 @@ def choose(state: dict, now: dt.datetime, situation: Optional[str] = None, **fmt
             return ev["text"]
         break
     if state.get("vacation"):
-        return (L.VACATION.get(state.get("species", "mochi")) or L.VACATION["mochi"])["away"]
+        from . import vacation
+        return vacation.line(state, "away")
     form = state["form"]
     night = clock.period(now) == "night"
     fmt = {"mood": round(state["mood"]), "fuel": round(state["hunger"]), **fmt}

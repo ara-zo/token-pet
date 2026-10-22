@@ -63,16 +63,26 @@ def _add_month_days(state: dict, key: str, n: int) -> None:
         del days[k]
 
 
+def hotel(state: dict) -> str:
+    key = state["equipped"].get("hotel") or "toki_hotel"
+    return economy.CATALOG[key].name if key in economy.CATALOG else "토키 호텔"
+
+
 def line(state: dict, kind: str) -> str:
-    lines = speech_lines.VACATION.get(state.get("species", "mochi")) or speech_lines.VACATION["mochi"]
-    return lines[kind]
+    sp = state.get("species", "mochi")
+    if kind == "away":
+        special = speech_lines.VACATION_HOTEL_NOTES.get((sp, state["equipped"].get("hotel")))
+        if special:
+            return special
+    lines = speech_lines.VACATION.get(sp) or speech_lines.VACATION["mochi"]
+    return lines[kind].replace("{hotel}", hotel(state))
 
 
 def refused(state: dict) -> str:
     """What /pet feed and friends say while the pet is at the hotel."""
     vac = active(state)
     until = clock.parse(vac["until"])
-    return (f"{clock.josa(state['name'], '은/는')} 토키 호텔에 묵고 있어요. {short_when(until)} 복귀 · "
+    return (f"{clock.josa(state['name'], '은/는')} {hotel(state)}에 묵고 있어요. {short_when(until)} 복귀 · "
             f"일찍 데려오려면 /pet vacation end")
 
 
@@ -130,7 +140,7 @@ def status_text(state: dict, now: dt.datetime) -> str:
     if not vac:
         left = MONTH_DAYS - used_this_month(state, now)
         return (f"{clock.josa(name, '은/는')} 집에 있어요\n"
-                f"  /pet vacation <1~{MAX_DAYS}> 로 토키 호텔에 보낼 수 있어요\n"
+                f"  /pet vacation <1~{MAX_DAYS}> 로 {hotel(state)}에 보낼 수 있어요\n"
                 f"  숙박비 하루 {FEE_PER_DAY}코인 · 이번 달 남은 휴가 {max(0, left)}일")
     since, until = clock.parse(vac["since"]), clock.parse(vac["until"])
     return (f"🏖 {name} 휴가 중 · {d_label(state, now)}\n"

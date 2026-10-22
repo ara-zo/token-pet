@@ -302,6 +302,7 @@ def _shop_payload(s: dict) -> dict:
             "unlocked": economy.is_unlocked(key, s) and (economy.for_sale(key) or owned),
             "min_level": item.min_level,
             "grant": item.grant,
+            "only": economy.FORM_ONLY_KO.get(item.forms[0], "특정 형태만") if item.forms else None,
         })
     return {"blocked": blocked, "feed_cost": economy.FEED_COST, "catalog": catalog}
 
@@ -378,7 +379,7 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                     except vacation.VacationError as e:
                         raise ActionError(str(e))
                     until = clock.parse(r["until"])
-                    msg = (f"🏖 {clock.josa(s['name'], '을/를')} 토키 호텔에 맡겼어요\n"
+                    msg = (f"🏖 {clock.josa(s['name'], '을/를')} {vacation.hotel(s)}에 맡겼어요\n"
                            f"  복귀 {vacation.when(until)} · 숙박비 -{r['fee']}코인 (🪙 {r['coins']:,})\n"
                            f"  맡긴 동안 배고픔 · 기분은 그대로, 진화 · 가출은 멈춰요\n"
                            f"  코인은 안 쌓여요 (공장 쉼)\n"

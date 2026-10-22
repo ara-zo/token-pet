@@ -145,14 +145,14 @@ def test_pet_shop_json_catalog(pet_home):
     assert items["plant"]["owned"] and items["plant"]["equipped"]
     assert items["fedora"] == {"id": "fedora", "name": "중절모", "slot": "head", "price": economy.CATALOG["fedora"].price,
                                "owned": False, "equipped": False, "unlocked": True, "min_level": None,
-                               "grant": None}
+                               "grant": None, "only": None}
     assert items["crown"]["unlocked"] is False and items["crown"]["min_level"] == 5
 
     with store.transaction(NOW, tick=False) as s:
         s["form"] = "thug"
     payload = json.loads(cli.main_pet(["shop", "--json"], NOW)[1])
     assert payload["result"]["blocked"] is True
-    assert {i["id"] for i in payload["result"]["catalog"]} == {"party_hat", "plant", "street"}   # only what it can still wear
+    assert {i["id"] for i in payload["result"]["catalog"]} == {"party_hat", "plant", "street", "toki_hotel"}   # only what it can still wear
 
 
 def test_pet_pat_json(pet_home):

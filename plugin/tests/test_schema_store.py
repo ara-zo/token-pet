@@ -16,8 +16,8 @@ EXPECTED_KEYS = {
 
 def test_new_state_keys(state):
     assert set(state.keys()) == EXPECTED_KEYS
-    assert state["items_owned"] == ["party_hat", "street"]
-    assert state["equipped"] == {"head": "party_hat", "bg": "street"}
+    assert state["items_owned"] == ["party_hat", "street", "toki_hotel"]
+    assert state["equipped"] == {"head": "party_hat", "bg": "street", "hotel": "toki_hotel"}
     assert state["daily_log"][0]["date"] == "2026-10-20"
 
 
