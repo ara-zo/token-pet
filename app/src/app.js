@@ -237,7 +237,7 @@ function setMood(m) {
 function fx(name, where) {
   const els = where ? [$(`fx-${where}`)] : [$("fx-small"), $("fx-large")];
   for (const el of els) {
-    el.classList.remove("fx-hop", "fx-shake", "fx-pop");
+    el.classList.remove("fx-hop", "fx-shake", "fx-pop", "fx-lookup", "fx-wiggle");
     void el.offsetWidth;                    // restart the animation if it is already running
     el.classList.add(`fx-${name}`);
     el.addEventListener("animationend", () => el.classList.remove(`fx-${name}`), { once: true });
@@ -291,8 +291,9 @@ function scheduleBlink() {
 
 let earnTimer = null;
 // Coins fly into the coin counter on every earn, collapsed or not (more coins for bigger turns).
-// Collapsed: they pop out of the "+N" bubble, arc behind the pet and drop into the coin pill.
+// Collapsed: they pop out of the "+N" bubble, arc in front of the pet and drop into the coin pill.
 // Expanded: they pop up from the pet and arc into the header's coin pill.
+// The pet stretches up to watch them, then wiggles once the last one has landed.
 // x and y are animated on two nested elements (linear x, gravity y) so the path is a parabola.
 const COIN_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="32" height="40" fill="#F5C451"/><rect x="12" y="16" width="40" height="32" fill="#F5C451"/><rect x="24" y="20" width="16" height="24" fill="#D9A33A"/><rect x="28" y="24" width="8" height="16" fill="#F5C451"/></svg>';
 function coinRain(n) {
@@ -309,25 +310,28 @@ function coinRain(n) {
     const c = document.createElement("span");
     c.className = "coin-fly";
     c.innerHTML = `<span class="coin-y">${COIN_SVG}</span>`;
-    const spread = (i - (count - 1) / 2) * 5;
+    const spread = (i - (count - 1) / 2) * (expanded ? 18 : 20);   // fan out sideways
+    // each a different height, but never above the window's top edge (it would get cut off)
+    const lift = Math.max((expanded ? -46 : -14) - (i % 3) * (expanded ? 16 : 12), 6 - from.y);
     c.style.setProperty("--x0", `${from.x + spread}px`);
     c.style.setProperty("--x1", `${icon.x}px`);
     c.style.setProperty("--y0", `${from.y}px`);
     c.style.setProperty("--y1", `${icon.y}px`);
-    c.style.setProperty("--lift", `${expanded ? -46 : -14}px`);
+    c.style.setProperty("--lift", `${lift}px`);
     c.style.setProperty("--d", `${i * 0.11}s`);
     c.style.setProperty("--dur", `${dur}s`);
     c.addEventListener("animationend", (e) => { if (e.target === c) c.remove(); });
     layer.append(c);
     setTimeout(() => pulse(pill), (i * 0.11 + dur) * 1000 - 40);   // a small bump per coin landing
   }
+  fx("lookup", where);
+  setTimeout(() => fx("wiggle", where), ((count - 1) * 0.11 + dur) * 1000);   // after the last coin lands
 }
 
 function showEarn(n) {
   const el = $("earn-bubble");
   el.textContent = `+${n}`;
   el.classList.remove("hidden");
-  fx("hop", "small");
   earning();
   coinRain(n);
   clearTimeout(earnTimer);

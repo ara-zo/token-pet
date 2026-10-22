@@ -146,6 +146,8 @@ body.expanded #collapsed { display: none; }
 .pet-fx.fx-hop { animation: hop .62s cubic-bezier(.3, .7, .4, 1); }
 .pet-fx.fx-shake { animation: shake .45s ease-in-out; }
 .pet-fx.fx-pop { animation: popfx .5s ease-out; }
+.pet-fx.fx-lookup { animation: lookup .7s ease-in-out; }
+.pet-fx.fx-wiggle { animation: wiggle .5s ease-in-out; }
 @keyframes hop {
   0% { transform: none; }
   18% { transform: translateY(2px) scale(1.1, .88); }
@@ -159,6 +161,17 @@ body.expanded #collapsed { display: none; }
   40% { transform: translateX(5px) rotate(4deg); }
   60% { transform: translateX(-3px) rotate(-2deg); }
   80% { transform: translateX(3px) rotate(2deg); }
+}
+/* coin in: stretch up to watch the coins fly, then a happy wiggle once they have all landed */
+@keyframes lookup {
+  0%, 100% { transform: none; }
+  30%, 65% { transform: translateY(-2px) scale(.95, 1.07); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-6deg); }
+  50% { transform: rotate(5deg); }
+  75% { transform: rotate(-3deg); }
 }
 @keyframes popfx { 0%, 100% { transform: none; } 40% { transform: scale(1.12); } }
 
@@ -300,7 +313,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 
 /* coins fly into the coin counter on earn */
 .coinfly { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-#coinfly-small { z-index: 1; }                       /* behind the pet, under the coin pill */
+#coinfly-small { z-index: 4; }                       /* in front of the pet and the coin pill */
 .collapsed-view .pet-fx { z-index: 2; }
 .collapsed-view .coin-pill { z-index: 3; }
 #coinfly-large { z-index: 6; }
