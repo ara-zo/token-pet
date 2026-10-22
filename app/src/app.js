@@ -322,7 +322,6 @@ function render() {
   // Feeding is refused below the cost (loansharks borrow instead): grey the button out so a
   // click never looks like a no-op, and keep the cost visible in red.
   const short = !isAway && s.form !== "loanshark" && s.coins < feedCost;
-  $("dress").textContent = `${s.name}의 방`;
   $("feed").disabled = !isAway && (s.form === "runaway" || short);
   $("feed").classList.toggle("short", short);
   $("feed-label").textContent = isAway ? "일찍 데려오기" : "밥 주기";
