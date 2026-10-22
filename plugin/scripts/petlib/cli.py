@@ -4,6 +4,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -12,7 +14,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -202,6 +204,50 @@ def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
     return 0, f"데스크톱 위젯 · {where} · 세션 시작 시 띄우기 {'켬' if on else '끔'}"
 
 
+PLUGIN_ID = "token-pet@token-pet"
+MARKETPLACE = "token-pet"
+
+
+def _run_claude(*args: str) -> Tuple[bool, str]:
+    claude = shutil.which("claude")
+    if not claude:
+        return False, "claude 명령을 찾지 못했어요"
+    try:
+        r = subprocess.run([claude, *args], capture_output=True, text=True, timeout=180)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+    lines = [ln.strip().lstrip("✔✘ ").strip() for ln in (r.stdout + "\n" + r.stderr).splitlines() if ln.strip()]
+    return r.returncode == 0, (lines[-1] if lines else "")
+
+
+def _update_cmd() -> Tuple[int, str]:
+    """/pet update: the newest plugin from the marketplace and the newest widget release, right now,
+    instead of waiting for Claude Code's own marketplace refresh and the widget's daily check."""
+    out, ok = [], True
+    if _run_claude("plugin", "marketplace", "update", MARKETPLACE)[0]:
+        done, msg = _run_claude("plugin", "update", PLUGIN_ID)
+    else:
+        done, msg = False, "마켓플레이스를 새로 받지 못했어요"
+    ok &= done
+    if not done:
+        out.append(f"플러그인: 업데이트하지 못했어요 ({msg}). Claude Code에서 /plugin 으로 해 주세요")
+    elif "already" in msg:
+        out.append("플러그인: 이미 최신이에요")
+    else:
+        out.append("플러그인: 새 버전을 받았어요. /reload-plugins 하면 이 세션에 바로 적용돼요")
+    if sys.platform == "darwin":
+        try:
+            if widget.find_app() is None:
+                out.append(f"위젯: 설치하고 띄웠어요 ({widget.install()})")
+            else:
+                r = widget.update()
+                out.append(f"위젯: {r[0] or '?'} → {r[1]} 로 업데이트하고 다시 띄웠어요" if r else "위젯: 이미 최신이에요")
+        except RuntimeError as e:
+            ok = False
+            out.append(f"위젯: {e}")
+    return (0 if ok else 2), "\n".join(out)
+
+
 def _plugin_root_changed(plugin_root: Optional[str]) -> bool:
     """True when the hook runs from a different plugin copy than last time: the plugin was updated or reloaded."""
     if not plugin_root or not store.state_path().exists():
@@ -287,6 +333,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
         return out(*_widget_cmd(pos[1] if len(pos) > 1 else "", now))
     if cmd == "pr":
         return out(*_pr_cmd(pos[1] if len(pos) > 1 else "", now))
+    if cmd == "update":
+        return out(*_update_cmd())
 
     try:
         with store.transaction(now) as s:

@@ -357,3 +357,33 @@ def test_plugin_update_triggers_widget_check_right_away(pet_home, monkeypatch):
     assert len(spawned) == 2 and spawned[-1][-2:] == ["widget", "update"]
     hook("collect", "/cache/new")
     assert len(spawned) == 2
+
+
+def test_update_pulls_plugin_and_widget_now(pet_home, monkeypatch):
+    from petlib import widget
+    calls = []
+
+    def fake_claude(*args):
+        calls.append(args)
+        if args[:2] == ("plugin", "update"):
+            return True, 'Plugin "token-pet" updated from 2dd9e40cb2c8 to fc2ca3512e67'
+        return True, "Successfully updated marketplace: token-pet"
+    monkeypatch.setattr(cli, "_run_claude", fake_claude)
+    monkeypatch.setattr(cli.sys, "platform", "darwin")
+    monkeypatch.setattr(widget, "find_app", lambda: Path("/Applications/Token Pet.app"))
+    monkeypatch.setattr(widget, "update", lambda: ("0.3.0", "0.4.0"))
+    code, text = cli.main_pet(["update"], NOW)
+    assert code == 0
+    assert calls == [("plugin", "marketplace", "update", "token-pet"), ("plugin", "update", "token-pet@token-pet")]
+    assert "/reload-plugins" in text and "0.3.0 → 0.4.0" in text
+
+    monkeypatch.setattr(cli, "_run_claude", lambda *a: (True, "token-pet is already at the latest version (fc2ca3512e67)."))
+    monkeypatch.setattr(widget, "update", lambda: None)
+    code, text = cli.main_pet(["update"], NOW)
+    assert code == 0 and "플러그인: 이미 최신" in text and "위젯: 이미 최신" in text
+
+    def no_release():
+        raise RuntimeError("최신 버전을 확인하지 못했어요. 네트워크를 확인해 주세요")
+    monkeypatch.setattr(widget, "update", no_release)
+    code, text = cli.main_pet(["update"], NOW)
+    assert code == 2 and "위젯: 최신 버전을 확인하지 못했어요" in text
