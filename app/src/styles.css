@@ -11,7 +11,7 @@ body { font-family: var(--sans); color: var(--text); user-select: none; -webkit-
 .row { display: flex; align-items: center; justify-content: space-between; }
 .gap8 { gap: 8px; } .gap6 { gap: 6px; }
 .hidden { display: none !important; }
-.sprite { shape-rendering: crispEdges; position: relative; }
+.sprite { shape-rendering: crispEdges; position: relative; overflow: visible; }   /* smoke and hops may leave the box */
 
 /* ---------- collapsed ---------- */
 body.collapsed #expanded { display: none; }

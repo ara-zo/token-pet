@@ -105,8 +105,8 @@ function setSprite(m) {
     const svg = $(id);
     svg.dataset.form = m.form;
     svg.dataset.species = m.kind;
-    // other species reach higher (antennas, chimneys, shifted hats): give them headroom
-    svg.setAttribute("viewBox", m.kind === "mochi" ? "0 0 64 64" : "-8 -14 80 80");
+    // other species reach higher (antennas, chimneys, a hat on a tall head): give them headroom
+    svg.setAttribute("viewBox", m.kind === "mochi" ? "0 0 64 64" : "-14 -30 92 92");
     // everything sits in one group so form motions (sway, droop, nod) move the whole pet
     svg.innerHTML = `<g class="whole ${m.whole}"${m.wrap ? ` style="${m.wrap}"` : ""}>${m.body}</g>`;
     const whole = svg.querySelector(".whole");
