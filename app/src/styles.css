@@ -38,7 +38,7 @@ body.expanded #collapsed { display: none; }
   padding: 4px 7px; border-radius: 8px; word-break: keep-all;
   transform-origin: 50% 100%; animation: pop .25s ease-out;
 }
-.say-bubble span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.say-bubble span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 /* pointed tail down to the head */
 .say-bubble::after {
   content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 6px; margin-left: -5px;
