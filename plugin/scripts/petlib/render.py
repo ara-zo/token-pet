@@ -100,6 +100,8 @@ def _virtual_tick(state: dict, now: dt.datetime) -> dict:
     from . import tick
     import copy
     s = copy.deepcopy(state)
+    if s.get("vacation"):                   # time stands still at the hotel
+        return s
     try:
         for m in clock.midnights_between(clock.parse(s["last_tick_at"]), now):
             tick.decay(s, clock.parse(s["last_tick_at"]), m)
@@ -127,7 +129,12 @@ def statusline(state: Optional[dict], cc: dict, now: dt.datetime) -> str:
     if state is not None:
         s = _virtual_tick(state, now)
         form = economy.FORMS.get(s["form"], economy.FORMS["base"])
-        if s["flags"].get("boss_hijack"):
+        from . import vacation
+        if vacation.active(s) and now < clock.parse(s["vacation"]["until"]):
+            until = clock.parse(s["vacation"]["until"])
+            parts.append(f"🏖 {C['text']}{s['name']} 휴가 중{C['reset']} {C['sub']}· {vacation.d_label(s, now)} "
+                         f"({until.month}/{until.day} 복귀){C['reset']} {C['coin']}🪙{s['coins']:,}{C['reset']}")
+        elif s["flags"].get("boss_hijack"):
             parts.append(f"{C['warn']}👔 보스: 상납 안 하면 알지?{C['reset']}")
         else:
             earn = f" {C['mood']}+{s['last_turn_earned']}{C['reset']}" if s.get("last_turn_earned") else ""

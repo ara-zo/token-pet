@@ -9,7 +9,8 @@ from . import speech_lines as L
 
 RECENT_EVENT_MINUTES = 10
 
-EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap")
+EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap",
+                        "vacation_leave", "vacation_back", "vacation_early")
 
 
 def _fmt_k(n: int) -> str:
@@ -38,6 +39,8 @@ def choose(state: dict, now: dt.datetime, situation: Optional[str] = None, **fmt
         if age <= RECENT_EVENT_MINUTES:
             return ev["text"]
         break
+    if state.get("vacation"):
+        return (L.VACATION.get(state.get("species", "mochi")) or L.VACATION["mochi"])["away"]
     form = state["form"]
     night = clock.period(now) == "night"
     fmt = {"mood": round(state["mood"]), "fuel": round(state["hunger"]), **fmt}

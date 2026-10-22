@@ -797,6 +797,24 @@ SPECIES_LINES = {
     },
 }
 
+# Vacation at the 토키 호텔: leaving, the note while away (narration), coming back, brought back early.
+VACATION = {
+    "mochi": {"leave": "다녀올게! 호텔 조식이 맛있대~", "away": "(토키 호텔 202호에서 꿀잠 중…)",
+              "back": "다녀왔어! 푹 쉬었다~", "early": "벌써? 보고 싶었구나!"},
+    "squirrel": {"leave": "끼양!! 휴가다!! 우다다 갔다 올게!!", "away": "(호텔 수영장을 백 바퀴째 돌고 있다)",
+                 "back": "끼양!! 돌아왔다!! 꼬리 결정 반짝반짝!!", "early": "흐랏?! 벌써?! 좋아!! 우다다 간다!!"},
+    "mole": {"leave": "…쉬러 간다. 깊이.", "away": "(호텔 정원에 굴이 하나 생겼다)",
+             "back": "…돌아왔다. 흙이 좋았다.", "early": "…일찍 왔다. 괜찮다."},
+    "robot": {"leave": "보고: 휴가 모드 진입. 화로 소등.", "away": "(호텔 객실 콘센트에 꽂혀 충전 중)",
+              "back": "보고: 휴가 종료. 재가동 완료. 기분 +10%.", "early": "보고: 조기 복귀 명령 수신. 재가동."},
+    "penguin": {"leave": "별 보러… 잠깐 다녀올게…", "away": "(호텔 루프탑에서 밤하늘을 보고 있다)",
+                "back": "별을 잔뜩 담아 왔어…", "early": "꿈이 덜 끝났는데… 그래도 반가워…"},
+    "hamster": {"leave": "근데근데 거기 해바라기씨 있대? 있으면 갈게", "away": "(룸서비스 간식이 조금 비었다)",
+                "back": "근데근데 호텔 조식 맛있었어 볼에 좀 싸 왔어", "early": "근데근데 간식 다 못 먹고 왔는데 괜찮아 보고 싶었어"},
+    "rabbit": {"leave": "주인도 좀 쉬어야 한다는 신호야. 나 먼저 간다.", "away": "(호텔 옥상 안테나가 주인 쪽을 향해 있다)",
+               "back": "주인 신호 계속 듣고 있었어. 잘 지냈네.", "early": "부르는 신호 왔어. 바로 왔어."},
+}
+
 # Refusal when today's pats are used up: whatever the form, the species says it.
 PAT_LIMIT = {
     "mochi": "오늘은 충분히 쓰다듬었어. 내일 또 해 줘!",

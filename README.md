@@ -54,6 +54,7 @@ Claude Code 안에서:
 | `/pet buy <id>` | 구매 (`fedora`, `sunglasses`, `hoodie`, `cushion`, `plant`, `crown`, 배경 `night_factory`, `vault`) |
 | `/pet equip <id>` / `unequip <slot>` | 착용·해제 (슬롯: head, face, body, room, bg) |
 | `/pet name <이름>` | 이름 바꾸기 (1~8자) |
+| `/pet vacation <일수>` | 1~14일 토키 호텔에 맡기기. 맡긴 동안 굶지도 가출하지도 진화하지도 않아요 (숙박비 하루 20코인, 한 달 20일까지, 공장은 쉬어서 코인도 안 쌓여요). `/pet vacation` 상태, `/pet vacation end` 일찍 데려오기(안 쓴 날 환불) |
 | `/pet find` | 가출했을 때 찾기. 서로 다른 날 3번 |
 | `/pet reset --confirm` | 지금 돌보는 펫만 새로 시작 (코인·옷장·도감·쉬는 펫은 유지) |
 | `/pet pr on` / `off` | 위젯 PR 우편함 켜기·끄기. 가져올 PR은 위젯에서 GitHub 검색 조건으로 넣어요 (gh 로그인 필요. 기본은 꺼짐) |

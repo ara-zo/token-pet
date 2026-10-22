@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, widget
+from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -69,6 +69,7 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             subs[key] = {"offset": sub_off, "seen_ids": sub_seen}
             usages.extend(more)
 
+        away = vacation.active(s)
         earn_form = s["form"]
         if earn_form == "burnout" and not evolve.burnout_active(s, now):
             earn_form = "model"
@@ -76,8 +77,9 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
         capped_before = day["tokens_out"] >= economy.DAILY_SOFTCAP_OUT
         for u in usages:
             per = clock.period(u.ts)
-            total += economy.turn_coins(u.output, u.input, u.cache_read, u.cache_creation, earn_form, per,
-                                        day["tokens_out"])
+            if not away:                       # at the hotel the factory rests: tokens are logged, no coins
+                total += economy.turn_coins(u.output, u.input, u.cache_read, u.cache_creation, earn_form, per,
+                                            day["tokens_out"])
             day["tokens_in"] += u.input + u.cache_read + u.cache_creation
             day["tokens_out"] += u.output
             day["cache_read"] += u.cache_read
@@ -87,7 +89,7 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             life["tokens_out"] += u.output
             if per == "night":
                 life["night_out"] += u.output
-        if usages:
+        if usages and not away:
             species.record_attendance(s, now)
         s["coin_carry"] = round(s["coin_carry"] + total, 4)
         earned = int(s["coin_carry"])
@@ -108,7 +110,8 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             s["level"] = new_level
             schema.push_event(s, now, "levelup", speech_lines.EVENTS["levelup"].format(lv=new_level))
             evolve.check(s, now)
-        species.check(s, now)
+        if not away:
+            species.check(s, now)
         s["speech"] = speech.choose(s, now, "EARN" if earned > 0 else None, n=earned)
         return earned
 
@@ -306,7 +309,8 @@ def _shop_payload(s: dict) -> dict:
 def _summary(s: dict) -> dict:
     return {k: s[k] for k in ("name", "level", "xp", "coins", "hunger", "mood", "form", "speech",
                               "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges")} \
-        | {"forecast": s.get("forecast"), "species": s.get("species", "mochi"), "dex": s.get("dex", ["mochi"])}
+        | {"forecast": s.get("forecast"), "species": s.get("species", "mochi"), "dex": s.get("dex", ["mochi"]),
+           "vacation": s.get("vacation")}
 
 
 def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
@@ -340,6 +344,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
         with store.transaction(now) as s:
             if cmd == "status":
                 s["speech"] = speech.choose(s, now)
+                if vacation.active(s):
+                    return out(0, vacation.status_text(s, now), state=s)
                 return out(0, render.status_text(s, now), state=s)
             if cmd == "shop":
                 return out(0, render.shop_text(s), _shop_payload(s), s)
@@ -354,6 +360,34 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 r = actions.pat(s, now)
                 s["speech"] = speech.choose(s, now, "PAT")
                 return out(0, f"쓰담쓰담… 기분 {round(r['mood'])} (오늘 {r['left']}번 더)", r, s)
+            if cmd == "vacation":
+                sub = pos[1] if len(pos) > 1 else ""
+                if sub == "end":
+                    if not vacation.active(s):
+                        raise ActionError(f"{clock.josa(s['name'], '은/는')} 집에 있어요")
+                    r = vacation.finish(s, now, early=True)
+                    msg = f"🏠 {clock.josa(s['name'], '을/를')} 일찍 데려왔어요"
+                    if r["refund"]:
+                        msg += f"\n  안 쓴 {r['unused']}일치 숙박비 +{r['refund']}코인 (🪙 {r['coins']:,})"
+                    msg += f"\n  이번 달 휴가 {vacation.used_this_month(s, now)}/{vacation.MONTH_DAYS}일"
+                    msg += f"\n  {s['name']}: {s['speech']}"
+                    return out(0, msg, vacation.payload(s, now), s)
+                if sub:
+                    try:
+                        r = vacation.start(s, now, sub)
+                    except vacation.VacationError as e:
+                        raise ActionError(str(e))
+                    until = clock.parse(r["until"])
+                    msg = (f"🏖 {clock.josa(s['name'], '을/를')} 토키 호텔에 맡겼어요\n"
+                           f"  복귀 {vacation.when(until)} · 숙박비 -{r['fee']}코인 (🪙 {r['coins']:,})\n"
+                           f"  맡긴 동안 배고픔 · 기분은 그대로, 진화 · 가출은 멈춰요\n"
+                           f"  코인은 안 쌓여요 (공장 쉼)\n"
+                           f"  이번 달 휴가 {r['used']}/{vacation.MONTH_DAYS}일\n"
+                           f"  일찍 데려오기: /pet vacation end")
+                    return out(0, msg, vacation.payload(s, now), s)
+                return out(0, vacation.status_text(s, now), vacation.payload(s, now), s)
+            if cmd in ("adopt", "switch") and vacation.active(s):
+                raise ActionError(vacation.refused(s))
             if cmd == "adopt":
                 if len(pos) < 2:
                     raise ActionError("어느 종족을 입양할지 알려줘: /pet adopt <id> [이름]")
@@ -405,7 +439,7 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 return out(0, f"{clock.josa(s['name'], '이/가')} 새로 태어났어요", r, s)
             raise ActionError(f"모르는 명령: {cmd}\n{USAGE}")
     except ActionError as e:
-        if cmd not in ("feed", "pat", "buy", "equip"):
+        if cmd not in ("feed", "pat", "buy", "equip") or vacation.active(s):
             return out(2, str(e))
         # the refused action wrote nothing; only the pet's reaction is saved
         with store.transaction(now) as s:

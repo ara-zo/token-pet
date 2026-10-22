@@ -9,7 +9,7 @@ import datetime as dt
 import math
 from typing import List
 
-from . import clock, economy, evolve, schema, speech_lines
+from . import clock, economy, evolve, schema, speech_lines, vacation
 
 SESSION_TTL_HOURS = 7 * 24
 RUNAWAY_HOURS = 7 * 24
@@ -134,6 +134,15 @@ def apply(state: dict, now: dt.datetime) -> List[dict]:
     if now < last:
         state["last_tick_at"] = clock.fmt(now)
         return events
+    vac = vacation.active(state)
+    if vac:
+        until = clock.parse(vac["until"])
+        if now < until:                       # at the hotel: time stands still for the pet
+            state["last_tick_at"] = clock.fmt(now)
+            schema.today(state, now)
+            return events
+        vacation.finish(state, until, early=False)
+        last = until
     cursor = last
     for midnight in clock.midnights_between(last, now):
         decay(state, cursor, midnight)

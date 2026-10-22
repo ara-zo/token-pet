@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from . import clock, economy, schema, speech_lines
+from . import clock, economy, schema, speech_lines, vacation
 
 MAX_NAME_LEN = 8
 
@@ -13,6 +13,7 @@ class ActionError(Exception):
 
 
 def feed(state: dict, now: dt.datetime, force: bool = False) -> dict:
+    _at_home(state)
     form = state["form"]
     period = clock.period(now)
     reason = economy.feed_blocked(form, period)
@@ -43,7 +44,13 @@ def feed(state: dict, now: dt.datetime, force: bool = False) -> dict:
     return {"hunger": state["hunger"], "coins": state["coins"], "cost": cost, "debt": flags["debt"]}
 
 
+def _at_home(state: dict) -> None:
+    if vacation.active(state):
+        raise ActionError(vacation.refused(state))
+
+
 def pat(state: dict, now: dt.datetime) -> dict:
+    _at_home(state)
     if state["form"] == "runaway":
         raise ActionError("가출 중이라 쓰다듬을 수 없어. /pet find 로 찾아봐")
     day = schema.today(state, now)
@@ -90,6 +97,7 @@ def buy(state: dict, now: dt.datetime, item_id: str) -> dict:
 
 
 def equip(state: dict, item_id: str) -> dict:
+    _at_home(state)
     if item_id not in state["items_owned"]:
         raise ActionError("안 갖고 있는 아이템이야")
     slot = economy.CATALOG[item_id].slot
@@ -98,6 +106,7 @@ def equip(state: dict, item_id: str) -> dict:
 
 
 def unequip(state: dict, slot: str) -> dict:
+    _at_home(state)
     if slot not in economy.SLOTS:
         raise ActionError(f"슬롯은 {', '.join(economy.SLOTS)} 중 하나")
     removed = state["equipped"].pop(slot, None)
@@ -132,6 +141,7 @@ def find(state: dict, now: dt.datetime) -> dict:
 def reset(state: dict, now: dt.datetime, confirm: bool = False) -> dict:
     """Start the pet you are looking after over: its level, evolution, hunger, mood and outfit.
     The wallet, wardrobe, dex and the pets resting in the village belong to the player and stay."""
+    _at_home(state)
     from . import species
     boss = state["form"] == "boss"
     if not boss and not confirm:

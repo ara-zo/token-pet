@@ -10,7 +10,7 @@ EXPECTED_KEYS = {
     "hunger", "mood", "form", "form_since", "items_owned", "equipped",
     "last_fed_at", "last_tick_at", "last_turn_at", "last_turn_earned",
     "plugin_root", "speech", "events", "sessions", "daily_log", "since_form",
-    "flags", "badges", "settings", "species", "dex", "lifetime", "pets",
+    "flags", "badges", "settings", "species", "dex", "lifetime", "pets", "vacation",
 }
 
 
