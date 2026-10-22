@@ -9,15 +9,18 @@ const win = T.window.getCurrentWindow();
 const LogicalSize = T.dpi.LogicalSize;
 const LogicalPosition = T.dpi.LogicalPosition;
 
-const SMALL = { w: 120, h: 120 };
-// While mail is waiting the collapsed window grows a band above the pet for a full sentence.
-// Positions are always stored for the 120x120 pet area; the band hangs above it.
-const BAND = 62;
+const SMALL = { w: 120, h: 156 };   // tall enough for a hat on the tallest species at full size
+// The mail bubble and the talk bubble sit just above the pet's head (they may overlap each other).
+// What they need above the head, in px; the window grows on top only by what the pet area lacks.
+// Positions are always stored for the pet area (SMALL); the extra strip hangs above it.
+const BAND = 87;
+const MAIL_GAP = 20;                 // mail bubble bottom above the head: its 10px tail + 10px air
 let bandOn = false;
-// While the collapsed pet is talking the window also grows a strip above, so the bubble never covers it.
-const TALK = 40;
+const TALK = 54;
 let talkOn = false;
-const bandH = () => (bandOn ? BAND : 0) + (talkOn ? TALK : 0);
+let extra = 0;                       // px the collapsed window is currently grown by
+let headFromBottom = 110;            // px from the drawn top of the pet to the window bottom
+const bandH = () => extra;
 const LARGE = { w: 300, h: 390 };
 const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
@@ -109,14 +112,64 @@ function setSprite(m) {
     const svg = $(id);
     svg.dataset.form = m.form;
     svg.dataset.species = m.kind;
-    // one scale for every species, with headroom for antennas, chimneys and a hat on a tall head
-    svg.setAttribute("viewBox", "-14 -30 92 92");
+    // one scale for every species (mochi's original 64-unit size), with headroom for antennas,
+    // chimneys and a hat on a tall head
+    svg.setAttribute("viewBox", "-4 -20 72 84");
     // everything sits in one group so form motions (sway, droop, nod) move the whole pet
     svg.innerHTML = `<g class="whole ${m.whole}"${m.wrap ? ` style="${m.wrap}"` : ""}>${m.body}</g>`;
     const whole = svg.querySelector(".whole");
     if (!m.grouped) wrapEyes(whole);
     whole.insertAdjacentHTML("beforeend", m.items + formOverlay(m.kind, m.form));
   }
+  if (!expanded) { measureHead(); applyExtra(); }
+}
+
+// Where the head is decides where the bubbles go and how much the window must grow for them.
+// Read from the drawing itself, not the screen, so a motion caught mid-way (the mole ducking, a hop)
+// doesn't move the bubbles; passing effects (smoke, waves, flashes, form effects) and clip shapes don't count.
+function measureHead() {
+  const host = $("collapsed"), fx = $("fx-small"), svg = $("sprite-small");
+  if (!host.offsetHeight) return;          // hidden (expanded): keep the last measurement
+  const top = drawnTop(svg);
+  if (top === null) return;
+  // layout boxes, not screen rects: the bob and hop animations don't count
+  const vb = svg.viewBox.baseVal, scale = svg.height.baseVal.value / vb.height;
+  headFromBottom = host.offsetHeight - (fx.offsetTop + (top - vb.y) * scale);
+}
+
+const PASSING = /m-smoke|m-wave|e-|f-|fx-form/;
+function drawnTop(svg) {
+  let best = null;
+  for (const el of svg.querySelectorAll("rect")) {
+    if (PASSING.test(el.getAttribute("class") || "") || el.closest(".earn, clipPath")) continue;
+    let y = parseFloat(el.getAttribute("y")) || 0;
+    for (let g = el.parentElement; g && g !== svg; g = g.parentElement) {
+      const m = /translate\(\s*[-\d.]+[ ,]+([-\d.]+)/.exec(g.getAttribute("transform") || "");
+      if (m) y += parseFloat(m[1]);
+    }
+    if (best === null || y < best) best = y;
+  }
+  return best;
+}
+
+// Grow or shrink the strip above the collapsed pet to what the bubbles need, keeping the pet in place.
+async function applyExtra() {
+  const room = SMALL.h - headFromBottom;
+  const need = (px) => Math.max(0, Math.ceil(px - room));
+  const want = Math.max(bandOn ? need(BAND) : 0, talkOn ? need(TALK) : 0);
+  $("collapsed").style.height = `${SMALL.h + want}px`;
+  // "+N" at the head's top-right corner, in front of the mail bubble
+  $("earn-bubble").style.bottom = `${Math.round(headFromBottom - 4)}px`;
+  $("mail-small").style.bottom = `${Math.round(headFromBottom + MAIL_GAP)}px`;
+  if (want === extra) return;
+  const diff = want - extra;
+  extra = want;
+  if (expanded) return;                    // applied when the widget collapses again
+  try {
+    const here = await currentPos();
+    await win.setSize(new LogicalSize(SMALL.w, SMALL.h + want));
+    await win.setPosition(new LogicalPosition(here.x, here.y - diff));
+  } catch (e) {}
 }
 
 function decayed(s) {
@@ -377,7 +430,7 @@ let collapsedPos = null;          // logical {x, y} of the collapsed window
 let movedWhileExpanded = false;   // the user dragged the big window, so collapse where it now is
 
 function savePos(p) {
-  try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y), size: SMALL.w })); } catch (e) {}
+  try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y), size: SMALL.w, h: SMALL.h })); } catch (e) {}
 }
 function loadPos() {
   try { return JSON.parse(localStorage.getItem(POS_KEY) || "null"); } catch (e) { return null; }
@@ -414,8 +467,10 @@ async function restorePos() {
   const p = loadPos();
   if (!p || typeof p.x !== "number" || typeof p.y !== "number") return;
   // saved by an older build with a different pet size: keep the pet's bottom-right corner where it was
-  const oldSize = typeof p.size === "number" ? p.size : 160;
-  if (oldSize !== SMALL.w) { p.x += oldSize - SMALL.w; p.y += oldSize - SMALL.w; }
+  const oldW = typeof p.size === "number" ? p.size : 160;
+  const oldH = typeof p.h === "number" ? p.h : oldW;
+  p.x += oldW - SMALL.w;
+  p.y += oldH - SMALL.h;
   try {
     // only if the saved spot is still on a connected screen (a monitor may have been unplugged)
     const mons = await T.window.availableMonitors();
@@ -757,12 +812,8 @@ async function say(text, ms = 5000) {
   $("say-text").textContent = text;
   el.classList.remove("hidden");
   // the tail sits just above whatever is drawn highest (a hat, ears), not the top of the sprite box
-  const host = $("collapsed").getBoundingClientRect();
-  const svg = $("sprite-small");
-  const r = svg.getBoundingClientRect();
-  let top = r.top;
-  try { top = r.top + svg.getBBox().y * (r.height / svg.viewBox.baseVal.height); } catch (e) {}
-  el.style.bottom = `${Math.round(host.bottom - top + 9)}px`;
+  measureHead();
+  el.style.bottom = `${Math.round(headFromBottom + 9)}px`;
   el.style.animation = "none";
   void el.offsetWidth;
   el.style.animation = "";
@@ -780,12 +831,7 @@ async function setTalk(on) {
   if (on === talkOn) return;
   talkOn = on;
   $("collapsed").classList.toggle("with-talk", on);
-  if (expanded) return;
-  try {
-    const here = await currentPos();
-    await win.setSize(new LogicalSize(SMALL.w, SMALL.h + bandH()));
-    await win.setPosition(new LogicalPosition(here.x, here.y + (on ? -TALK : TALK)));
-  } catch (e) {}
+  await applyExtra();
 }
 
 function sayNewEvent(s) {
@@ -816,12 +862,7 @@ async function setBand(on) {
   if (on === bandOn) return;
   bandOn = on;
   $("collapsed").classList.toggle("with-band", on);
-  if (expanded) return;                    // applied when the widget collapses again
-  try {
-    const here = await currentPos();
-    await win.setSize(new LogicalSize(SMALL.w, SMALL.h + bandH()));
-    await win.setPosition(new LogicalPosition(here.x, here.y + (on ? -BAND : BAND)));
-  } catch (e) {}
+  await applyExtra();
 }
 
 function renderMail() {

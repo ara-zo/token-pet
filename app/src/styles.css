@@ -14,27 +14,23 @@ body { font-family: var(--sans); color: var(--text); user-select: none; -webkit-
 .sprite { shape-rendering: crispEdges; position: relative; overflow: visible; }   /* smoke and hops may leave the box */
 
 /* ---------- collapsed ---------- */
+:root { --pet-h: 156px; }   /* the pet area: SMALL.h in app.js */
 body.collapsed #expanded { display: none; }
 body.expanded #collapsed { display: none; }
 .collapsed-view {
-  width: 120px; height: 120px; position: relative; display: flex; flex-direction: column;
+  width: 120px; height: var(--pet-h); position: relative; display: flex; flex-direction: column;
   align-items: center; justify-content: flex-end; padding-bottom: 6px; cursor: pointer;
 }
 .collapsed-view .pet-fx { transition: translate .15s; }
 .collapsed-view:hover .pet-fx { translate: 0 -3px; }
 .shadow-small { position: absolute; bottom: 26px; width: 76px; height: 11px; border-radius: 50%; background: rgba(20,19,30,.35); }
 .earn-bubble {
-  position: absolute; top: 2px; right: 2px; background: var(--text); color: var(--bg);
+  position: absolute; bottom: 104px; right: 2px; z-index: 6; background: var(--text); color: var(--bg);
   font-family: var(--pixel); font-size: 8px; padding: 4px 6px; border-radius: 10px 10px 2px 10px;
   animation: pop .25s ease-out;
 }
-/* the collapsed pet says something now and then, from a 40px strip the window grows above its head
-   (above the mail band too, when there is one) */
-.collapsed-view.with-talk { height: 160px; }
-.collapsed-view.with-band.with-talk { height: 222px; }
-.collapsed-view.with-talk .mail-bubble { top: 58px; }
-.collapsed-view.with-talk .earn-bubble { top: 42px; }
-.collapsed-view.with-band.with-talk .earn-bubble { top: 104px; }
+/* the collapsed pet says something now and then just above its head; the window grows on top only
+   when the pet area has too little room (height and the earn bubble's top are set by applyExtra) */
 .say-bubble {
   position: absolute; left: 50%; translate: -50% 0; width: max-content; max-width: 112px;
   z-index: 5; pointer-events: none; text-align: center;
@@ -78,7 +74,7 @@ body.expanded #collapsed { display: none; }
 /* while a panel (dress-up, stats) is open, the stage shrinks so the pet stays visible above a taller panel */
 .stage { transition: height .2s; }
 .panel-open .stage { height: 96px; }
-.panel-open #sprite-large { width: 80px; height: 80px; }
+.panel-open #sprite-large { width: 68px; height: 80px; }
 .panel-open .shadow-large { width: 76px; bottom: 6px; }
 .panel-open .speech { display: none; }
 .panel-open .dress-panel { top: 146px; }
@@ -335,7 +331,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 
 /* coins fly into the coin counter on earn */
 .coinfly { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-#coinfly-small { z-index: 4; }                       /* in front of the pet and the coin pill */
+#coinfly-small { z-index: 6; }                       /* in front of the pet, the coin pill and the mail bubble */
 .collapsed-view .pet-fx { z-index: 2; }
 .collapsed-view .coin-pill { z-index: 3; }
 #coinfly-large { z-index: 6; }
@@ -361,13 +357,11 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes tp-coin-spin { from { transform: scaleX(1); } to { transform: scaleX(.3); } }
 
 /* ---------- PR mailbox ---------- */
-/* collapsed: while mail waits the window grows a 62px band above the pet for a full sentence */
-.collapsed-view.with-band { height: 182px; }
-.collapsed-view.with-band .earn-bubble { top: 64px; }
+/* collapsed: while mail waits a sentence bubble sits just above the pet's head (bottom set by applyExtra) */
 .mail-bubble {
-  /* 8px in from each side and 18px down, so the 6px sparkle ring stays inside the window even while
-     the bubble floats up and tilts in its ring wiggle */
-  position: absolute; top: 18px; left: 8px; right: 8px; z-index: 4;
+  /* 8px in from each side, so the 6px sparkle ring stays inside the window even while the bubble floats
+     up and tilts in its ring wiggle */
+  position: absolute; bottom: 120px; left: 8px; right: 8px; z-index: 4;
   display: flex; align-items: center; justify-content: center; gap: 4px;
   border: 2px solid #23203A; background: #FF8FA8; color: #23203A; cursor: pointer; text-align: left;
   font: 800 10.5px/1.2 var(--sans); padding: 3px 5px; border-radius: 6px; word-break: keep-all;

@@ -14,7 +14,7 @@
         "label": "main",
         "title": "Token Pet",
         "width": 120,
-        "height": 120,
+        "height": 156,
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,

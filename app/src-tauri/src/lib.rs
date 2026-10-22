@@ -313,7 +313,7 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
         let size = mon.size();
         let sf = mon.scale_factor();
         let x = size.width as f64 / sf - 120.0 - 24.0;
-        let y = size.height as f64 / sf - 120.0 - 60.0;
+        let y = size.height as f64 / sf - 156.0 - 60.0;
         let _ = win.set_position(tauri::LogicalPosition::new(x, y));
     }
 }
