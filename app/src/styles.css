@@ -381,7 +381,6 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .mail-item:hover { outline: 1.5px solid var(--line); }
 .mail-item:focus-visible { outline: 2px solid var(--coin); }
 .mail-chip { flex: none; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 6px; margin-top: 1px; }
-.mail-chip.review { background: var(--coin); color: #23203A; }
 .mail-chip.mine { background: var(--card2); color: var(--text); }
 .mail-chip.mention { background: #8FB4FF; color: #23203A; }
 .mail-chip.ci { background: var(--warn); color: #23203A; }
@@ -389,6 +388,26 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .mail-item.read { opacity: .55; }
 .mail-item.read .mail-chip { background: var(--card2); color: var(--sub); }
 .mail-empty { font-size: 12px; color: var(--sub); padding: 12px 4px; list-style: none; }
+.mail-chip.open { background: var(--coin); color: #23203A; }
+.mail-chip.review { background: #FF8FA8; color: #23203A; }
+.mail-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #1C1A2E; padding: 3px; border-radius: 10px; flex: none; }
+.mtab { height: 24px; border: 0; border-radius: 8px; background: transparent; color: var(--sub); font: 500 12px var(--sans); cursor: pointer; }
+.mtab:hover { color: var(--text); }
+.mtab[aria-selected="true"] { background: var(--card2); color: var(--text); font-weight: 600; }
+.mail-src { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.src-form { display: flex; gap: 6px; flex: none; }
+.src-input {
+  flex: 1; min-width: 0; height: 30px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid var(--line);
+  background: #1C1A2E; color: var(--text); padding: 0 9px; font: 500 11.5px var(--sans);
+  user-select: text; -webkit-user-select: text; cursor: text;
+}
+.src-input::placeholder { color: #8A84AD; }
+.src-input:focus { outline: none; border-color: var(--coin); }
+.src-item { padding: 5px 5px 5px 10px; }
+.src-query { font: 500 11.5px 'IBM Plex Mono', ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.src-del { width: 24px; height: 24px; flex: none; font-size: 13px; }
+.src-hint { margin: 0; font-size: 10.5px; color: var(--sub); flex: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

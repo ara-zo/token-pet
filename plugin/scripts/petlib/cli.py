@@ -163,14 +163,14 @@ def _setup(write: bool) -> Tuple[int, str]:
 
 
 def _pr_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
-    """PR mailbox in the desktop widget: it reads your GitHub notifications with the gh CLI."""
+    """PR mailbox in the desktop widget: it searches GitHub with the gh CLI, for conditions set in the widget."""
     if sub in ("on", "off"):
         with store.transaction(now) as s:
             s["settings"]["pr_inbox"] = sub == "on"
         if sub == "off":
             return 0, "PR 우편함을 껐어요. 위젯이 GitHub를 읽지 않아요"
-        return 0, ("PR 우편함을 켰어요. 위젯이 5분마다 gh 로 내 리뷰를 기다리는 열린 PR을 확인해서 알려 줘요. "
-                   "gh 로그인이 필요해요 (gh auth login)")
+        return 0, ("PR 우편함을 켰어요. 위젯 우편함의 「가져오는 곳」에 넣은 GitHub 검색 조건으로 5분마다 gh 가 PR을 찾아 알려 줘요. "
+                   "처음엔 비어 있으니 예: is:pr org:logos3pl is:open 처럼 넣어 주세요. gh 로그인이 필요해요 (gh auth login)")
     on = store.load(now)["settings"].get("pr_inbox", False) if store.state_path().exists() else False
     return 0, f"PR 우편함이 {'켜져' if on else '꺼져'} 있어요. /pet pr on 또는 /pet pr off"
 

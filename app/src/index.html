@@ -94,14 +94,27 @@
   </section>
   <section id="mail-panel" class="dress-panel hidden" aria-label="PR 우편함">
     <header class="row">
-      <span class="pixel name">리뷰 요청</span>
+      <span class="pixel name">PR 우편함</span>
       <div class="row gap6">
         <button id="mail-readall" class="btn small ghost" type="button">모두 읽음</button>
         <button id="mail-close" class="icon-btn" type="button" aria-label="우편함 닫기">×</button>
       </div>
     </header>
-    <p id="mail-note" class="dress-note hint hidden"></p>
+    <div class="mail-tabs" role="tablist" aria-label="우편함 보기">
+      <button id="mail-tab-list" class="mtab" type="button" role="tab" aria-selected="true">PR 0</button>
+      <button id="mail-tab-src" class="mtab" type="button" role="tab" aria-selected="false">가져오는 곳 0</button>
+    </div>
+    <p id="mail-note" class="dress-note hidden"></p>
     <ul id="mail-list" class="dress-list"></ul>
+    <div id="mail-src" class="mail-src hidden">
+      <form id="mail-src-form" class="src-form">
+        <label for="mail-src-input" class="sr-only">GitHub 검색 조건</label>
+        <input id="mail-src-input" class="src-input" type="text" placeholder="is:pr org:logos3pl is:open" autocomplete="off" spellcheck="false" autocapitalize="off">
+        <button class="btn small primary" type="submit">추가</button>
+      </form>
+      <ul id="mail-src-list" class="dress-list"></ul>
+      <p class="src-hint">org: 조직 · user: 개인 계정 · repo: 저장소 하나 · 이 위젯에만 저장돼요</p>
+    </div>
   </section>
   <section id="stats-panel" class="dress-panel hidden" aria-label="최근 7일 기록">
     <header class="row">

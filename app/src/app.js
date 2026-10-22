@@ -438,11 +438,11 @@ async function setExpanded(on) {
 }
 
 // Drag anywhere on the pet. A press that moves more than a few pixels hands the window to the OS
-// (startDragging); a press that does not move is a click. Buttons and the item list stay clickable.
+// (startDragging); a press that does not move is a click. Buttons, inputs and the item list stay clickable.
 let press = null, dragged = false;
 function makeDraggable(el) {
   el.addEventListener("mousedown", (e) => {
-    if (e.button !== 0 || e.target.closest("button, .dress-list")) return;
+    if (e.button !== 0 || e.target.closest("button, input, .dress-list")) return;
     press = { x: e.screenX, y: e.screenY };
     dragged = false;
   });
@@ -578,56 +578,116 @@ function walkOut() {
 }
 
 // ---------------------------------------------------------------- PR mailbox
-// Open PRs waiting for my review, through gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`.
-// A newly requested one gets a macOS notification and the pet mentions it; ones already waiting
-// when the mailbox was turned on only show in the bubble.
+// PRs matching the GitHub search conditions the player typed into the mailbox ("가져오는 곳"), through
+// gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`. A newly found PR makes the pet speak
+// and hop; PRs already there when the mailbox (or a condition) was added only show in the bubble.
 
-const MAIL_SEEN_KEY = "token-pet.pr.review-seen";   // new key: ids of review requests already shown
-const MAIL_LABEL = { review: "리뷰 요청" };
-const MAIL_TITLE = { review: "리뷰 요청이 왔어요" };
-let mail = { items: [], error: null };
+// Search conditions live only in this widget, like read marks. It starts empty: the player adds them.
+const MAIL_SOURCES_KEY = "token-pet.pr.sources";
+// { ids: {id: 1}, queries: [...] }: PRs already announced, and the conditions they were checked with
+const MAIL_SEEN_KEY = "token-pet.pr.seen";
+const REVIEW_QUERY = /\breview-requested:@me\b/;
+const MAIL_LABEL = { review: "내 리뷰", open: "열린 PR" };
+let mail = { items: [], counts: {}, errors: {}, error: null };
 // "read" lives only in this widget: a PR I already looked at stops ringing, but stays listed
-// (dimmed) until it is reviewed and drops out of the search.
+// (dimmed) until it no longer matches any condition (merged, closed, review done).
 const MAIL_READ_KEY = "token-pet.pr.read";
 let mailRead = new Set((() => { try { return JSON.parse(localStorage.getItem(MAIL_READ_KEY) || "[]"); } catch (e) { return []; } })());
 function saveRead() { try { localStorage.setItem(MAIL_READ_KEY, JSON.stringify([...mailRead])); } catch (e) {} }
 const isRead = (it) => mailRead.has(String(it.id));
+let mailSources = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(MAIL_SOURCES_KEY) || "null");
+    if (Array.isArray(v)) return v.filter((q) => typeof q === "string");
+  } catch (e) {}
+  return [];
+})();
+function saveSources() { try { localStorage.setItem(MAIL_SOURCES_KEY, JSON.stringify(mailSources)); } catch (e) {} }
 let mailOpen = false;
 let mailOn = false;
+let mailTab = "list";
+let polling = null, pollAgain = false;
 
 function mailEnabled() { return !!(state && state.settings && state.settings.pr_inbox); }
 
-async function pollMail() {
-  if (!mailEnabled()) { mail = { items: [], error: null }; renderMail(); return; }
-  let res;
-  try {
-    res = await invoke("pr_inbox");
-  } catch (e) {
-    mail = { items: mail.items, error: String(e) };
+// "org:logos3pl is:open" -> "is:pr org:logos3pl is:open": without it GitHub mixes issues in
+function normalizeQuery(raw) {
+  const q = raw.trim().replace(/\s+/g, " ");
+  if (!q) return "";
+  return /(^|\s)(is|type):pr(\s|$)/.test(q) ? q : `is:pr ${q}`;
+}
+
+// one check at a time; a request during a check (a condition added or removed) runs once more after it
+function pollMail() {
+  if (polling) { pollAgain = true; return polling; }
+  polling = doPollMail().finally(() => {
+    polling = null;
+    if (pollAgain) { pollAgain = false; pollMail(); }
+  });
+  return polling;
+}
+
+async function doPollMail() {
+  if (!mailEnabled()) {
+    // forget what was announced, so turning it on again starts quiet instead of ringing for everything
+    try { localStorage.removeItem(MAIL_SEEN_KEY); } catch (e) {}
+    mail = { items: [], counts: {}, errors: {}, error: null };
     renderMail();
     return;
   }
-  const items = res.items || [];
+  const queries = [...mailSources];
+  if (!queries.length) {
+    mail = { items: [], counts: {}, errors: {}, error: null };
+    renderMail();
+    return;
+  }
+  let res;
+  try {
+    res = await invoke("pr_inbox", { queries });
+  } catch (e) {
+    mail = { ...mail, error: String(e) };
+    renderMail();
+    return;
+  }
+  // merge the conditions; a PR found by several shows once, as "내 리뷰" if any of them asked for my review
+  const byId = new Map(), counts = {}, errors = {}, okQueries = [];
+  for (const r of res.results || []) {
+    if (!mailSources.includes(r.query)) continue;            // removed while this check was running
+    counts[r.query] = r.items.length;
+    if (r.error) { errors[r.query] = r.error; continue; }
+    okQueries.push(r.query);
+    const review = REVIEW_QUERY.test(r.query);
+    for (const it of r.items) {
+      const prev = byId.get(it.id);
+      if (prev) { if (review) prev.category = "review"; continue; }
+      byId.set(it.id, { ...it, category: review ? "review" : "open", query: r.query });
+    }
+  }
+  // a condition that failed this time keeps its PRs from the last check instead of dropping them
+  for (const it of mail.items) if (errors[it.query] && !byId.has(it.id)) byId.set(it.id, it);
+  const items = [...byId.values()].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+
   let seen = null;
   try { seen = JSON.parse(localStorage.getItem(MAIL_SEEN_KEY) || "null"); } catch (e) {}
-  const fresh = seen ? items.filter((it) => !(it.id in seen)) : [];   // first run: nothing is "new"
-  const next = {};
-  for (const it of items) next[it.id] = 1;
-  try { localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify(next)); } catch (e) {}
-  // forget read marks of PRs that left the list, so a later re-request rings again
+  if (!seen || !seen.ids) seen = null;                       // first run: nothing is "new"
+  // only PRs from conditions that were already checked count as new, so adding a condition stays quiet
+  const known = new Set(seen ? seen.queries : []);
+  const fresh = seen ? items.filter((it) => !(it.id in seen.ids) && known.has(it.query)) : [];
+  const ids = {};
+  for (const it of items) ids[it.id] = 1;
+  try { localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify({ ids, queries: [...new Set([...okQueries, ...(seen ? seen.queries : [])])].filter((q) => mailSources.includes(q)) })); } catch (e) {}
+  // forget read marks of PRs that left the list, so a PR that comes back rings again
   const live = new Set(items.map((it) => String(it.id)));
   for (const id of [...mailRead]) if (!live.has(id)) mailRead.delete(id);
   saveRead();
-  mail = { items, error: null };
+  mail = { items, counts, errors, error: null };
   renderMail();
   if (fresh.length) announceMail(fresh);
 }
 
+// No macOS notification: the pet says it and hops, and the bubble rings.
 function announceMail(fresh) {
-  const ref = (it) => `${it.repo}${it.number ? `#${it.number}` : ""}`;
-  fresh.slice(0, 3).forEach((it) => invoke("notify", { title: MAIL_TITLE[it.category], body: `${ref(it)} ${it.title}` }).catch(() => {}));
-  if (fresh.length > 3) invoke("notify", { title: "리뷰 요청", body: `리뷰 기다리는 PR이 ${fresh.length - 3}개 더 있어요` }).catch(() => {});
-  speakNote(`리뷰 기다리는 PR이 ${fresh.length}개 왔어요!`);
+  speakNote(`새 PR이 ${fresh.length}개 왔어요!`);
   const badge = $("mail-small");
   badge.classList.remove("fresh");
   void badge.offsetWidth;
@@ -657,29 +717,44 @@ async function setBand(on) {
 
 function renderMail() {
   const on = mailEnabled();
-  const n = mail.items.filter((it) => !isRead(it)).length;     // only unread ones ring
+  const unread = mail.items.filter((it) => !isRead(it));      // only unread ones ring
+  const n = unread.length;
+  const reviews = unread.filter((it) => it.category === "review").length;
   $("mail-btn").classList.toggle("hidden", !on);
   $("mail-small").classList.toggle("hidden", !on || n === 0);
-  const reviews = n;                            // every item is a review request
-  $("mail-small").classList.toggle("review", reviews > 0);
+  $("mail-small").classList.toggle("review", reviews > 0);    // pink while a review request waits
   $("collapsed").classList.toggle("review", reviews > 0);
   $("mail-letter").classList.toggle("hidden", !on || n === 0);
   const shown = n > 99 ? "99+" : n;
-  const full = `리뷰 기다리는 PR이 ${shown}개 있어요!`;
+  const full = `안 읽은 PR이 ${shown}개 있어요!`;
   $("mail-count-small").textContent = full;
   $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
   setBand(on && n > 0);
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
   if (!mailOpen) return;
+
+  const listTab = mailTab === "list";
+  $("mail-tab-list").setAttribute("aria-selected", String(listTab));
+  $("mail-tab-src").setAttribute("aria-selected", String(!listTab));
+  $("mail-tab-list").textContent = `PR ${mail.items.length}`;
+  $("mail-tab-src").textContent = `가져오는 곳 ${mailSources.length}`;
+  $("mail-readall").classList.toggle("hidden", !listTab);
   $("mail-readall").disabled = n === 0;
+  $("mail-list").classList.toggle("hidden", !listTab);
+  $("mail-src").classList.toggle("hidden", listTab);
+  const failed = Object.keys(mail.errors).length;
   const note = $("mail-note");
-  note.textContent = mail.error || "";
-  note.classList.toggle("hidden", !mail.error);
+  note.textContent = mail.error || (listTab && failed ? `조건 ${failed}개를 검색하지 못했어요. 가져오는 곳 탭을 봐 주세요` : "");
+  note.classList.toggle("hidden", !note.textContent);
+  if (listTab) renderMailList(); else renderSources();
+}
+
+function renderMailList() {
   if (!mail.items.length) {
     const li = document.createElement("li");
     li.className = "mail-empty";
-    li.textContent = mail.error ? "" : "리뷰를 기다리는 PR이 없어요";
+    li.textContent = mail.error ? "" : mailSources.length ? "조건에 맞는 PR이 없어요" : "가져오는 곳 탭에서 검색 조건을 추가해 주세요";
     $("mail-list").replaceChildren(li);
     return;
   }
@@ -708,7 +783,63 @@ function renderMail() {
   }));
 }
 
-// open the PR in the browser and mark it read; it leaves the list once reviewed (next check)
+function renderSources() {
+  if (!mailSources.length) {
+    const li = document.createElement("li");
+    li.className = "mail-empty";
+    li.textContent = "예: is:pr org:logos3pl is:open";
+    $("mail-src-list").replaceChildren(li);
+    return;
+  }
+  $("mail-src-list").replaceChildren(...mailSources.map((q) => {
+    const li = document.createElement("li");
+    li.className = "item src-item";
+    const meta = document.createElement("div");
+    meta.className = "item-meta";
+    const name = document.createElement("span");
+    name.className = "src-query";
+    name.textContent = q;
+    name.title = q;
+    const sub = document.createElement("span");
+    const err = mail.errors[q];
+    sub.className = "item-sub" + (err ? " short" : "");
+    sub.textContent = err || (q in mail.counts ? `PR ${mail.counts[q]}개${mail.counts[q] >= 50 ? " · 50개까지만 보여요" : ""}` : "확인 중…");
+    meta.append(name, sub);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "icon-btn src-del";
+    del.textContent = "×";
+    del.setAttribute("aria-label", `${q} 빼기`);
+    del.addEventListener("click", () => removeSource(q));
+    li.append(meta, del);
+    return li;
+  }));
+}
+
+function addSource(e) {
+  e.preventDefault();
+  const input = $("mail-src-input");
+  const q = normalizeQuery(input.value);
+  if (!q) return;
+  if (mailSources.includes(q)) { toast("이미 있는 조건이에요"); return; }
+  mailSources.push(q);
+  saveSources();
+  input.value = "";
+  renderMail();
+  pollMail();
+}
+
+function removeSource(q) {
+  mailSources = mailSources.filter((x) => x !== q);
+  saveSources();
+  // drop its PRs right away; ones another condition also finds come back on the next check
+  mail = { ...mail, items: mail.items.filter((it) => it.query !== q) };
+  delete mail.errors[q];
+  renderMail();
+  pollMail();
+}
+
+// open the PR in the browser and mark it read; it leaves the list once it no longer matches (next check)
 function openMail(it) {
   invoke("open_url", { url: it.url }).catch((e) => toast(String(e)));
   mailRead.add(String(it.id));
@@ -720,13 +851,20 @@ function readAllMail() {
   for (const it of mail.items) mailRead.add(String(it.id));
   saveRead();
   renderMail();
-  toast("리뷰 요청을 모두 읽음으로 표시했어요");
+  toast("PR을 모두 읽음으로 표시했어요");
+}
+
+function showMailTab(tab) {
+  mailTab = tab;
+  renderMail();
+  if (tab === "src") $("mail-src-input").focus();
 }
 
 function openMailbox() {
   closeDress();
   closeStats();
   mailOpen = true;
+  if (!mailSources.length) mailTab = "src";           // nothing to fetch yet: start where conditions are added
   $("expanded").classList.add("panel-open");
   $("mail-panel").classList.remove("hidden");
   renderMail();
@@ -1091,6 +1229,9 @@ T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
 $("mail-close").addEventListener("click", closeMailbox);
 $("mail-readall").addEventListener("click", readAllMail);
+$("mail-tab-list").addEventListener("click", () => showMailTab("list"));
+$("mail-tab-src").addEventListener("click", () => showMailTab("src"));
+$("mail-src-form").addEventListener("submit", addSource);
 $("mail-small").addEventListener("click", (e) => {
   e.stopPropagation();                      // don't also count as a click on the pet
   if (dragged) { dragged = false; return; }

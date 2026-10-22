@@ -80,8 +80,8 @@ fn sync_autostart(app: &tauri::AppHandle, state: Option<&serde_json::Value>) {
 }
 
 // ---------------------------------------------------------------- PR mailbox
-// Asks GitHub, through the gh CLI (its own login, nothing stored here), which open PRs wait for the player's review.
-// Only runs when the player turned it on with `/pet pr on`.
+// Asks GitHub, through the gh CLI (its own login, nothing stored here), for the PRs matching the search
+// conditions the player typed into the widget. Only runs when the player turned it on with `/pet pr on`.
 
 fn find_gh() -> Option<PathBuf> {
     // apps started from Finder/login don't get the shell's PATH, so look where gh is usually installed
@@ -108,7 +108,7 @@ fn gh(args: &[&str]) -> Result<String, String> {
         return Err(if first.contains("auth login") || first.contains("not logged") {
             "GitHub 로그인이 필요해요: 터미널에서 gh auth login".to_string()
         } else {
-            format!("GitHub 알림을 읽지 못했어요: {first}")
+            format!("GitHub 검색을 못 했어요: {first}")
         });
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
@@ -117,26 +117,39 @@ fn gh(args: &[&str]) -> Result<String, String> {
 fn pr_item(n: &serde_json::Value) -> Option<serde_json::Value> {
     let repo = n["repository_url"].as_str()?.strip_prefix("https://api.github.com/repos/")?;
     Some(serde_json::json!({
-        "id": n["id"], "category": "review", "repo": repo,
+        "id": n["id"], "repo": repo,
         "title": n["title"].as_str().unwrap_or(""), "url": n["html_url"],
         "number": n["number"].as_u64().map(|v| v.to_string()), "updated_at": n["updated_at"],
         "draft": n["draft"].as_bool().unwrap_or(false),
     }))
 }
 
-/// Open PRs that are waiting for the player's review right now. A PR leaves the list by itself once
-/// reviewed or when the request is withdrawn, so there is nothing to mark as read.
+fn search_prs(query: &str) -> Result<Vec<serde_json::Value>, String> {
+    // for demos and tests: PET_PR_FAKE=<file> answers every query with a saved search result instead of GitHub
+    let text = match std::env::var("PET_PR_FAKE") {
+        Ok(path) => std::fs::read_to_string(path).map_err(|e| e.to_string())?,
+        Err(_) => {
+            let q = format!("q={query}");
+            gh(&["api", "-X", "GET", "search/issues", "-f", &q, "-f", "per_page=50"])?
+        }
+    };
+    let res: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    Ok(res["items"].as_array().map(|a| a.iter().filter_map(pr_item).collect()).unwrap_or_default())
+}
+
+/// One GitHub search per condition the player added (`is:pr org:logos3pl is:open`, ...), each with its
+/// own result or error, so one bad condition doesn't hide the others. At most 50 PRs per condition.
 #[tauri::command]
-async fn pr_inbox() -> Result<serde_json::Value, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        // for demos and tests: PET_PR_FAKE=<file> answers with a saved search result instead of GitHub
-        let text = match std::env::var("PET_PR_FAKE") {
-            Ok(path) => std::fs::read_to_string(path).map_err(|e| e.to_string())?,
-            Err(_) => gh(&["api", "search/issues?q=is:pr+is:open+review-requested:@me+archived:false&per_page=50"])?,
-        };
-        let res: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-        let items: Vec<serde_json::Value> = res["items"].as_array().map(|a| a.iter().filter_map(pr_item).collect()).unwrap_or_default();
-        Ok(serde_json::json!({ "items": items }))
+async fn pr_inbox(queries: Vec<String>) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let results: Vec<serde_json::Value> = queries
+            .iter()
+            .map(|q| match search_prs(q) {
+                Ok(items) => serde_json::json!({ "query": q, "items": items }),
+                Err(e) => serde_json::json!({ "query": q, "items": [], "error": e }),
+            })
+            .collect();
+        Ok(serde_json::json!({ "results": results }))
     })
     .await
     .map_err(|e| e.to_string())?

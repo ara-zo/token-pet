@@ -56,7 +56,7 @@ Claude Code 안에서:
 | `/pet name <이름>` | 이름 바꾸기 (1~8자) |
 | `/pet find` | 가출했을 때 찾기. 서로 다른 날 3번 |
 | `/pet reset --confirm` | 지금 돌보는 펫만 새로 시작 (코인·옷장·도감·쉬는 펫은 유지) |
-| `/pet pr on` / `off` | 위젯에 내 리뷰를 기다리는 PR 알림 켜기·끄기 (gh 로그인 필요. 기본은 꺼짐) |
+| `/pet pr on` / `off` | 위젯 PR 우편함 켜기·끄기. 가져올 PR은 위젯에서 GitHub 검색 조건으로 넣어요 (gh 로그인 필요. 기본은 꺼짐) |
 | `/pet setup` | 상태표시줄 설정 |
 | `/pet widget [on\|off\|install\|update]` | 데스크톱 위젯 상태·자동 실행 켜고 끄기·설치·업데이트 |
 
