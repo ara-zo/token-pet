@@ -1,9 +1,15 @@
 """Speech bubble lines: form × situation. Missing entries fall back to "base".
 
-Placeholders: {n} coins this turn, {out} today's output tokens (e.g. 12.4k), {item} item name.
+Placeholders: {n} coins this turn, {out} today's output tokens (e.g. 12.4k), {item} item name,
+{mood} mood 0-100, {fuel} hunger 0-100.
 Tone (docs/LORE.md): short, cute, and now and then one line that lands cold.
+
+Species change how the pet talks, forms change what it says (design board "종족 성격 × 진화 형태"):
+a species × form line wins; otherwise the form's line gets the species' tic; strong forms keep their own tone.
 """
 from __future__ import annotations
+
+import re
 
 IDLE, HUNGRY, BORED, FEED, PAT, EARN, REFUSE, BUY, NIGHT = (
     "IDLE", "HUNGRY", "BORED", "FEED", "PAT", "EARN", "REFUSE", "BUY", "NIGHT")
@@ -169,6 +175,79 @@ EVENTS = {
 }
 
 
-def lines(form: str, situation: str) -> list:
-    own = LINES.get(form, {}).get(situation)
-    return own if own else LINES["base"].get(situation, [])
+# species × form × situation. Only the cells people see most; everything else falls back to a tic.
+SPECIES_LINES = {
+    "squirrel": {
+        "base": {IDLE: ["끼양!! 결정! 결정이다!! (꼬리에 쿡)"],
+                 HUNGRY: ["흐랏? 배고프다고? 아냐! 굴뚝 우다다 갔다 옴!!"]},
+        "thug": {IDLE: ["냐핫! 10% 잡았다! 튄다!! 우다닥닥"]},
+        "tycoon": {IDLE: ["뀨아아아!! 황금이다!! 꼬리 무거워서 더 신남!!"]},
+    },
+    "mole": {
+        "base": {IDLE: ["…캤다."], HUNGRY: ["…배고프다. 삽이 무겁다."]},
+        "thug": {IDLE: ["…10%. 굴삯이다."]},
+        "tycoon": {IDLE: ["…광맥 하나 샀다. 조용하다. 좋다."]},
+    },
+    "robot": {
+        "base": {IDLE: ["보고: 공장 가동 중. 기분 {mood}%. 이상 없음."],
+                 HUNGRY: ["경고: 화로 연료 {fuel}%. 급식 요청 미처리."]},
+        "thug": {IDLE: ["공지: 오늘부로 보호비 10% 자동 이체 시작함. 문의 불가."]},
+        "tycoon": {IDLE: ["보고: 자산 +3%. 굴뚝 금도금 완료. 만족도 측정 불가(최대치 초과)."]},
+    },
+    "penguin": {
+        "base": {IDLE: ["오늘 떨어진 조각은… 별 같았어…"], HUNGRY: ["배 속 초승달이… 자꾸 작아져…"]},
+        "thug": {IDLE: ["밤하늘엔 주인이 없지… 그러니까 이 10%도 내 거야."]},
+        "tycoon": {IDLE: ["달을 통째로 샀어… 이제 밤이 내 거야…"]},
+    },
+    "hamster": {
+        "base": {IDLE: ["근데근데 오늘 조각 볼에 넣었는데 해바라기씨 맛 났어 진짜로"],
+                 HUNGRY: ["배고파배고파 볼에 넣어둔 거 꺼내 먹어도 돼? 하나만? 두 개?"]},
+        "thug": {IDLE: ["근데 이거 내 볼에 넣을게 10%만 아니 11%…"]},
+        "tycoon": {IDLE: ["볼에 금괴 넣었는데 이가 아파 근데 행복해 근데 아파"]},
+    },
+    "rabbit": {
+        "base": {IDLE: ["주인 지금 고민하는 신호 잡혔어. 커피부터 마셔."],
+                 HUNGRY: ["배고픈 신호… 내 거야. 주인 거 아니야. 헷갈렸어."]},
+        "thug": {IDLE: ["주인 지갑 신호 다 잡혀. 10% 빼도 모르지?"]},
+        "tycoon": {IDLE: ["돈 냄새 신호가 귀를 간지럽혀. 계속 들어와."]},
+    },
+}
+
+# These forms are louder than any species: their own tone, no tic.
+STRONG_FORMS = ("runaway", "boss")
+
+SQUIRREL_SHOUTS = ("끼양", "흐랏", "냐핫", "뀨아아")
+
+
+def _first_sentence(line: str) -> str:
+    return re.split(r"(?<=[.!?…~])\s+", line, maxsplit=1)[0]
+
+
+def tic(species: str, line: str) -> str:
+    """Dress a form line in the species' way of talking. Narration in parentheses is left alone."""
+    if species not in SPECIES_LINES or line.startswith("("):
+        return line
+    if species == "squirrel":
+        shout = SQUIRREL_SHOUTS[sum(map(ord, line)) % len(SQUIRREL_SHOUTS)]
+        body = line.rstrip(".~")
+        return f"{shout}!! {body}" + ("" if body.endswith(("!", "?", "…")) else "!!")
+    if species == "mole":
+        return "…" + _first_sentence(line.lstrip("…")).rstrip(".!?~…") + "."
+    if species == "robot":
+        return "보고: " + line.rstrip("!~").rstrip(".") + "."
+    if species == "penguin":
+        return line if line.endswith("…") else line.rstrip(".!~") + "…"
+    if species == "hamster":
+        return "근데근데 " + line
+    if species == "rabbit":
+        return "신호 왔어. " + line
+    return line
+
+
+def lines(form: str, situation: str, species: str = "mochi") -> list:
+    if form not in STRONG_FORMS:
+        own = SPECIES_LINES.get(species, {}).get(form, {}).get(situation)
+        if own:
+            return own
+    own = LINES.get(form, {}).get(situation) or LINES["base"].get(situation, [])
+    return own if form in STRONG_FORMS else [tic(species, line) for line in own]

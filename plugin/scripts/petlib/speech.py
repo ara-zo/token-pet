@@ -16,10 +16,10 @@ def _fmt_k(n: int) -> str:
     return f"{n/1000:.1f}k" if n >= 1000 else str(n)
 
 
-def _pick(form: str, situation: str, now: dt.datetime, **fmt) -> Optional[str]:
+def _pick(form: str, situation: str, now: dt.datetime, species: str = "mochi", **fmt) -> Optional[str]:
     """One line for the situation, rotating hourly so the bubble doesn't feel stuck."""
-    options = [t for t in L.lines(form, situation)
-               if all("{" + k + "}" not in t or fmt.get(k) is not None for k in ("n", "out", "item"))]
+    options = [t for t in L.lines(form, situation, species)
+               if all("{" + k + "}" not in t or fmt.get(k) is not None for k in ("n", "out", "item", "mood", "fuel"))]
     if not options:
         return None
     line = options[(now.toordinal() * 24 + now.hour) % len(options)]
@@ -40,20 +40,22 @@ def choose(state: dict, now: dt.datetime, situation: Optional[str] = None, **fmt
         break
     form = state["form"]
     night = clock.period(now) == "night"
+    fmt = {"mood": round(state["mood"]), "fuel": round(state["hunger"]), **fmt}
+    pick = lambda f, sit, **more: _pick(f, sit, now, state.get("species", "mochi"), **{**fmt, **more})
     if situation:
-        line = _pick(form, situation, now, **fmt)
+        line = pick(form, situation)
         if line:
             return line
     if form == "runaway":
-        return _pick(form, L.IDLE, now)
+        return pick(form, L.IDLE)
     if state["hunger"] < 20:
         out = schema.today(state, now)["tokens_out"]
-        return _pick(form, L.HUNGRY, now, out=_fmt_k(out) if out else None) or "배고파… 밥 줘"
+        return pick(form, L.HUNGRY, out=_fmt_k(out) if out else None) or "배고파… 밥 줘"
     if state["mood"] < 30:
-        return _pick(form, L.BORED, now)
+        return pick(form, L.BORED)
     flags = state["flags"]
     if form in ("spender", "influencer") and flags.get("demand_item"):
         return f"신상 {economy.CATALOG[flags['demand_item']].name} 사줘!"
     if form in economy.NOCTURNAL:
-        return (_pick(form, L.NIGHT, now) or _pick(form, L.IDLE, now)) if night else "zzz…"
-    return _pick(form, L.IDLE, now)
+        return (pick(form, L.NIGHT) or pick(form, L.IDLE)) if night else "zzz…"
+    return pick(form, L.IDLE)

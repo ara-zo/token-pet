@@ -104,3 +104,38 @@ def test_status_and_shop_text_smoke():
     shop = render.shop_text(s)
     assert f"{economy.price('plant', 'miser')}코인" in shop and "할증" in shop and "crown" in shop
     assert "봉쇄" in render.shop_text(st(form="thug"))
+
+
+def test_species_line_wins_for_its_form():
+    assert speech.choose(st(species="mole"), NOW) == "…캤다."
+    assert speech.choose(st(species="squirrel", form="thug"), NOW) == "냐핫! 10% 잡았다! 튄다!! 우다닥닥"
+    assert speech.choose(st(species="robot", mood=72), NOW) == "보고: 공장 가동 중. 기분 72%. 이상 없음."
+    assert speech.choose(st(species="robot", hunger=18), NOW) == "경고: 화로 연료 18%. 급식 요청 미처리."
+
+
+def test_species_tic_dresses_form_lines():
+    assert speech.choose(st(species="mole", form="miser"), NOW, "FEED") == "…50코인."
+    assert speech.choose(st(species="robot", form="scholar"), NOW, "EARN", n=12) == "보고: +12. 캐시 적중률 좋았어."
+    assert speech.choose(st(species="hamster"), NOW, "PAT") == "근데근데 더 해 줘!"
+    assert speech.choose(st(species="penguin"), NOW, "PAT") == "더 해 줘…"
+    assert speech.choose(st(species="rabbit"), NOW, "PAT") == "신호 왔어. 더 해 줘!"
+    assert speech.choose(st(species="squirrel"), NOW, "PAT").endswith("!! 더 해 줘!")
+    assert speech.choose(st(species="mochi"), NOW, "PAT") == "더 해 줘!"
+    assert speech.choose(st(species="hamster", form="runaway"), NOW, "PAT") == "(빈 쿠션만 만져진다)"
+
+
+def test_strong_forms_keep_their_tone():
+    for sp in ("squirrel", "mole", "robot", "penguin", "hamster", "rabbit"):
+        assert speech_lines.lines("boss", "IDLE", sp) == speech_lines.LINES["boss"]["IDLE"]
+        assert speech_lines.lines("runaway", "IDLE", sp) == speech_lines.LINES["runaway"]["IDLE"]
+
+
+def test_every_species_line_formats():
+    from petlib import species
+    assert set(speech_lines.SPECIES_LINES) == set(species.SPECIES) - {"mochi"}
+    for by_form in speech_lines.SPECIES_LINES.values():
+        for form, sits in by_form.items():
+            assert form in economy.FORMS
+            for opts in sits.values():
+                for line in opts:
+                    line.format(n=1, out="1k", item="모자", mood=50, fuel=10)
