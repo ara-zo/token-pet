@@ -79,11 +79,17 @@ body.expanded #collapsed { display: none; }
 .panel-open .speech { display: none; }
 .panel-open .dress-panel { top: 146px; }
 .stage-bg { position: absolute; inset: 0; width: 100%; height: 100%; shape-rendering: crispEdges; }
+/* top-left of the stage; its tail hangs over the pet's head (--tail-x and min-width set by placeSpeech) */
 .speech {
+  --tail: var(--text); --tail-x: 50%;
   position: absolute; top: 10px; left: 10px; background: var(--text); color: var(--bg); font-size: 11px;
-  font-weight: 500; padding: 6px 9px; border-radius: 11px 11px 3px 11px; max-width: 150px; line-height: 1.35; z-index: 1;
+  font-weight: 500; padding: 6px 9px; border-radius: 11px; max-width: 150px; line-height: 1.35; z-index: 1;
 }
-.speech.error { background: var(--warn); color: var(--bg); }
+.speech::after {
+  content: ""; position: absolute; left: var(--tail-x); bottom: -6px; width: 10px; height: 7px; margin-left: -5px;
+  background: var(--tail); clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.speech.error { --tail: var(--warn); background: var(--warn); color: var(--bg); }
 .shadow-large { position: absolute; bottom: 10px; width: 120px; height: 14px; border-radius: 50%; background: #1C1A2E; }
 .bars { display: flex; flex-direction: column; gap: 6px; }
 .bar-row { display: flex; align-items: center; gap: 10px; }

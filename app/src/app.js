@@ -121,7 +121,7 @@ function setSprite(m) {
     if (!m.grouped) wrapEyes(whole);
     whole.insertAdjacentHTML("beforeend", m.items + formOverlay(m.kind, m.form));
   }
-  if (!expanded) { measureHead(); applyExtra(); }
+  if (!expanded) { measureHead(); applyExtra(); } else placeSpeech();
 }
 
 // Where the head is decides where the bubbles go and how much the window must grow for them.
@@ -151,6 +151,19 @@ function drawnTop(svg) {
   }
   return best;
 }
+
+// The expanded speech bubble stays top-left on the stage; its tail hangs over the pet's head, and a short
+// line widens the bubble just enough to reach it.
+function placeSpeech() {
+  const fx = $("fx-large"), svg = $("sprite-large"), el = $("speech");
+  if (!$("stage").offsetHeight) return;
+  const vb = svg.viewBox.baseVal, scale = svg.width.baseVal.value / vb.width;
+  const head = fx.offsetLeft + (anchor(state ? state.species || "mochi" : "mochi").cx - vb.x) * scale;
+  const x = Math.round(head - el.offsetLeft);
+  el.style.minWidth = `${x + 14}px`;
+  el.style.setProperty("--tail-x", `${x}px`);
+}
+new ResizeObserver(placeSpeech).observe($("speech"));
 
 // Grow or shrink the strip above the collapsed pet to what the bubbles need, keeping the pet in place.
 async function applyExtra() {
@@ -510,7 +523,7 @@ async function setExpanded(on) {
       target = { x: petArea.x, y: petArea.y - bandH() };
     }
     document.body.className = on ? "expanded" : "collapsed";
-    if (on) fitText($("name"), 13, 10);
+    if (on) { fitText($("name"), 13, 10); placeSpeech(); }
     const size = on ? LARGE : { w: SMALL.w, h: SMALL.h + bandH() };
     await win.setSize(new LogicalSize(size.w, size.h));
     await win.setPosition(new LogicalPosition(target.x, target.y));
