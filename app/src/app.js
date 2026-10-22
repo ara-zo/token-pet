@@ -189,6 +189,7 @@ function render() {
   // Feeding is refused below the cost (loansharks borrow instead): grey the button out so a
   // click never looks like a no-op, and keep the cost visible in red.
   const short = s.form !== "loanshark" && s.coins < feedCost;
+  $("dress").textContent = `${s.name}의 방`;
   $("feed").disabled = s.form === "runaway" || short;
   $("feed").classList.toggle("short", short);
   $("feed-cost").textContent = short ? `${s.coins}/${feedCost}` : `-${feedCost}`;
@@ -1062,7 +1063,11 @@ function showTip(d, cx, wd, isToday) {
   tip.classList.remove("hidden");
 }
 
-// ---------------------------------------------------------------- dress-up
+// ---------------------------------------------------------------- room
+// "{name}의 방" takes the whole expanded window: 밥 · 상점 · 옷장 · 배경 · 도감. Items are cards in a
+// grid; picking one fills the single action button at the bottom (구매 / 착용 / 벗기).
+
+let roomSel = {};                     // tab -> selected item id
 
 async function openDress() {
   closeStats();
@@ -1072,7 +1077,8 @@ async function openDress() {
   shop = res.result;
   feedCost = shop.feed_cost || FEED_COST;
   dressTab = "wear";
-  $("expanded").classList.add("panel-open");
+  roomSel = {};
+  $("expanded").classList.add("room-open");
   $("dress-panel").classList.remove("hidden");
   renderDress();
 }
@@ -1080,77 +1086,123 @@ async function openDress() {
 function closeDress() {
   shop = null;
   $("dress-panel").classList.add("hidden");
-  $("expanded").classList.remove("panel-open");
+  $("expanded").classList.remove("room-open");
 }
 
-function itemRow(it) {
+// which catalog items each tab shows
+function roomItems() {
+  const wear = shop.catalog.filter((it) => it.slot !== "bg");
+  if (dressTab === "wear") return wear.filter((it) => !it.owned);
+  if (dressTab === "closet") return wear.filter((it) => it.owned);
+  if (dressTab === "bg") return shop.catalog.filter((it) => it.slot === "bg");
+  return [];
+}
+
+function cardSub(it) {
+  if (it.owned) return it.equipped ? [it.slot === "bg" ? "사용 중" : "착용 중", "on"] : ["보유", "on"];
+  if (!it.unlocked) return [it.grant ? "특별" : `LV.${it.min_level}`, "lock"];
+  return [String(it.price), ""];
+}
+
+function itemCard(it, selected) {
   const li = document.createElement("li");
-  li.className = "item" + (it.equipped ? " equipped" : "") + (!it.owned && !it.unlocked ? " locked" : "");
-  const isBg = it.slot === "bg";
-  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  icon.setAttribute("viewBox", isBg ? BG_VIEWBOX : "0 0 64 64");
-  icon.setAttribute("preserveAspectRatio", "xMidYMid slice");
-  icon.setAttribute("class", isBg ? "item-icon bg" : "item-icon");
-  icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = (isBg ? BACKGROUNDS[it.id] : ITEMS[it.id]) || "";
-  const meta = document.createElement("div");
-  meta.className = "item-meta";
-  const name = document.createElement("span");
-  name.className = "item-name";
-  name.textContent = it.name;
-  const sub = document.createElement("span");
-  sub.className = "item-sub";
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "btn small";
-  const slot = SLOT_KO[it.slot] || it.slot;
-  if (it.owned) {
-    sub.textContent = `${slot} · ${it.equipped ? "착용 중" : "보유"}`;
-    btn.textContent = it.equipped ? "벗기" : "착용";
-    btn.classList.add(it.equipped ? "ghost" : "mood");
-    btn.addEventListener("click", () => dressAction(it.equipped ? ["unequip", it.slot] : ["equip", it.id]));
-    if (isBg && it.equipped) {          // a stage always has a background: switch, don't take off
-      btn.textContent = "사용 중";
-      btn.disabled = true;
-    }
-  } else if (!it.unlocked) {
-    sub.textContent = it.grant ? `${slot} · ${it.grant}` : `${slot} · Lv.${it.min_level} 해금`;
-    btn.textContent = "잠김";
-    btn.classList.add("ghost");
-    btn.disabled = true;
-  } else {
-    const short = state.coins < it.price;
-    sub.textContent = `${slot} · ${it.price}코인` + (short ? ` (${it.price - state.coins} 부족)` : "");
-    sub.classList.toggle("short", short);
-    btn.textContent = "구매";
-    btn.classList.add("primary");
-    btn.disabled = short;
-    btn.addEventListener("click", () => dressAction(["buy", it.id]));
-  }
-  meta.append(name, sub);
-  li.append(icon, meta, btn);
+  btn.className = "card" + (selected ? " selected" : "") + (!it.owned && !it.unlocked ? " locked" : "");
+  btn.setAttribute("aria-pressed", String(selected));
+  const isBg = it.slot === "bg";
+  const icon = document.createElementNS(SVG_NS, "svg");
+  icon.setAttribute("viewBox", isBg ? BG_VIEWBOX : "0 0 64 64");
+  icon.setAttribute("preserveAspectRatio", "xMidYMid slice");
+  icon.setAttribute("class", isBg ? "card-icon bg" : "card-icon");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = (isBg ? BACKGROUNDS[it.id] : ITEMS[it.id]) || "";
+  const name = document.createElement("span");
+  name.className = "card-name";
+  name.textContent = it.name;
+  const [text, tone] = cardSub(it);
+  const sub = document.createElement("span");
+  sub.className = "card-sub" + (tone ? ` ${tone}` : "");
+  sub.textContent = text;
+  btn.title = `${it.name} · ${SLOT_KO[it.slot] || it.slot}` + (!it.owned && !it.unlocked && it.grant ? ` · ${it.grant}` : "");
+  btn.append(icon, name, sub);
+  btn.addEventListener("click", () => { roomSel[dressTab] = it.id; renderDress(); });
+  li.append(btn);
   return li;
+}
+
+// the bottom button for the picked item: [label, args or null, ghost?]
+function roomAction(it) {
+  if (!it) return ["골라 주세요", null, false];
+  if (it.owned) {
+    if (it.slot === "bg") return it.equipped ? ["사용 중", null, true] : ["이 배경 쓰기", ["equip", it.id], false];
+    return it.equipped ? [`${it.name} 벗기`, ["unequip", it.slot], true] : [`${it.name} 입히기`, ["equip", it.id], false];
+  }
+  if (!it.unlocked) return [it.grant || `Lv.${it.min_level}에 열려요`, null, true];
+  if (shop.blocked) return ["상점이 봉쇄됐어요", null, true];
+  if (state.coins < it.price) return [`${(it.price - state.coins).toLocaleString()}코인 부족`, null, true];
+  return [`${it.name} 구매 -${it.price}`, ["buy", it.id], false];
+}
+
+function setRoomAction(label, onClick, ghost) {
+  const btn = $("room-action");
+  btn.classList.remove("hidden");
+  btn.textContent = label;
+  btn.classList.toggle("ghost", !!ghost);
+  btn.classList.toggle("primary", !ghost);
+  btn.disabled = !onClick;
+  btn.onclick = onClick;
 }
 
 function renderDress() {
   if (!shop || !state) return;
+  $("room-title").textContent = `${state.name}의 방`;
   $("coins-dress").textContent = state.coins.toLocaleString();
-  const note = $("dress-note");
-  if (shop.blocked) {
-    note.textContent = "상점이 봉쇄됐어요. 지금은 살 수 없어요";
-    note.classList.remove("hidden");
-  } else {
-    note.classList.add("hidden");
-  }
   for (const tab of document.querySelectorAll(".tabs .tab")) {
     tab.setAttribute("aria-selected", String(tab.dataset.tab === dressTab));
   }
+  const note = $("dress-note");
+  note.classList.remove("hint");
+  note.classList.toggle("hidden", !(shop.blocked && dressTab === "wear"));
+  note.textContent = "상점이 봉쇄됐어요. 지금은 살 수 없어요";
+  const list = $("dress-list");
+  const food = dressTab === "food";
+  list.classList.toggle("hidden", food);
+  $("room-food").classList.toggle("hidden", !food);
+  if (food) { renderFood(); return; }
   if (dressTab === "dex") {
+    list.classList.remove("grid", "wide");
+    $("room-action").classList.add("hidden");
     renderDex();
     return;
   }
-  const inTab = shop.catalog.filter((it) => (it.slot === "bg") === (dressTab === "bg"));
-  $("dress-list").replaceChildren(...inTab.map(itemRow));
+  list.classList.add("grid");
+  list.classList.toggle("wide", dressTab === "bg");
+  const items = roomItems();
+  let sel = items.find((it) => it.id === roomSel[dressTab]);
+  if (!sel) sel = items.find((it) => it.equipped) || items.find((it) => it.unlocked || it.owned) || items[0];
+  if (sel) roomSel[dressTab] = sel.id;
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.className = "room-empty";
+    li.textContent = dressTab === "closet" ? "아직 산 게 없어요. 상점에서 골라 보세요" : "더 살 게 없어요. 옷장에서 입혀 보세요";
+    list.replaceChildren(li);
+  } else {
+    list.replaceChildren(...items.map((it) => itemCard(it, it === sel)));
+  }
+  const [label, args, ghost] = roomAction(sel);
+  setRoomAction(label, args ? () => dressAction(args) : null, ghost);
+}
+
+function renderFood() {
+  // the same live value as the main bars (they tick down between file updates)
+  $("room-hunger-bar").style.width = $("hunger-bar").style.width;
+  $("room-hunger-val").textContent = $("hunger-val").textContent;
+  $("room-fed").textContent = $("fed").textContent;
+  const short = state.coins < feedCost;
+  const gone = state.form === "runaway";
+  const label = gone ? "펫이 집을 나갔어요" : short ? `${(feedCost - state.coins).toLocaleString()}코인 부족` : `밥 주기 -${feedCost}`;
+  setRoomAction(label, gone || short ? null : async () => { await feed(); renderDress(); }, gone || short);
 }
 
 async function openDexTab() {
@@ -1242,6 +1294,7 @@ async function rosterAction(args) {
 
 async function dressAction(args) {
   for (const b of $("dress-list").querySelectorAll("button")) b.disabled = true;
+  $("room-action").disabled = true;
   const res = await runPet(args);
   if (res) {
     toast(res.text.split("\n")[0]);
@@ -1281,7 +1334,6 @@ for (const tab of document.querySelectorAll(".tabs .tab")) {
   tab.addEventListener("click", () => {
     dressTab = tab.dataset.tab;
     $("dress-list").scrollTop = 0;
-    $("dress-note").classList.remove("hint");
     if (dressTab === "dex") openDexTab(); else renderDress();
   });
 }
