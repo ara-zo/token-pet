@@ -169,7 +169,6 @@ function render() {
   sayNewEvent(s);
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
-  maybeNotify(s, hunger);
   const fc = s.forecast;
   const fcEl = $("forecast");
   fcEl.classList.toggle("hidden", !fc);
@@ -948,37 +947,6 @@ function closeMailbox() {
   mailOpen = false;
   $("mail-panel").classList.add("hidden");
   $("expanded").classList.remove("panel-open");
-}
-
-// ---------------------------------------------------------------- notifications
-// One macOS notification per stage until the pet is fed again: hungry, starving, about to run away.
-
-const NOTIFY_KEY = "token-pet.notified";
-const RUNAWAY_WARN_HOURS = 6 * 24;          // plugin runs away at 7 days unfed
-
-function josa(word, withFinal, withoutFinal) {
-  const c = word.charCodeAt(word.length - 1) - 0xac00;
-  return word + (c >= 0 && c <= 11171 && c % 28 !== 0 ? withFinal : withoutFinal);
-}
-
-function maybeNotify(s, hunger) {
-  if (s.form === "runaway" || petMood === "sleep") return;     // can't be fed right now anyway
-  let n;
-  try { n = JSON.parse(localStorage.getItem(NOTIFY_KEY) || "{}"); } catch (e) { n = {}; }
-  if (n.fedAt !== s.last_fed_at || !Array.isArray(n.sent)) n = { fedAt: s.last_fed_at, sent: [] };
-  const unfed = (Date.now() - new Date(s.last_fed_at).getTime()) / 36e5;
-  const who = josa(s.name, "이", "가");
-  const stages = [                                              // most severe first
-    ["runaway", unfed >= RUNAWAY_WARN_HOURS, `${who} 가출하려고 해요`, "하루 안에 밥을 주지 않으면 코인 절반을 들고 집을 나가요"],
-    ["starving", hunger <= 0, `${who} 굶고 있어요`, "배고픔 0으로 48시간이 쌓이면 불량배가 돼요"],
-    ["hungry", hunger < 20, `${who} 배고파요`, `배고픔 ${Math.round(hunger)}. 밥은 ${feedCost}코인이에요`],
-  ];
-  const i = stages.findIndex(([key, hit]) => hit && !n.sent.includes(key));
-  if (i < 0) return;
-  const [, , title, body] = stages[i];
-  for (const [key] of stages.slice(i)) if (!n.sent.includes(key)) n.sent.push(key);   // skip milder ones
-  try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(n)); } catch (e) {}
-  invoke("notify", { title, body }).catch(() => {});
 }
 
 // ---------------------------------------------------------------- stats

@@ -8,7 +8,6 @@ use std::sync::mpsc;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-use tauri_plugin_notification::NotificationExt;
 
 fn pet_home() -> PathBuf {
     if let Ok(p) = std::env::var("PET_HOME") {
@@ -52,12 +51,6 @@ fn pet(args: Vec<String>) -> Result<serde_json::Value, String> {
         let err = String::from_utf8_lossy(&output.stderr);
         format!("pet.py 응답을 읽지 못했어요: {}", if err.is_empty() { stdout.to_string() } else { err.to_string() })
     })
-}
-
-/// macOS notification from the widget (hungry pet, runaway warning).
-#[tauri::command]
-fn notify(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
-    app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
 }
 
 /// Launch at login follows `settings.widget` in state.json (`/pet widget on|off`), on by default.
@@ -203,9 +196,8 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![read_state, pet, notify, pr_inbox, open_url])
+        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
