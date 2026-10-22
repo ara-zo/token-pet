@@ -63,7 +63,9 @@ body.expanded #collapsed { display: none; }
   display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden;
 }
 .name { font-size: 14px; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-#expanded > header > .row:first-child { min-width: 0; flex: 1 1 auto; justify-content: flex-start; }
+#expanded > header > .row:first-child { min-width: 0; flex: 1 1 auto; flex-direction: column; align-items: flex-start; gap: 2px; }
+#expanded > header > .row:first-child .name { max-width: 100%; font-size: 13px; line-height: 15px; }
+#expanded > header > .row:first-child .badge { background: none; padding: 0; font-size: 8px; line-height: 9px; color: var(--sub); }
 #expanded > header > .row:last-child { flex: none; }
 .badge { font-size: 10px; background: var(--card2); color: #D9D4F5; padding: 4px 7px; border-radius: 6px; }
 .icon-btn { border: 0; background: var(--card2); color: var(--sub); width: 26px; height: 26px; border-radius: 999px; font-size: 15px; cursor: pointer; }

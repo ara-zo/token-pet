@@ -163,6 +163,7 @@ function render() {
   $("coins-small").textContent = s.coins.toLocaleString();
   $("coins").textContent = s.coins.toLocaleString();
   $("name").textContent = s.name;
+  fitText($("name"), 13, 10);
   $("level").textContent = `LV.${s.level}`;
   $("speech").textContent = s.speech || "…";
   $("speech").classList.remove("error");
@@ -420,6 +421,15 @@ async function restorePos() {
   } catch (e) {}
 }
 
+// Long names shrink until they fit; only past the smallest size do they end in "…" (with a tooltip).
+function fitText(el, max, min) {
+  if (!el.clientWidth) return;              // hidden: fitted again when shown
+  let px = max;
+  el.style.fontSize = `${px}px`;
+  while (px > min && el.scrollWidth > el.clientWidth) el.style.fontSize = `${--px}px`;
+  el.title = el.scrollWidth > el.clientWidth ? el.textContent : "";
+}
+
 async function setExpanded(on) {
   if (on === expanded) return;
   expanded = on;
@@ -441,6 +451,7 @@ async function setExpanded(on) {
       target = { x: petArea.x, y: petArea.y - bandH() };
     }
     document.body.className = on ? "expanded" : "collapsed";
+    if (on) fitText($("name"), 13, 10);
     const size = on ? LARGE : { w: SMALL.w, h: SMALL.h + bandH() };
     await win.setSize(new LogicalSize(size.w, size.h));
     await win.setPosition(new LogicalPosition(target.x, target.y));
@@ -1148,6 +1159,7 @@ function setRoomAction(label, onClick, ghost) {
 function renderDress() {
   if (!shop || !state) return;
   $("room-title").textContent = `${state.name}의 방`;
+  fitText($("room-title"), 15, 11);
   $("coins-dress").textContent = state.coins.toLocaleString();
   for (const tab of document.querySelectorAll(".tabs .tab")) {
     tab.setAttribute("aria-selected", String(tab.dataset.tab === dressTab));
