@@ -14,7 +14,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install|update]|pr [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -200,7 +200,7 @@ def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
             return 2, str(e)
         return 0, (f"위젯을 {r[0] or '?'} → {r[1]} 로 업데이트하고 다시 띄웠어요" if r else "위젯이 이미 최신이에요")
     if sub:
-        return 2, "사용법: /pet widget [on|off|install|update]"
+        return 2, "사용법: /pet widget [on|off|install]"
     app = widget.find_app()
     on = store.load(now)["settings"]["widget"] if store.state_path().exists() else True
     where = f"설치됨: {app}" if app else "설치 안 됨. /pet widget install 로 설치해요"
