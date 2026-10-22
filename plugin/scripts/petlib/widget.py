@@ -59,13 +59,34 @@ def latest_version() -> Optional[str]:
     return m.group(1) if m else None
 
 
-def _quit_running() -> None:
-    """Quit the widget and wait for it to exit; `open` on a still-quitting app does nothing."""
-    subprocess.run(["osascript", "-e", 'quit app "Token Pet"'], capture_output=True)
-    for _ in range(50):
-        if subprocess.run(["pgrep", "-f", APP_NAME + "/Contents/MacOS/"], capture_output=True).returncode != 0:
-            return
+def _running() -> bool:
+    return subprocess.run(["pgrep", "-f", APP_NAME + "/Contents/MacOS/"], capture_output=True).returncode == 0
+
+
+def _wait(running: bool, tries: int = 50) -> bool:
+    for _ in range(tries):
+        if _running() == running:
+            return True
         time.sleep(0.1)
+    return False
+
+
+def _quit_running() -> None:
+    """Quit the widget and wait for it to exit; `open` on a still-quitting app does nothing.
+    An app that ignores the quit request within 5 s is stopped."""
+    subprocess.run(["osascript", "-e", 'quit app "Token Pet"'], capture_output=True)
+    if not _wait(False):
+        subprocess.run(["pkill", "-f", APP_NAME + "/Contents/MacOS/"], capture_output=True)
+        _wait(False)
+
+
+def _relaunch(app: Path) -> None:
+    """Start the freshly installed copy and make sure it is up: one `open` right after replacing
+    the app did not always start it, which left the widget gone after an update."""
+    for _ in range(3):
+        subprocess.run(["open", "-g", str(app)], capture_output=True)
+        if _wait(True, 30):
+            return
 
 
 def install(dest_dir: Optional[Path] = None) -> Path:
@@ -93,7 +114,7 @@ def install(dest_dir: Optional[Path] = None) -> Path:
         shutil.move(str(src), str(dest))
     # unsigned build: drop the quarantine flag so Gatekeeper doesn't block the first open
     subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(dest)], capture_output=True)
-    launch(dest)
+    _relaunch(dest)
     return dest
 
 
