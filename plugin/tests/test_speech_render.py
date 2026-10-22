@@ -114,15 +114,32 @@ def test_species_line_wins_for_its_form():
 
 
 def test_species_tic_dresses_form_lines():
-    assert speech.choose(st(species="mole", form="miser"), NOW, "FEED") == "…50코인."
+    # situations the board doesn't cover per species (earn, buy, refuse) get the species' tic
+    assert speech.choose(st(species="mole", form="miser"), NOW, "BUY") == "…샀다."
     assert speech.choose(st(species="robot", form="scholar"), NOW, "EARN", n=12) == "보고: +12. 캐시 적중률 좋았어."
-    sp = lambda species: speech.choose(st(species=species, form="spender"), NOW, "PAT")
-    assert sp("hamster") == "근데근데 머리 망가져! …그래도 좋아"
-    assert sp("penguin") == "머리 망가져! …그래도 좋아…"
-    assert sp("rabbit") == "신호 왔어. 머리 망가져! …그래도 좋아"
-    assert sp("squirrel").endswith("!! 머리 망가져! …그래도 좋아!!")
-    assert sp("mochi") == "머리 망가져! …그래도 좋아"
+    sp = lambda species: speech.choose(st(species=species, form="spender"), NOW, "REFUSE")
+    assert sp("hamster") == "근데근데 …삐졌어. 사 줄 때까지."
+    assert sp("penguin") == "…삐졌어. 사 줄 때까지…"
+    assert sp("rabbit") == "신호 왔어. …삐졌어. 사 줄 때까지."
+    assert sp("squirrel").endswith("!! …삐졌어. 사 줄 때까지!!")
+    assert sp("mochi") == "…삐졌어. 사 줄 때까지."
     assert speech.choose(st(species="hamster", form="runaway"), NOW, "PAT") == "(빈 쿠션만 만져진다)"
+
+
+def test_species_form_lines_from_the_board():
+    assert speech.choose(st(species="mole", form="miser"), NOW, "FEED") == "…50코인. 남김없이 먹는다."
+    assert speech.choose(st(species="penguin", form="burnout"), NOW) == "별이… 하나도 안 보여…"
+    assert speech.choose(st(species="hamster", form="spender", mood=10), NOW) == "근데근데 심심하니까 상점 구경만 하자 구경만"
+    assert speech.choose(st(species="robot", form="miser", hunger=12), NOW) == "보고: 절약 모드. 연료 12%. 구매 보류."
+    assert speech.choose(st(form="tycoon", mood=10), NOW) == "돈은 많은데 놀 사람이 없네"        # mochi's new 외로움
+    for key, by_form in speech_lines.SPECIES_LINES.items():
+        if key == "mochi":
+            continue
+        for form in economy.FORMS:
+            if form in speech_lines.STRONG_FORMS:
+                assert form not in by_form
+                continue
+            assert set(by_form[form]) == {"IDLE", "HUNGRY", "BORED", "FEED", "PAT"}, (key, form)
 
 
 def test_strong_forms_keep_their_tone():
