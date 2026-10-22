@@ -223,6 +223,19 @@ def _run_claude(*args: str) -> Tuple[bool, str]:
     return r.returncode == 0, (lines[-1] if lines else "")
 
 
+def _installed_root() -> Optional[str]:
+    """Where Claude Code installed this plugin now (after `claude plugin update`, the new copy)."""
+    try:
+        data = json.loads((_config_dir() / "plugins" / "installed_plugins.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    for entry in (data.get("plugins", data).get(PLUGIN_ID) or []):
+        path = entry.get("installPath")
+        if path and (Path(path) / "scripts" / "pet.py").exists():
+            return path
+    return None
+
+
 def _update_cmd() -> Tuple[int, str]:
     """/pet update: the newest plugin from the marketplace and the newest widget release, right now,
     instead of waiting for Claude Code's own marketplace refresh and the widget's daily check."""
@@ -238,6 +251,11 @@ def _update_cmd() -> Tuple[int, str]:
         out.append("플러그인: 이미 최신이에요")
     else:
         out.append("플러그인: 새 버전을 받았어요. /reload-plugins 하면 이 세션에 바로 적용돼요")
+    if done and store.state_path().exists():
+        root = _installed_root()       # the widget calls the plugin through state.json: point it at the new copy now
+        if root:
+            with store.transaction(clock.now(), tick=False) as s:
+                s["plugin_root"] = root
     if sys.platform == "darwin":
         try:
             if widget.find_app() is None:

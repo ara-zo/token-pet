@@ -389,3 +389,16 @@ def test_update_pulls_plugin_and_widget_now(pet_home, monkeypatch):
     monkeypatch.setattr(widget, "update", no_release)
     code, text = cli.main_pet(["update"], NOW)
     assert code == 2 and "위젯: 최신 버전을 확인하지 못했어요" in text
+
+
+def test_installed_root_reads_claude_code_record(tmp_path, monkeypatch):
+    new = tmp_path / "cache" / "new"
+    (new / "scripts").mkdir(parents=True)
+    (new / "scripts" / "pet.py").write_text("")
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "installed_plugins.json").write_text(json.dumps(
+        {"version": 2, "plugins": {"token-pet@token-pet": [{"scope": "user", "installPath": str(new)}]}}))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    assert cli._installed_root() == str(new)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "nowhere"))
+    assert cli._installed_root() is None

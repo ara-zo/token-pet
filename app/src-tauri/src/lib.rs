@@ -32,16 +32,42 @@ fn read_state() -> Result<serde_json::Value, String> {
     read_state_file()
 }
 
+/// Where the plugin is installed now, as Claude Code records it. Right after `/plugin update` this is
+/// already the new copy, while state.json's `plugin_root` only moves when a hook next runs.
+/// A widget pointed at another pet (PET_HOME, for tests and demos) keeps that pet's own plugin.
+fn installed_plugin_root() -> Option<PathBuf> {
+    if std::env::var("PET_HOME").is_ok() {
+        return None;
+    }
+    let config = std::env::var("CLAUDE_CONFIG_DIR")
+        .map(PathBuf::from)
+        .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".claude")))
+        .ok()?;
+    let text = std::fs::read_to_string(config.join("plugins").join("installed_plugins.json")).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let list = v.get("plugins").unwrap_or(&v).get("token-pet@token-pet")?.as_array()?;
+    list.iter()
+        .filter_map(|e| e.get("installPath").and_then(|p| p.as_str()))
+        .map(PathBuf::from)
+        .find(|p| p.join("scripts").join("pet.py").exists())
+}
+
 /// Run the plugin's pet.py with `args` and return its --json payload.
 #[tauri::command]
 fn pet(args: Vec<String>) -> Result<serde_json::Value, String> {
-    let state = read_state_file()?;
-    let root = state
-        .get("plugin_root")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "플러그인 위치를 몰라요. Claude Code 세션을 한 번 시작해 주세요".to_string())?;
-    let script = PathBuf::from(root).join("scripts").join("pet.py");
+    let root = match installed_plugin_root() {
+        Some(p) => p,
+        None => {
+            let state = read_state_file()?;
+            let root = state
+                .get("plugin_root")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "플러그인 위치를 몰라요. Claude Code 세션을 한 번 시작해 주세요".to_string())?;
+            PathBuf::from(root)
+        }
+    };
+    let script = root.join("scripts").join("pet.py");
     let output = Command::new("python3")
         .arg(&script)
         .args(&args)
