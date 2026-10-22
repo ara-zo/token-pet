@@ -165,10 +165,10 @@ def stats_payload(state: dict, now: dt.datetime, days: int = 7) -> dict:
 def stats_text(state: dict, now: dt.datetime) -> str:
     p = stats_payload(state, now)
     top = max([d["earned"] for d in p["days"]] + [1])
-    lines = ["📊 최근 7일   코인 · 출력 토큰 · 먹이"]
+    lines = ["📊 최근 7일   코인 · 출력 토큰 · 밥"]
     for d in p["days"]:
         bar = bars(d["earned"] / top * 100, 8)
         lines.append(f"  {d['date'][5:].replace('-', '/')}  {bar}  +{d['earned']:,} · {d['tokens_out']:,} · {d['feeds']}")
     t = p["total"]
-    lines.append(f"합계 +{t['earned']:,}코인 (사용 {t['spent']:,}) · 출력 {t['tokens_out']:,} · 먹이 {t['feeds']} · 쓰다듬기 {t['pats']}")
+    lines.append(f"합계 +{t['earned']:,}코인 (사용 {t['spent']:,}) · 출력 {t['tokens_out']:,} · 밥 {t['feeds']} · 쓰다듬기 {t['pats']}")
     return "\n".join(lines)

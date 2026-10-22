@@ -48,7 +48,7 @@ def choose(state: dict, now: dt.datetime, situation: Optional[str] = None, **fmt
         return _pick(form, L.IDLE, now)
     if state["hunger"] < 20:
         out = schema.today(state, now)["tokens_out"]
-        return _pick(form, L.HUNGRY, now, out=_fmt_k(out) if out else None) or "배고파… 먹이 줘"
+        return _pick(form, L.HUNGRY, now, out=_fmt_k(out) if out else None) or "배고파… 밥 줘"
     if state["mood"] < 30:
         return _pick(form, L.BORED, now)
     flags = state["flags"]

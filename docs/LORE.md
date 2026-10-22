@@ -32,7 +32,7 @@ Lv.5·Lv.10에 "지난 7일 이렇게 살았네요" 결과지가 나온다. 합�
 
 ## 말풍선 톤
 
-짧고, 귀엽고, 가끔 한 줄이 서늘하게. 형태 16개 × 상황(평소·배고픔·심심·먹이·쓰다듬기·획득·거절·구매·밤) 전문은 [`plugin/scripts/petlib/speech_lines.py`](../plugin/scripts/petlib/speech_lines.py).
+짧고, 귀엽고, 가끔 한 줄이 서늘하게. 형태 16개 × 상황(평소·배고픔·심심·밥·쓰다듬기·획득·거절·구매·밤) 전문은 [`plugin/scripts/petlib/speech_lines.py`](../plugin/scripts/petlib/speech_lines.py).
 
 | 상황 | 예 |
 |---|---|

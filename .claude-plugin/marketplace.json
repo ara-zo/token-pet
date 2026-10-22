@@ -6,7 +6,7 @@
     {
       "name": "token-pet",
       "source": "./plugin",
-      "description": "Claude Code 토큰 사용량이 코인이 되는 다마고치. /pet 으로 먹이 주고 꾸미기"
+      "description": "Claude Code 토큰 사용량이 코인이 되는 다마고치. /pet 으로 밥 주고 꾸미기"
     }
   ]
 }

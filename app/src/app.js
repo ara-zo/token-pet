@@ -968,9 +968,9 @@ function maybeNotify(s, hunger) {
   const unfed = (Date.now() - new Date(s.last_fed_at).getTime()) / 36e5;
   const who = josa(s.name, "이", "가");
   const stages = [                                              // most severe first
-    ["runaway", unfed >= RUNAWAY_WARN_HOURS, `${who} 가출하려고 해요`, "하루 안에 먹이를 주지 않으면 코인 절반을 들고 집을 나가요"],
+    ["runaway", unfed >= RUNAWAY_WARN_HOURS, `${who} 가출하려고 해요`, "하루 안에 밥을 주지 않으면 코인 절반을 들고 집을 나가요"],
     ["starving", hunger <= 0, `${who} 굶고 있어요`, "배고픔 0으로 48시간이 쌓이면 불량배가 돼요"],
-    ["hungry", hunger < 20, `${who} 배고파요`, `배고픔 ${Math.round(hunger)}. 먹이는 ${feedCost}코인이에요`],
+    ["hungry", hunger < 20, `${who} 배고파요`, `배고픔 ${Math.round(hunger)}. 밥은 ${feedCost}코인이에요`],
   ];
   const i = stages.findIndex(([key, hit]) => hit && !n.sent.includes(key));
   if (i < 0) return;
@@ -1018,9 +1018,9 @@ function renderStats() {
   $("stats-today").innerHTML = "";
   const b = document.createElement("b");
   b.textContent = `+${today.earned.toLocaleString()}`;
-  $("stats-today").append("오늘 ", b, ` 코인 · 출력 ${today.tokens_out.toLocaleString()} · 먹이 ${today.feeds} · 쓰다듬기 ${today.pats}`);
+  $("stats-today").append("오늘 ", b, ` 코인 · 출력 ${today.tokens_out.toLocaleString()} · 밥 ${today.feeds} · 쓰다듬기 ${today.pats}`);
   $("stats-total").textContent =
-    `7일 합계 +${t.earned.toLocaleString()}코인 · 사용 ${t.spent.toLocaleString()} · 먹이 ${t.feeds}번`;
+    `7일 합계 +${t.earned.toLocaleString()}코인 · 사용 ${t.spent.toLocaleString()} · 밥 ${t.feeds}번`;
 
   const svg = $("stats-chart");
   svg.replaceChildren();
@@ -1057,7 +1057,7 @@ function renderStats() {
 function showTip(d, cx, wd, isToday) {
   const tip = $("chart-tip");
   const [, m, day] = d.date.split("-");
-  tip.textContent = `${+m}/${+day} ${isToday ? "오늘" : wd} · +${d.earned.toLocaleString()}코인 · 출력 ${d.tokens_out.toLocaleString()} · 먹이 ${d.feeds}`;
+  tip.textContent = `${+m}/${+day} ${isToday ? "오늘" : wd} · +${d.earned.toLocaleString()}코인 · 출력 ${d.tokens_out.toLocaleString()} · 밥 ${d.feeds}`;
   tip.style.left = `${Math.min(Math.max(cx, 110), W_CHART - 110)}px`;   // keep the bubble inside the panel
   tip.classList.remove("hidden");
 }
