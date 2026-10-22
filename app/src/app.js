@@ -1018,10 +1018,11 @@ function svgEl(tag, attrs) {
 function renderStats() {
   if (!stats) return;
   const days = stats.days, t = stats.total, today = days[days.length - 1];
-  const tokens = `출력 ${kTokens(today.tokens_out)}` + (today.tokens_in != null ? ` · 입력 ${kTokens(today.tokens_in)}` : "");
+  const hasIn = today.tokens_in != null;   // older plugins send output only
   fillRows($("stats-today"), [
     ["오늘 획득", `+${today.earned.toLocaleString()}`, "coin"],
-    ["오늘 사용한 토큰", tokens],
+    [hasIn ? "출력 · 입력" : "출력 토큰",
+      kTokens(today.tokens_out) + (hasIn ? ` · ${kTokens(today.tokens_in)}` : "")],
     ["밥 · 쓰다듬기", `${today.feeds} · ${today.pats}`],
   ]);
   $("stats-total").textContent =
@@ -1059,9 +1060,10 @@ function renderStats() {
   });
 }
 
-// 1234 -> "1.2k", 88000 -> "88k", 300000 -> "300k"
+// 1234 -> "1.2k", 88000 -> "88k", 2500000 -> "2.5M"
 function kTokens(n) {
   if (n < 1000) return n.toLocaleString();
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
   const k = n / 1000;
   return `${k >= 100 ? Math.round(k) : +k.toFixed(1)}k`;
 }
