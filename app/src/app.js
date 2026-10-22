@@ -1018,10 +1018,23 @@ function svgEl(tag, attrs) {
 function renderStats() {
   if (!stats) return;
   const days = stats.days, t = stats.total, today = days[days.length - 1];
-  $("stats-today").innerHTML = "";
-  const b = document.createElement("b");
-  b.textContent = `+${today.earned.toLocaleString()}`;
-  $("stats-today").append("오늘 ", b, ` 코인 · 출력 ${today.tokens_out.toLocaleString()} · 밥 ${today.feeds} · 쓰다듬기 ${today.pats}`);
+  const tokens = `출력 ${kTokens(today.tokens_out)}` + (today.tokens_in != null ? ` · 입력 ${kTokens(today.tokens_in)}` : "");
+  fillRows($("stats-today"), null, [
+    ["오늘 획득", `+${today.earned.toLocaleString()}`, "coin"],
+    ["오늘 사용한 토큰", tokens],
+    ["밥 · 쓰다듬기", `${today.feeds} · ${today.pats}`],
+  ]);
+  const r = stats.rates;              // older plugins don't send the table
+  $("stats-rates").classList.toggle("hidden", !r);
+  if (r) {
+    const cap = kTokens(r.softcap_out);
+    fillRows($("stats-rates"), "환율", [
+      [`출력 0~${cap}`, `1k = ${r.per_1k}코인`],
+      [`출력 ${cap} 초과`, `1k = ${r.per_1k_over_cap}코인`],
+      [`캐시 적중 ${r.cache_threshold_pct}% 이상`, `+${r.cache_bonus_pct}%`],
+      ["입력 · 캐시", "0코인"],
+    ]);
+  }
   $("stats-total").textContent =
     `7일 합계 +${t.earned.toLocaleString()}코인 · 사용 ${t.spent.toLocaleString()} · 밥 ${t.feeds}번`;
 
@@ -1055,6 +1068,34 @@ function renderStats() {
     g.append(hit);
     svg.append(g);
   });
+}
+
+// 1234 -> "1.2k", 88000 -> "88k", 300000 -> "300k"
+function kTokens(n) {
+  if (n < 1000) return n.toLocaleString();
+  const k = n / 1000;
+  return `${k >= 100 ? Math.round(k) : +k.toFixed(1)}k`;
+}
+
+// <dl> of label/value rows, with an optional heading row
+function fillRows(dl, head, rows) {
+  dl.replaceChildren();
+  if (head) {
+    const h = document.createElement("div");
+    h.className = "stats-head";
+    h.textContent = head;
+    dl.append(h);
+  }
+  for (const [label, value, cls] of rows) {
+    const row = document.createElement("div");
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    if (cls) dd.className = cls;
+    row.append(dt, dd);
+    dl.append(row);
+  }
 }
 
 function showTip(d, cx, wd, isToday) {
