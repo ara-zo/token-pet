@@ -12,7 +12,7 @@ const LogicalPosition = T.dpi.LogicalPosition;
 const SMALL = { w: 120, h: 120 };
 // While mail is waiting the collapsed window grows a band above the pet for a full sentence.
 // Positions are always stored for the 120x120 pet area; the band hangs above it.
-const BAND = 54;
+const BAND = 62;
 let bandOn = false;
 // While the collapsed pet is talking the window also grows a strip above, so the bubble never covers it.
 const TALK = 40;
