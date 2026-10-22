@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from . import clock, economy, schema
+from . import clock, economy, schema, speech_lines
 
 MAX_NAME_LEN = 8
 
@@ -48,7 +48,8 @@ def pat(state: dict, now: dt.datetime) -> dict:
         raise ActionError("가출 중이라 쓰다듬을 수 없어. /pet find 로 찾아봐")
     day = schema.today(state, now)
     if day["pats"] >= economy.PAT_DAILY_LIMIT:
-        raise ActionError("오늘은 충분히 쓰다듬었어. 내일 또 해 줘")
+        line = speech_lines.PAT_LIMIT.get(state.get("species"), speech_lines.PAT_LIMIT["mochi"])
+        raise ActionError(line.format(limit=economy.PAT_DAILY_LIMIT))
     day["pats"] += 1
     state["lifetime"]["pats"] = state["lifetime"].get("pats", 0) + 1
     state["mood"] = round(min(100.0, float(state["mood"]) + economy.PAT_MOOD), 2)

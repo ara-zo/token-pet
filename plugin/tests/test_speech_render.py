@@ -116,11 +116,12 @@ def test_species_line_wins_for_its_form():
 def test_species_tic_dresses_form_lines():
     assert speech.choose(st(species="mole", form="miser"), NOW, "FEED") == "…50코인."
     assert speech.choose(st(species="robot", form="scholar"), NOW, "EARN", n=12) == "보고: +12. 캐시 적중률 좋았어."
-    assert speech.choose(st(species="hamster"), NOW, "PAT") == "근데근데 더 해 줘!"
-    assert speech.choose(st(species="penguin"), NOW, "PAT") == "더 해 줘…"
-    assert speech.choose(st(species="rabbit"), NOW, "PAT") == "신호 왔어. 더 해 줘!"
-    assert speech.choose(st(species="squirrel"), NOW, "PAT").endswith("!! 더 해 줘!")
-    assert speech.choose(st(species="mochi"), NOW, "PAT") == "더 해 줘!"
+    sp = lambda species: speech.choose(st(species=species, form="spender"), NOW, "PAT")
+    assert sp("hamster") == "근데근데 머리 망가져! …그래도 좋아"
+    assert sp("penguin") == "머리 망가져! …그래도 좋아…"
+    assert sp("rabbit") == "신호 왔어. 머리 망가져! …그래도 좋아"
+    assert sp("squirrel").endswith("!! 머리 망가져! …그래도 좋아!!")
+    assert sp("mochi") == "머리 망가져! …그래도 좋아"
     assert speech.choose(st(species="hamster", form="runaway"), NOW, "PAT") == "(빈 쿠션만 만져진다)"
 
 
@@ -132,10 +133,19 @@ def test_strong_forms_keep_their_tone():
 
 def test_every_species_line_formats():
     from petlib import species
-    assert set(speech_lines.SPECIES_LINES) == set(species.SPECIES) - {"mochi"}
+    assert set(speech_lines.SPECIES_LINES) == set(species.SPECIES) == set(speech_lines.PAT_LIMIT)
     for by_form in speech_lines.SPECIES_LINES.values():
         for form, sits in by_form.items():
             assert form in economy.FORMS
             for opts in sits.values():
                 for line in opts:
                     line.format(n=1, out="1k", item="모자", mood=50, fuel=10)
+
+
+def test_species_feed_and_pat_lines_in_base_form():
+    for key in speech_lines.SPECIES_LINES:
+        base = speech_lines.SPECIES_LINES[key]["base"]
+        assert len(base["FEED"]) == 2 and len(base["PAT"]) == 2, key
+    assert speech.choose(st(species="robot", hunger=64), NOW, "FEED") in (
+        "보고: 화로 연료 64%. 충전 완료.", "보고: 급식 수령 확인. 굴뚝 연기 정상.")
+    assert speech.choose(st(species="mole"), NOW, "PAT") in ("…안전모는 벗기지 마라.", "…따뜻하다. 조금 더.")

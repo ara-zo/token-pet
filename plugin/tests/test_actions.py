@@ -178,3 +178,13 @@ def test_pat_caps_mood_and_refuses_runaway():
     assert s["mood"] == 100
     with pytest.raises(ActionError, match="가출"):
         actions.pat(st(form="runaway"), NOW)
+
+
+def test_pat_limit_refusal_speaks_like_the_species():
+    s = st(species="robot")
+    schema.today(s, NOW)["pats"] = economy.PAT_DAILY_LIMIT
+    with pytest.raises(ActionError, match="접촉 한도 5/5"):
+        actions.pat(s, NOW)
+    s["species"], s["form"] = "mole", "thug"           # any form: still the species' words
+    with pytest.raises(ActionError, match="굴 들어간다"):
+        actions.pat(s, NOW)

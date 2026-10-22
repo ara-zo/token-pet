@@ -177,40 +177,67 @@ EVENTS = {
 
 # species × form × situation. Only the cells people see most; everything else falls back to a tic.
 SPECIES_LINES = {
+    "mochi": {
+        "base": {FEED: ["냠냠! 환전소 아저씨 고마워요!", "배부르다~ 공장 다시 돌린다!"],
+                 PAT: ["헤헤 더 해 줘!", "말랑말랑해졌어!"]},
+    },
     "squirrel": {
-        "base": {IDLE: ["끼양!! 결정! 결정이다!! (꼬리에 쿡)"],
+        "base": {FEED: ["끼양!! 밥이다!! 반은 꼬리에 저장!!", "흐랏! 다 먹었다!! 한 그릇 더!! 아님 말고!!"],
+                 PAT: ["뀨아아!! 꼬리는 안 돼!! …아 돼!! 해!!", "냐핫! 결정 반짝반짝해졌다!!"],
+                 IDLE: ["끼양!! 결정! 결정이다!! (꼬리에 쿡)"],
                  HUNGRY: ["흐랏? 배고프다고? 아냐! 굴뚝 우다다 갔다 옴!!"]},
         "thug": {IDLE: ["냐핫! 10% 잡았다! 튄다!! 우다닥닥"]},
         "tycoon": {IDLE: ["뀨아아아!! 황금이다!! 꼬리 무거워서 더 신남!!"]},
     },
     "mole": {
-        "base": {IDLE: ["…캤다."], HUNGRY: ["…배고프다. 삽이 무겁다."]},
+        "base": {FEED: ["…먹었다. 든든하다.", "…흙맛 아니다. 좋다."],
+                 PAT: ["…안전모는 벗기지 마라.", "…따뜻하다. 조금 더."],
+                 IDLE: ["…캤다."], HUNGRY: ["…배고프다. 삽이 무겁다."]},
         "thug": {IDLE: ["…10%. 굴삯이다."]},
         "tycoon": {IDLE: ["…광맥 하나 샀다. 조용하다. 좋다."]},
     },
     "robot": {
-        "base": {IDLE: ["보고: 공장 가동 중. 기분 {mood}%. 이상 없음."],
+        "base": {FEED: ["보고: 화로 연료 {fuel}%. 충전 완료.", "보고: 급식 수령 확인. 굴뚝 연기 정상."],
+                 PAT: ["보고: 외부 접촉 감지. 기분 {mood}%.", "경고: 과열 위험. …계속해도 됨."],
+                 IDLE: ["보고: 공장 가동 중. 기분 {mood}%. 이상 없음."],
                  HUNGRY: ["경고: 화로 연료 {fuel}%. 급식 요청 미처리."]},
         "thug": {IDLE: ["공지: 오늘부로 보호비 10% 자동 이체 시작함. 문의 불가."]},
         "tycoon": {IDLE: ["보고: 자산 +3%. 굴뚝 금도금 완료. 만족도 측정 불가(최대치 초과)."]},
     },
     "penguin": {
-        "base": {IDLE: ["오늘 떨어진 조각은… 별 같았어…"], HUNGRY: ["배 속 초승달이… 자꾸 작아져…"]},
+        "base": {FEED: ["별가루 맛이 나… 고마워…", "배 속 초승달이… 조금 차올랐어…"],
+                 PAT: ["손끝에서… 별이 떨어져…", "이대로 밤이 오면 좋겠어…"],
+                 IDLE: ["오늘 떨어진 조각은… 별 같았어…"], HUNGRY: ["배 속 초승달이… 자꾸 작아져…"]},
         "thug": {IDLE: ["밤하늘엔 주인이 없지… 그러니까 이 10%도 내 거야."]},
         "tycoon": {IDLE: ["달을 통째로 샀어… 이제 밤이 내 거야…"]},
     },
     "hamster": {
-        "base": {IDLE: ["근데근데 오늘 조각 볼에 넣었는데 해바라기씨 맛 났어 진짜로"],
+        "base": {FEED: ["근데근데 이거 반은 볼에 넣어도 돼? 나중에 먹게", "맛있어맛있어 근데 해바라기씨는 없어?"],
+                 PAT: ["근데근데 볼은 누르지 마 저장해 둔 거 나와", "더더 근데 귀 네 개 다 해 줘야 돼"],
+                 IDLE: ["근데근데 오늘 조각 볼에 넣었는데 해바라기씨 맛 났어 진짜로"],
                  HUNGRY: ["배고파배고파 볼에 넣어둔 거 꺼내 먹어도 돼? 하나만? 두 개?"]},
         "thug": {IDLE: ["근데 이거 내 볼에 넣을게 10%만 아니 11%…"]},
         "tycoon": {IDLE: ["볼에 금괴 넣었는데 이가 아파 근데 행복해 근데 아파"]},
     },
     "rabbit": {
-        "base": {IDLE: ["주인 지금 고민하는 신호 잡혔어. 커피부터 마셔."],
+        "base": {FEED: ["배부른 신호 수신. 주인도 뭐 좀 먹었어?", "밥 오는 거 미리 느꼈어. 귀가 먼저 알아."],
+                 PAT: ["주인 손에서 피곤한 신호 와. 조금만 쉬어.", "세 번째 눈이… 아니야, 기분 좋아서 그래."],
+                 IDLE: ["주인 지금 고민하는 신호 잡혔어. 커피부터 마셔."],
                  HUNGRY: ["배고픈 신호… 내 거야. 주인 거 아니야. 헷갈렸어."]},
         "thug": {IDLE: ["주인 지갑 신호 다 잡혀. 10% 빼도 모르지?"]},
         "tycoon": {IDLE: ["돈 냄새 신호가 귀를 간지럽혀. 계속 들어와."]},
     },
+}
+
+# Refusal when today's pats are used up: whatever the form, the species says it.
+PAT_LIMIT = {
+    "mochi": "오늘은 충분히 쓰다듬었어. 내일 또 해 줘!",
+    "squirrel": "끼양!! 털 다 섰다!! 내일!! 내일 해!!",
+    "mole": "…오늘은 끝. 굴 들어간다.",
+    "robot": "경고: 오늘 접촉 한도 {limit}/{limit} 도달. 내일 00:00 초기화.",
+    "penguin": "오늘 몫은 다 받았어… 나머진 꿈에서…",
+    "hamster": "근데근데 더 하면 볼에 넣은 거 다 쏟아져 내일 해",
+    "rabbit": "손이 지친 신호 와. 오늘은 여기까지.",
 }
 
 # These forms are louder than any species: their own tone, no tic.
@@ -225,7 +252,7 @@ def _first_sentence(line: str) -> str:
 
 def tic(species: str, line: str) -> str:
     """Dress a form line in the species' way of talking. Narration in parentheses is left alone."""
-    if species not in SPECIES_LINES or line.startswith("("):
+    if species not in SPECIES_LINES or species == "mochi" or line.startswith("("):
         return line
     if species == "squirrel":
         shout = SQUIRREL_SHOUTS[sum(map(ord, line)) % len(SQUIRREL_SHOUTS)]
