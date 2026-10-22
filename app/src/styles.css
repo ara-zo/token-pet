@@ -31,10 +31,10 @@ body.expanded #collapsed { display: none; }
 /* the collapsed pet says something now and then, from a 40px strip the window grows above its head
    (above the mail band too, when there is one) */
 .collapsed-view.with-talk { height: 160px; }
-.collapsed-view.with-band.with-talk { height: 206px; }
-.collapsed-view.with-talk .mail-bubble { top: 42px; }
+.collapsed-view.with-band.with-talk { height: 214px; }
+.collapsed-view.with-talk .mail-bubble { top: 50px; }
 .collapsed-view.with-talk .earn-bubble { top: 42px; }
-.collapsed-view.with-band.with-talk .earn-bubble { top: 88px; }
+.collapsed-view.with-band.with-talk .earn-bubble { top: 96px; }
 .say-bubble {
   position: absolute; left: 50%; translate: -50% 0; width: max-content; max-width: 112px;
   z-index: 5; pointer-events: none; text-align: center;
@@ -359,11 +359,11 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes tp-coin-spin { from { transform: scaleX(1); } to { transform: scaleX(.3); } }
 
 /* ---------- PR mailbox ---------- */
-/* collapsed: while mail waits the window grows a 36px band above the pet for a full sentence */
-.collapsed-view.with-band { height: 166px; }
-.collapsed-view.with-band .earn-bubble { top: 48px; }
+/* collapsed: while mail waits the window grows a 54px band above the pet for a full sentence */
+.collapsed-view.with-band { height: 174px; }
+.collapsed-view.with-band .earn-bubble { top: 56px; }
 .mail-bubble {
-  position: absolute; top: 2px; left: 3px; right: 3px; z-index: 4;
+  position: absolute; top: 10px; left: 3px; right: 3px; z-index: 4;   /* room above for its ring/float */
   display: flex; align-items: center; justify-content: center; gap: 4px;
   border: 2px solid #23203A; background: var(--coin); color: #23203A; cursor: pointer; text-align: left;
   font: 800 10.5px/1.2 var(--sans); padding: 3px 5px; border-radius: 6px; word-break: keep-all;
