@@ -169,6 +169,8 @@ function render() {
   sayNewEvent(s);
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
+  trayHunger = Math.round(hunger);
+  updateTray();
   const fc = s.forecast;
   const fcEl = $("forecast");
   fcEl.classList.toggle("hidden", !fc);
@@ -588,6 +590,26 @@ function walkOut() {
   }, 1700);
 }
 
+// ---------------------------------------------------------------- menu bar
+// The menu bar menu's two info lines follow the pet: name and level, coins, live hunger, unread PRs.
+
+let trayHunger = 0;
+let trayText = "";
+function updateTray() {
+  if (!state) return;
+  const unread = mailEnabled() ? mail.items.filter((it) => !isRead(it)).length : 0;
+  const title = `${state.name} · Lv.${state.level}`;
+  const detail = `코인 ${state.coins.toLocaleString()} · 배고픔 ${trayHunger}` + (unread ? ` · 안 읽은 PR ${unread}` : "");
+  if (title + detail === trayText) return;
+  trayText = title + detail;
+  invoke("tray_status", { title, detail }).catch(() => {});
+}
+
+// "업데이트 확인…" in the menu bar: the pet tells how it went
+T.event.listen("tray-say", (ev) => {
+  if (expanded) speakNote(ev.payload); else say(ev.payload, 8000);
+});
+
 // ---------------------------------------------------------------- PR mailbox
 // PRs matching the GitHub search conditions the player typed into the mailbox ("가져오는 곳"), through
 // gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`. A newly found PR makes the pet speak
@@ -802,6 +824,7 @@ function renderMail() {
   $("mail-count-small").textContent = full;
   $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
   setBand(on && n > 0);
+  updateTray();
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
   if (!mailOpen) return;

@@ -6,6 +6,9 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::mpsc;
 use std::time::Duration;
+use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
@@ -184,6 +187,127 @@ fn watch_state(app: tauri::AppHandle) {
     }
 }
 
+// ---------------------------------------------------------------- menu bar
+// A pink mochi in the menu bar: who the pet is, hide/show the pet on screen, reload the widget,
+// check for updates (`/pet update`), quit. The hidden choice is kept across launches.
+
+struct Tray {
+    title: MenuItem<tauri::Wry>,
+    detail: MenuItem<tauri::Wry>,
+    toggle: MenuItem<tauri::Wry>,
+}
+
+fn tray_file(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("tray.json"))
+}
+
+fn pet_hidden(app: &tauri::AppHandle) -> bool {
+    tray_file(app)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v["hidden"].as_bool())
+        .unwrap_or(false)
+}
+
+fn set_pet_hidden(app: &tauri::AppHandle, hidden: bool) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = if hidden { win.hide() } else { win.show() };
+    }
+    if let Some(tray) = app.try_state::<Tray>() {
+        let _ = tray.toggle.set_text(if hidden { "캐릭터 보이기" } else { "캐릭터 숨기기" });
+    }
+    if let Some(path) = tray_file(app) {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, serde_json::json!({ "hidden": hidden }).to_string());
+    }
+}
+
+/// The widget page keeps the two info lines current (live hunger, unread PRs).
+#[tauri::command]
+fn tray_status(app: tauri::AppHandle, title: String, detail: String) {
+    if let Some(tray) = app.try_state::<Tray>() {
+        let _ = tray.title.set_text(title);
+        let _ = tray.detail.set_text(detail);
+    }
+}
+
+/// `/pet update` answers in two full lines; the pet's bubble has room for a few words.
+fn short_update_text(full: &str) -> String {
+    let mut parts = Vec::new();
+    for line in full.lines() {
+        let plugin = line.starts_with("플러그인");
+        if line.contains("이미 최신") {
+            continue;
+        } else if line.contains("못") || line.contains("없어요") {
+            parts.push(if plugin { "플러그인 업데이트 실패" } else { "위젯 업데이트 실패" });
+        } else if plugin {
+            parts.push("플러그인 새 버전 받았어요");
+        } else {
+            parts.push("위젯 새 버전으로 바꿨어요");
+        }
+    }
+    if parts.is_empty() { "이미 최신이에요!".into() } else { parts.join(" · ") }
+}
+
+fn check_updates(app: tauri::AppHandle) {
+    let _ = app.emit("tray-say", "업데이트를 확인하고 있어요…");
+    std::thread::spawn(move || {
+        // the same as `/pet update`; a newer widget quits this one and starts itself
+        let text = match pet(vec!["update".into()]) {
+            Ok(v) => short_update_text(v["text"].as_str().unwrap_or("")),
+            Err(_) => "업데이트를 확인하지 못했어요".into(),
+        };
+        let _ = app.emit("tray-say", text);
+    });
+}
+
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    let title = MenuItem::with_id(app, "title", "토큰 펫", false, None::<&str>)?;
+    let detail = MenuItem::with_id(app, "detail", "", false, None::<&str>)?;
+    let hidden = pet_hidden(app.handle());
+    let toggle = MenuItem::with_id(app, "toggle", if hidden { "캐릭터 보이기" } else { "캐릭터 숨기기" }, true, None::<&str>)?;
+    let reload = MenuItem::with_id(app, "reload", "위젯 다시 불러오기", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "업데이트 확인…", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "토큰 펫 종료", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[
+        &title, &detail,
+        &PredefinedMenuItem::separator(app)?,
+        &toggle,
+        &PredefinedMenuItem::separator(app)?,
+        &reload, &update,
+        &PredefinedMenuItem::separator(app)?,
+        &quit,
+    ])?;
+    TrayIconBuilder::with_id("main")
+        .icon(Image::from_bytes(include_bytes!("../icons/tray.png"))?)
+        .icon_as_template(false)
+        .tooltip("토큰 펫")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "toggle" => {
+                let visible = app.get_webview_window("main").and_then(|w| w.is_visible().ok()).unwrap_or(true);
+                set_pet_hidden(app, visible);
+            }
+            "reload" => {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.eval("location.reload()");
+                }
+            }
+            "update" => check_updates(app.clone()),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    app.manage(Tray { title, detail, toggle });
+    if hidden {
+        set_pet_hidden(app.handle(), true);
+    }
+    Ok(())
+}
+
 fn place_bottom_right(win: &tauri::WebviewWindow) {
     if let Ok(Some(mon)) = win.primary_monitor() {
         let size = mon.size();
@@ -197,7 +321,7 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url])
+        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url, tray_status])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -205,6 +329,9 @@ pub fn run() {
                 place_bottom_right(&win);
             }
             sync_autostart(app.handle(), read_state_file().ok().as_ref());
+            if let Err(e) = build_tray(app) {
+                eprintln!("menu bar icon failed: {e}");
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || watch_state(handle));
             Ok(())
