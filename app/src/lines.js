@@ -30,7 +30,8 @@ export function mailLine(form, kind, n) {
 
 // Events the collapsed pet says out loud (the plugin's EVENT_TYPES_TO_SPEAK, plus level-ups). Most keep the
 // plugin's text; the ones where the pet takes something from you are said in its own voice.
-export const SPOKEN_EVENTS = new Set(["evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap", "levelup"]);
+export const SPOKEN_EVENTS = new Set(["evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap", "levelup",
+  "vacation_leave", "vacation_back", "vacation_early"]);
 const VOICED = {
   extort: { thug: "{n}코인 걷어 간다. 토 달지 마.", boss: "{n}코인. 오늘 상납금이다." },
   debt: { loanshark: "이자 {n}코인 떼 간다. 장부 봐." },

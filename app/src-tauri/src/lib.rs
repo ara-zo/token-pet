@@ -7,7 +7,7 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::time::Duration;
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
@@ -188,13 +188,22 @@ fn watch_state(app: tauri::AppHandle) {
 }
 
 // ---------------------------------------------------------------- menu bar
-// A pink mochi in the menu bar: who the pet is, hide/show the pet on screen, reload the widget,
-// check for updates (`/pet update`), quit. The hidden choice is kept across launches.
+// A pink mochi in the menu bar: who the pet is, send it on vacation (or bring it back early), hide/show
+// the pet on screen, reload the widget, check for updates (`/pet update`), quit. The hidden choice is
+// kept across launches.
+
+const VACATION_DAYS: [u32; 4] = [1, 3, 7, 14];
+const VACATION_SLOT: usize = 3;              // after title, detail and a separator
 
 struct Tray {
+    menu: Menu<tauri::Wry>,
     title: MenuItem<tauri::Wry>,
     detail: MenuItem<tauri::Wry>,
     toggle: MenuItem<tauri::Wry>,
+    vacation: Submenu<tauri::Wry>,
+    vacation_days: Vec<MenuItem<tauri::Wry>>,
+    back: MenuItem<tauri::Wry>,
+    away: std::sync::Mutex<bool>,
 }
 
 fn tray_file(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -224,12 +233,36 @@ fn set_pet_hidden(app: &tauri::AppHandle, hidden: bool) {
     }
 }
 
-/// The widget page keeps the two info lines current (live hunger, unread PRs).
+/// The widget page keeps the menu current: the two info lines (live hunger, unread PRs), and the vacation
+/// entry, which is "휴가 보내기 ▸" at home (each stay with its price, greyed with a reason when it can't go)
+/// and "일찍 데려오기 (D-2)" while the pet is at the hotel.
 #[tauri::command]
-fn tray_status(app: tauri::AppHandle, title: String, detail: String) {
-    if let Some(tray) = app.try_state::<Tray>() {
-        let _ = tray.title.set_text(title);
-        let _ = tray.detail.set_text(detail);
+fn tray_status(app: tauri::AppHandle, title: String, detail: String, vacation: Option<serde_json::Value>) {
+    let Some(tray) = app.try_state::<Tray>() else { return };
+    let _ = tray.title.set_text(title);
+    let _ = tray.detail.set_text(detail);
+    let Some(v) = vacation else { return };
+    let away = v["away"].as_bool().unwrap_or(false);
+    if let Ok(mut was) = tray.away.lock() {
+        if *was != away {
+            if away {
+                let _ = tray.menu.remove(&tray.vacation);
+                let _ = tray.menu.insert(&tray.back, VACATION_SLOT);
+            } else {
+                let _ = tray.menu.remove(&tray.back);
+                let _ = tray.menu.insert(&tray.vacation, VACATION_SLOT);
+            }
+            *was = away;
+        }
+    }
+    if let Some(label) = v["back"].as_str() {
+        let _ = tray.back.set_text(label);
+    }
+    if let Some(opts) = v["options"].as_array() {
+        for (item, opt) in tray.vacation_days.iter().zip(opts) {
+            let _ = item.set_text(opt["label"].as_str().unwrap_or(""));
+            let _ = item.set_enabled(opt["enabled"].as_bool().unwrap_or(false));
+        }
     }
 }
 
@@ -271,8 +304,18 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let reload = MenuItem::with_id(app, "reload", "위젯 다시 불러오기", true, None::<&str>)?;
     let update = MenuItem::with_id(app, "update", "업데이트 확인…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "토큰 펫 종료", true, None::<&str>)?;
+    let vacation_days = VACATION_DAYS
+        .iter()
+        .map(|d| MenuItem::with_id(app, format!("vacation-{d}"), format!("{d}일"), true, None::<&str>))
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let day_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
+        vacation_days.iter().map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
+    let vacation = Submenu::with_id_and_items(app, "vacation", "휴가 보내기", true, &day_refs)?;
+    let back = MenuItem::with_id(app, "vacation-end", "일찍 데려오기", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[
         &title, &detail,
+        &PredefinedMenuItem::separator(app)?,
+        &vacation,
         &PredefinedMenuItem::separator(app)?,
         &toggle,
         &PredefinedMenuItem::separator(app)?,
@@ -298,10 +341,14 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
             }
             "update" => check_updates(app.clone()),
             "quit" => app.exit(0),
+            // the widget runs `/pet vacation <days|end>` so it can speak and move with the answer
+            id if id.starts_with("vacation-") => {
+                let _ = app.emit("tray-vacation", id.trim_start_matches("vacation-").to_string());
+            }
             _ => {}
         })
         .build(app)?;
-    app.manage(Tray { title, detail, toggle });
+    app.manage(Tray { menu, title, detail, toggle, vacation, vacation_days, back, away: std::sync::Mutex::new(false) });
     if hidden {
         set_pet_hidden(app.handle(), true);
     }

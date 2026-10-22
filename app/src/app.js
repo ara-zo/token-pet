@@ -1,6 +1,6 @@
-import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
+import { SPRITES, ITEMS, OWN_HEADWEAR, hotelMarkup } from "./sprites.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
-import { speciesMarkup, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
+import { speciesMarkup, speciesInfo, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
 import { mailLine, eventLine, SPOKEN_EVENTS } from "./lines.js";
 
 const T = window.__TAURI__;
@@ -39,7 +39,48 @@ let dex = null;            // last `pet dex --json` result, fetched when the 도
 
 // ---------------------------------------------------------------- rendering
 
+// ---------------------------------------------------------------- vacation (토키 호텔)
+// While the pet is away the widget shows the hotel with the pet asleep in its window; nothing decays.
+const VAC = { fee: 20, max: 14, month: 20, options: [1, 3, 7, 14] };
+const WEEKDAY_KO = "일월화수목금토";
+let returning = false;              // the few hundred ms the pet hops out of the hotel, outfit still off
+let lastAway = null;
+let coinsBefore = null;             // to fly the early-return refund into the coin pill
+
+function away(s = state) {
+  return !!(s && s.vacation && Date.now() < new Date(s.vacation.until).getTime());
+}
+function vacUntil(s = state) { return new Date(s.vacation.until); }
+function vacWhen(d) {
+  return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAY_KO[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function vacD(s = state) {
+  const a = vacUntil(s), b = new Date();
+  const days = Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()) - new Date(b.getFullYear(), b.getMonth(), b.getDate())) / 864e5);
+  return days <= 0 ? "D-DAY" : `D-${days}`;
+}
+function vacRefund(s = state) {
+  return Math.max(0, Math.floor((vacUntil(s).getTime() - Date.now()) / 864e5)) * VAC.fee;
+}
+function vacUsed(s = state) {
+  const d = new Date(), key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return ((s.settings || {}).vacation_days || {})[key] || 0;
+}
+// why a stay can't start (the same rules as petlib.vacation), or null
+function vacBlock(s, days) {
+  if (s.form === "thug" || s.form === "boss") return `${s.form === "thug" ? "불량배" : "조직 보스"}는 못 가요`;
+  if (s.form === "runaway") return "가출 중";
+  if (vacUsed(s) + days > VAC.month) return "한도 초과";
+  if (s.coins < VAC.fee * days) return "코인 부족";
+  return null;
+}
+
 function spriteMarkup(s) {
+  if (away(s)) {
+    const info = speciesInfo(s.species || "mochi");
+    return { body: hotelMarkup(info ? info.color : undefined), items: "", grouped: true, wrap: "", whole: "",
+      form: "vacation", kind: s.species || "mochi" };
+  }
   const form = SPRITES[s.form] ? s.form : "base";
   const kind = s.species || "mochi";
   const eq = s.equipped || {};
@@ -47,7 +88,7 @@ function spriteMarkup(s) {
   let items = "", worn = "";
   for (const slot of ["room", "body", "face", "head"]) {
     const item = eq[slot];
-    if (!item || !ITEMS[item] || form === "runaway") continue;
+    if (!item || !ITEMS[item] || form === "runaway" || returning) continue;
     if (!sp) {
       if (slot === "head" && OWN_HEADWEAR.has(form)) continue;
       items += ITEMS[item];
@@ -174,6 +215,7 @@ async function applyExtra() {
   // "+N" at the head's top-right corner, in front of the mail bubble
   $("earn-bubble").style.bottom = `${Math.round(headFromBottom - 4)}px`;
   $("mail-small").style.bottom = `${Math.round(headFromBottom + MAIL_GAP)}px`;
+  $("vac-badge").style.bottom = `${Math.round(headFromBottom - 30)}px`;
   if (want === extra) return;
   const diff = want - extra;
   extra = want;
@@ -186,6 +228,7 @@ async function applyExtra() {
 }
 
 function decayed(s) {
+  if (away(s)) return { hunger: s.hunger, mood: s.mood };     // time stands still at the hotel
   // mirror petlib.tick.decay so bars move between file updates
   const last = new Date(s.last_tick_at);
   const h = Math.max(0, (Date.now() - last.getTime()) / 36e5);
@@ -226,6 +269,10 @@ function render() {
     }
   }
   lastForm = s.form;
+  const isAway = away(s);
+  if (lastAway !== null && lastAway !== isAway) vacationMove(isAway, s.coins - (coinsBefore ?? s.coins));
+  lastAway = isAway;
+  coinsBefore = s.coins;
   if (!walkingOut) setSprite(spriteMarkup(s));
   setBackground((s.equipped || {}).bg);
   $("sprite-small").setAttribute("aria-label", s.name);
@@ -242,10 +289,15 @@ function render() {
   setMood(moodOf(s, hunger, mood));
   trayHunger = Math.round(hunger);
   updateTray();
-  const fc = s.forecast;
+  const fc = isAway ? null : s.forecast;
   const fcEl = $("forecast");
-  fcEl.classList.toggle("hidden", !fc);
-  if (fc) {
+  fcEl.classList.toggle("hidden", !fc && !isAway);
+  if (isAway) {
+    const b = document.createElement("b");
+    b.textContent = `${vacWhen(vacUntil(s))} 복귀`;
+    fcEl.replaceChildren("휴가 중 · ", b, " · 진화 · 가출 멈춤");
+    fcEl.title = "";
+  } else if (fc) {
     fcEl.innerHTML = "";
     const b = document.createElement("b");
     b.textContent = `🔮 LV.${fc.at_level} ${fc.ko} 기운`;
@@ -254,17 +306,23 @@ function render() {
   }
   $("hunger-bar").style.width = `${hunger}%`;
   $("mood-bar").style.width = `${mood}%`;
-  $("hunger-val").textContent = hunger.toFixed(1);
-  $("mood-val").textContent = mood.toFixed(1);
-  $("turn").textContent = `이번 턴 +${s.last_turn_earned || 0} 코인`;
-  $("fed").textContent = `마지막 식사 ${ago(s.last_fed_at)}`;
+  $("hunger-val").textContent = isAway ? "고정" : hunger.toFixed(1);
+  $("mood-val").textContent = isAway ? "고정" : mood.toFixed(1);
+  document.body.classList.toggle("on-vacation", isAway);
+  for (const id of ["vac-badge", "vac-badge-large"]) {
+    $(id).classList.toggle("hidden", !isAway);
+    if (isAway) $(id).textContent = vacD(s);
+  }
+  $("turn").textContent = isAway ? "공장 쉼 · 코인 안 쌓여요" : `이번 턴 +${s.last_turn_earned || 0} 코인`;
+  $("fed").textContent = isAway ? `휴가 ${vacUsed(s)}/${VAC.month}일` : `마지막 식사 ${ago(s.last_fed_at)}`;
   // Feeding is refused below the cost (loansharks borrow instead): grey the button out so a
   // click never looks like a no-op, and keep the cost visible in red.
-  const short = s.form !== "loanshark" && s.coins < feedCost;
+  const short = !isAway && s.form !== "loanshark" && s.coins < feedCost;
   $("dress").textContent = `${s.name}의 방`;
-  $("feed").disabled = s.form === "runaway" || short;
+  $("feed").disabled = !isAway && (s.form === "runaway" || short);
   $("feed").classList.toggle("short", short);
-  $("feed-cost").textContent = short ? `${s.coins}/${feedCost}` : `-${feedCost}`;
+  $("feed-label").textContent = isAway ? "일찍 데려오기" : "밥 주기";
+  $("feed-cost").textContent = isAway ? `+${vacRefund(s)}` : short ? `${s.coins}/${feedCost}` : `-${feedCost}`;
   if (shop) renderDress();
   if (stats) renderStats();
 
@@ -586,6 +644,7 @@ async function runPet(args) {
 }
 
 async function feed() {
+  if (away()) return vacationCmd("end");
   const btn = $("feed");
   btn.disabled = true;
   try {
@@ -682,10 +741,43 @@ function updateTray() {
   if (!state) return;
   const unread = mailEnabled() ? mail.items.filter((it) => !isRead(it)).length : 0;
   const title = `${state.name} · Lv.${state.level}`;
-  const detail = `코인 ${state.coins.toLocaleString()} · 배고픔 ${trayHunger}` + (unread ? ` · 안 읽은 PR ${unread}` : "");
-  if (title + detail === trayText) return;
-  trayText = title + detail;
-  invoke("tray_status", { title, detail }).catch(() => {});
+  const isAway = away();
+  const detail = (isAway
+    ? `${state.name} 휴가 중 · ${vacUntil().getMonth() + 1}/${vacUntil().getDate()} 복귀`
+    : `코인 ${state.coins.toLocaleString()} · 배고픔 ${trayHunger}`) + (unread ? ` · 안 읽은 PR ${unread}` : "");
+  const vacation = {
+    away: isAway,
+    back: isAway ? `일찍 데려오기 (${vacD()})` : "일찍 데려오기",
+    options: VAC.options.map((d) => {
+      const why = vacBlock(state, d);
+      return { days: d, enabled: !why, label: `${d}일 · ${why || `${VAC.fee * d}코인`}` };
+    }),
+  };
+  const key = title + detail + JSON.stringify(vacation);
+  if (key === trayText) return;
+  trayText = key;
+  invoke("tray_status", { title, detail, vacation }).catch(() => {});
+}
+
+// "/pet vacation <days|end>" from the menu bar or the button; the answer's first line as a toast
+async function vacationCmd(arg) {
+  const res = await runPet(["vacation", String(arg)]);
+  if (res) toast(res.text.split("\n")[0]);
+}
+T.event.listen("tray-vacation", (ev) => vacationCmd(ev.payload));
+
+// Leaving: the pet hops and the hotel pops in. Coming back: the hotel shrinks away and the pet hops out,
+// outfit off until the hop is over (design board: items come back after the motion).
+function vacationMove(nowAway, refund) {
+  if (nowAway) {
+    fx("pop"); fx("pop", "large");
+    return;
+  }
+  returning = true;
+  fx("hop"); fx("hop", "large");
+  burst("sparkle", 10);
+  if (refund > 0) setTimeout(() => showEarn(refund), 300);
+  setTimeout(() => { returning = false; lastMarkup = null; render(); }, 900);
 }
 
 // "업데이트 확인…" in the menu bar: the pet tells how it went
@@ -1221,6 +1313,7 @@ function itemCard(it, selected) {
 function roomAction(it) {
   if (!it) return ["골라 주세요", null, false];
   if (it.owned) {
+    if (away()) return ["복귀하면 할 수 있어요", null, true];
     if (it.slot === "bg") return it.equipped ? ["사용 중", null, true] : ["이 배경 쓰기", ["equip", it.id], false];
     return it.equipped ? [`${it.name} 벗기`, ["unequip", it.slot], true] : [`${it.name} 입히기`, ["equip", it.id], false];
   }
@@ -1287,8 +1380,8 @@ function renderFood() {
   $("room-hunger-val").textContent = $("hunger-val").textContent;
   $("room-fed").textContent = $("fed").textContent;
   const short = state.coins < feedCost;
-  const gone = state.form === "runaway";
-  const label = gone ? "펫이 집을 나갔어요" : short ? `${(feedCost - state.coins).toLocaleString()}코인 부족` : `밥 주기 -${feedCost}`;
+  const gone = state.form === "runaway" || away();
+  const label = away() ? "복귀하면 할 수 있어요" : gone ? "펫이 집을 나갔어요" : short ? `${(feedCost - state.coins).toLocaleString()}코인 부족` : `밥 주기 -${feedCost}`;
   setRoomAction(label, gone || short ? null : async () => { await feed(); renderDress(); }, gone || short);
 }
 

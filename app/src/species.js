@@ -275,7 +275,7 @@ function rect(r, cls) {
 }
 
 export const SPECIES_KEYS = S.map(function (a) { return a.key; });
-export function speciesInfo(key) { var a = BY_KEY[key]; return a ? { key: a.key, name: a.name, part: a.part } : null; }
+export function speciesInfo(key) { var a = BY_KEY[key]; return a ? { key: a.key, name: a.name, part: a.part, color: a.primary[0] } : null; }
 
 // Shop items are drawn for mochi's head and eyes; move them onto this species.
 export function itemOffset(key, slot) {
