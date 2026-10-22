@@ -368,10 +368,8 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
   border: 2px solid #23203A; background: var(--coin); color: #23203A; cursor: pointer; text-align: left;
   font: 800 10.5px/1.2 var(--sans); padding: 3px 5px; border-radius: 6px; word-break: keep-all;
   box-shadow: 0 3px 0 #23203A;
-  animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-float 2.4s ease-in-out .4s infinite,
-    tp-mail-ping 1.6s ease-out .4s infinite;
+  animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-float 2.4s ease-in-out .4s infinite;
 }
-.mail-bubble.review { animation-name: tp-mail-in, tp-mail-float, tp-mail-ping-r; }
 .mail-bubble .mail-ico { flex: none; color: #23203A; shape-rendering: crispEdges; }
 /* pixel tail: dark outline triangle with the fill on top */
 .mail-bubble::before, .mail-bubble::after { content: ""; position: absolute; left: 50%; clip-path: polygon(0 0, 100% 0, 50% 100%); }
@@ -380,17 +378,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 /* review requests are urgent: hot pink */
 .mail-bubble.review { background: #FF8FA8; }
 .mail-bubble.review::after { background: #FF8FA8; }
-/* a ring of light keeps spreading from the bubble (kept with its pixel drop shadow) */
-@keyframes tp-mail-ping {
-  from { box-shadow: 0 3px 0 #23203A, 0 0 0 0 rgba(245, 196, 81, .8); }
-  to { box-shadow: 0 3px 0 #23203A, 0 0 0 10px rgba(245, 196, 81, 0); }
-}
-@keyframes tp-mail-ping-r {
-  from { box-shadow: 0 3px 0 #23203A, 0 0 0 0 rgba(255, 143, 168, .85); }
-  to { box-shadow: 0 3px 0 #23203A, 0 0 0 10px rgba(255, 143, 168, 0); }
-}
-.mail-bubble.fresh, .mail-bubble.ring { animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-ring .7s ease-in-out .4s 2, tp-mail-ping 1.6s ease-out .4s infinite; }
-.mail-bubble.review.fresh, .mail-bubble.review.ring { animation-name: tp-mail-in, tp-mail-ring, tp-mail-ping-r; }
+.mail-bubble.fresh, .mail-bubble.ring { animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-ring .7s ease-in-out .4s 2; }
 @keyframes tp-mail-ring {
   0%, 100% { transform: none; } 15% { transform: translateY(-5px) rotate(-4deg); } 30% { transform: translateY(-5px) rotate(4deg); }
   45% { transform: translateY(-3px) rotate(-3deg); } 60% { transform: translateY(0) rotate(2deg); }
