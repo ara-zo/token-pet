@@ -159,18 +159,7 @@ def stats_payload(state: dict, now: dt.datetime, days: int = 7) -> dict:
         src = by_date.get(date, {})
         out.append({"date": date, **{k: int(src.get(k, 0) or 0) for k in STAT_KEYS}})
     total = {k: sum(d[k] for d in out) for k in STAT_KEYS}
-    return {"days": out, "total": total, "rates": rates()}
-
-
-def rates() -> dict:
-    """The exchange table the widget shows, straight from economy so it never drifts."""
-    return {
-        "per_1k": round(economy.COIN_PER_OUTPUT_TOKEN * 1000, 2),
-        "softcap_out": economy.DAILY_SOFTCAP_OUT,
-        "per_1k_over_cap": round(economy.COIN_PER_OUTPUT_TOKEN_OVER_CAP * 1000, 2),
-        "cache_threshold_pct": round(economy.CACHE_BONUS_THRESHOLD * 100),
-        "cache_bonus_pct": round((economy.CACHE_BONUS - 1) * 100),
-    }
+    return {"days": out, "total": total}
 
 
 def stats_text(state: dict, now: dt.datetime) -> str:

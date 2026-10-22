@@ -176,8 +176,6 @@ def test_pet_stats_last_7_days(pet_home):
     assert r["days"][1] == {"date": "2026-10-15", "earned": 0, "spent": 0, "tokens_out": 0, "tokens_in": 0,
                             "feeds": 0, "pats": 0}
     assert r["total"] == {"earned": 160, "spent": 50, "tokens_out": 32000, "tokens_in": 0, "feeds": 3, "pats": 3}
-    assert r["rates"] == {"per_1k": 2, "softcap_out": 300_000, "per_1k_over_cap": 0.3,
-                          "cache_threshold_pct": 50, "cache_bonus_pct": 5}
     code, text = cli.main_pet(["stats"], NOW)
     assert code == 0 and "10/17" in text and "24,000" in text
 

@@ -461,7 +461,6 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .stats-card dt { color: var(--sub); }
 .stats-card dd { margin: 0; color: var(--sub2); text-align: right; }
 .stats-card dd.coin { color: var(--coin); font-family: var(--pixel); font-size: 10px; }
-.stats-card .stats-head { font-size: 11px; font-weight: 600; color: var(--sub2); }
 .chart-wrap { position: relative; }
 .chart { display: block; overflow: visible; }
 .chart .bar { fill: var(--coin); }
