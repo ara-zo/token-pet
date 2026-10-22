@@ -257,7 +257,7 @@ def test_collect_softcap_event_once(pet_home):
     assert "환전소" in s["speech"]
 
 
-def test_session_start_widget_launches_or_installs_once_a_day(pet_home, monkeypatch):
+def test_widget_check_launches_and_installs_or_updates_once_a_day(pet_home, monkeypatch):
     from petlib import widget
     import subprocess
     monkeypatch.delenv("TOKEN_PET_NO_WIDGET")
@@ -266,22 +266,22 @@ def test_session_start_widget_launches_or_installs_once_a_day(pet_home, monkeypa
     monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: spawned.append(args))
     monkeypatch.setattr(widget, "launch", lambda app=None: False)
     cli.main_session_start({}, NOW)
-    cli._session_start_widget(NOW)
-    cli._session_start_widget(at(20, 18))          # same day: no second download
+    cli._widget_check(NOW)
+    cli._widget_check(at(20, 18))          # same day: no second download
     assert len(spawned) == 1 and spawned[0][-2:] == ["widget", "install"]
-    cli._session_start_widget(at(21, 9))
+    cli._widget_check(at(21, 9))
     assert len(spawned) == 2
 
     launched = []
     monkeypatch.setattr(widget, "launch", lambda app=None: launched.append(1) or True)
-    cli._session_start_widget(at(21, 10))
+    cli._widget_check(at(21, 10))
     assert launched and len(spawned) == 2           # already checked today
-    cli._session_start_widget(at(22, 9))            # installed: next day checks for an update instead
+    cli._widget_check(at(22, 9))            # installed: next day checks for an update instead
     assert len(spawned) == 3 and spawned[-1][-2:] == ["widget", "update"]
 
     assert cli.main_pet(["widget", "off"], at(21, 11))[0] == 0
     launched.clear()
-    cli._session_start_widget(at(21, 12))
+    cli._widget_check(at(21, 12))
     assert not launched
 
 
@@ -330,3 +330,30 @@ def test_widget_update_only_when_newer(monkeypatch, tmp_path):
     assert widget.update() is None and not installed
     monkeypatch.setattr(widget, "latest_version", lambda: "0.10.0")       # numeric, not string compare
     assert widget.update() == ("0.2.0", "0.10.0") and installed == [tmp_path]
+
+
+def test_plugin_update_triggers_widget_check_right_away(pet_home, monkeypatch):
+    import io
+    import subprocess
+    from petlib import widget
+    monkeypatch.delenv("TOKEN_PET_NO_WIDGET")
+    monkeypatch.setattr(cli.sys, "platform", "darwin")
+    spawned = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    monkeypatch.setattr(widget, "launch", lambda app=None: True)
+    monkeypatch.setattr(widget, "find_app", lambda: Path("/Applications/Token Pet.app"))
+
+    def hook(cmd, root):
+        monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", root)
+        monkeypatch.setattr(cli.sys, "stdin", io.StringIO("{}"))
+        cli.run([cmd])
+
+    hook("session-start", "/cache/old")          # first session: daily check
+    assert len(spawned) == 1
+    hook("collect", "/cache/old")                # same plugin, same day: nothing
+    hook("session-start", "/cache/old")
+    assert len(spawned) == 1
+    hook("collect", "/cache/new")                # /plugin update + /reload-plugins mid-session
+    assert len(spawned) == 2 and spawned[-1][-2:] == ["widget", "update"]
+    hook("collect", "/cache/new")
+    assert len(spawned) == 2

@@ -202,18 +202,29 @@ def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
     return 0, f"데스크톱 위젯 · {where} · 세션 시작 시 띄우기 {'켬' if on else '끔'}"
 
 
-def _session_start_widget(now: dt.datetime) -> None:
-    """Bring the desktop widget up with the session; install or update it in the background (once a day at most)."""
+def _plugin_root_changed(plugin_root: Optional[str]) -> bool:
+    """True when the hook runs from a different plugin copy than last time: the plugin was updated or reloaded."""
+    if not plugin_root or not store.state_path().exists():
+        return False
+    try:
+        prev = json.loads(store.state_path().read_text(encoding="utf-8")).get("plugin_root")
+    except (OSError, ValueError):
+        return False
+    return bool(prev) and prev != plugin_root
+
+
+def _widget_check(now: dt.datetime, launch: bool = True, force: bool = False) -> None:
+    """Bring the desktop widget up with the session, and in the background install it if missing or
+    update it if a newer release is out. Checks once a day, or right away when the plugin was updated."""
     if os.environ.get("TOKEN_PET_NO_WIDGET") or sys.platform != "darwin":
         return
     with store.transaction(now) as s:
         cfg = s["settings"]
         if not cfg["widget"]:
             return
-        installed = widget.launch()
-        # once a day: install it if missing, else check for a newer release
+        installed = widget.launch() if launch else widget.find_app() is not None
         today_key = clock.day_key(now)
-        if cfg.get("widget_install_tried") == today_key:
+        if not force and cfg.get("widget_install_tried") == today_key:
             return
         cfg["widget_install_tried"] = today_key
     import subprocess
@@ -369,12 +380,21 @@ def run(argv: List[str]) -> int:
     cmd = argv[0] if argv else "status"
     plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if cmd == "collect":
+        updated = _plugin_root_changed(plugin_root)
         try:
             main_collect(_read_stdin_json(), now, plugin_root)
         except Exception as e:  # never break the session
             store.log(f"collect failed: {e!r}")
+        if updated:     # plugin updated mid-session (/plugin update + /reload-plugins): check the widget too
+            try:
+                with store.transaction(now) as s:      # remember the new copy even when the turn had no transcript
+                    s["plugin_root"] = plugin_root
+                _widget_check(now, launch=False, force=True)
+            except Exception as e:
+                store.log(f"widget check failed: {e!r}")
         return 0
     if cmd == "session-start":
+        updated = _plugin_root_changed(plugin_root)
         try:
             result = main_session_start(_read_stdin_json(), now, plugin_root)
             if result:
@@ -382,7 +402,7 @@ def run(argv: List[str]) -> int:
         except Exception as e:
             store.log(f"session-start failed: {e!r}")
         try:
-            _session_start_widget(now)
+            _widget_check(now, force=updated)
         except Exception as e:
             store.log(f"widget launch failed: {e!r}")
         return 0
