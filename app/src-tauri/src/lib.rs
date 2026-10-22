@@ -137,7 +137,7 @@ fn search_prs(query: &str) -> Result<Vec<serde_json::Value>, String> {
     Ok(res["items"].as_array().map(|a| a.iter().filter_map(pr_item).collect()).unwrap_or_default())
 }
 
-/// One GitHub search per condition the player added (`is:pr org:logos3pl is:open`, ...), each with its
+/// One GitHub search per condition the player added (`is:pr org:*** is:open`, ...), each with its
 /// own result or error, so one bad condition doesn't hide the others. At most 50 PRs per condition.
 #[tauri::command]
 async fn pr_inbox(queries: Vec<String>) -> Result<serde_json::Value, String> {

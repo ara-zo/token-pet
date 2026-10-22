@@ -621,7 +621,7 @@ let polling = null, pollAgain = false;
 
 function mailEnabled() { return !!(state && state.settings && state.settings.pr_inbox); }
 
-// "org:logos3pl is:open" -> "is:pr org:logos3pl is:open": without it GitHub mixes issues in
+// "org:*** is:open" -> "is:pr org:*** is:open": without it GitHub mixes issues in
 function normalizeQuery(raw) {
   const q = raw.trim().replace(/\s+/g, " ");
   if (!q) return "";
@@ -859,7 +859,7 @@ function renderSources() {
   if (!mailSources.length) {
     const li = document.createElement("li");
     li.className = "mail-empty";
-    li.textContent = "예: is:pr org:logos3pl is:open";
+    li.textContent = "예: is:pr org:*** is:open";
     $("mail-src-list").replaceChildren(li);
     return;
   }
