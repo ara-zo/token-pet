@@ -83,12 +83,12 @@ class Gift:
 
 
 GIFTS = {
-    "candy": Gift("사탕", "treat", 40, 15),
-    "pudding": Gift("푸딩", "treat", 80, 30),
-    "cake": Gift("케이크", "treat", 150, 60),
-    "yarn": Gift("털실", "toy", 60, 10, 3),
-    "ball": Gift("공", "toy", 120, 20, 6),
-    "doll": Gift("인형", "toy", 200, 25, 24),
+    "candy": Gift("사탕", "treat", 80, 15),
+    "pudding": Gift("푸딩", "treat", 160, 30),
+    "cake": Gift("케이크", "treat", 300, 60),
+    "yarn": Gift("털실", "toy", 150, 10, 3),
+    "ball": Gift("공", "toy", 300, 20, 6),
+    "doll": Gift("인형", "toy", 500, 25, 24),
 }
 TREAT_DAILY_LIMIT = 3                  # more and the pet gets a tummy ache
 TOY_DECAY = 0.5                        # mood falls at half speed while a toy is being played with

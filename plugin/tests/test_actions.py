@@ -193,8 +193,8 @@ def test_pat_limit_refusal_speaks_like_the_species():
 def test_gift_treat_lifts_mood_with_a_daily_limit():
     s = st(coins=1000, mood=20)
     r = actions.gift(s, NOW, "pudding")
-    assert s["mood"] == 50 and s["coins"] == 920 and r["kind"] == "treat" and r["treats_left"] == 2
-    assert schema.today(s, NOW)["spent"] == 80 and schema.today(s, NOW)["purchases"] == 0   # not a shop purchase
+    assert s["mood"] == 50 and s["coins"] == 840 and r["kind"] == "treat" and r["treats_left"] == 2
+    assert schema.today(s, NOW)["spent"] == 160 and schema.today(s, NOW)["purchases"] == 0   # not a shop purchase
     assert s["events"][-1]["type"] == "gift" and s["events"][-1]["gift"] == "pudding"
     actions.gift(s, NOW, "candy")
     actions.gift(s, NOW, "candy")
