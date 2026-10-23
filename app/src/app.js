@@ -289,6 +289,7 @@ function render() {
   $("speech").textContent = s.speech || "…";
   $("speech").classList.remove("error");
   sayNewEvent(s);
+  renderToy();
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
   trayHunger = Math.round(hunger);
@@ -811,6 +812,174 @@ T.event.listen("tray-say", (ev) => {
   if (expanded) speakNote(ev.payload); else say(ev.payload, 8000);
 });
 
+// ---------------------------------------------------------------- gifts (선물)
+// Bought in the room's 선물 tab and given right away (`pet.py gift`). The pet reacts on whichever view
+// is showing: a motion on its .pet-fx wrapper, a happy face and props drawn into the sprite, and for
+// toys a yarn or ball rolling by. A doll stays at the pet's side while it plays with it.
+
+const GIFT_ICON = {
+  candy: '<rect x="8" y="10" width="8" height="4" fill="#F38BA3"/><rect x="4" y="9" width="4" height="6" fill="#FFB7C5"/><rect x="16" y="9" width="4" height="6" fill="#FFB7C5"/><rect x="10" y="11" width="2" height="2" fill="#F4F1FF"/>',
+  pudding: '<rect x="6" y="14" width="12" height="4" fill="#C9956B"/><rect x="7" y="8" width="10" height="6" fill="#F5C451"/><rect x="8" y="6" width="8" height="2" fill="#9A6E12"/><rect x="11" y="4" width="2" height="2" fill="#F38BA3"/>',
+  cake: '<rect x="5" y="12" width="14" height="6" fill="#F4F1FF"/><rect x="5" y="14" width="14" height="2" fill="#F38BA3"/><rect x="11" y="7" width="2" height="5" fill="#8FB4FF"/><rect x="11" y="5" width="2" height="2" fill="#F5C451"/>',
+  yarn: '<rect x="7" y="7" width="10" height="10" fill="#F38BA3"/><rect x="6" y="9" width="12" height="6" fill="#F38BA3"/><rect x="8" y="9" width="8" height="1" fill="#FFB7C5"/><rect x="8" y="13" width="8" height="1" fill="#FFB7C5"/><rect x="17" y="15" width="3" height="1" fill="#F38BA3"/>',
+  ball: '<rect x="7" y="7" width="10" height="10" fill="#8FB4FF"/><rect x="6" y="9" width="12" height="6" fill="#8FB4FF"/><rect x="7" y="11" width="10" height="2" fill="#F4F1FF"/><rect x="9" y="8" width="2" height="2" fill="#F4F1FF"/>',
+  doll: '<rect x="7" y="9" width="10" height="9" fill="#6FE3B3"/><rect x="6" y="6" width="4" height="4" fill="#6FE3B3"/><rect x="14" y="6" width="4" height="4" fill="#6FE3B3"/><rect x="9" y="12" width="2" height="2" fill="#23203A"/><rect x="13" y="12" width="2" height="2" fill="#23203A"/>',
+};
+const GIFT_MOTION = { candy: "chew", pudding: "jiggle", cake: "big", yarn: "chase", ball: "bounce", doll: "hug" };
+const GIFT_MS = { chew: 2400, jiggle: 2000, big: 2400, chase: 3000, bounce: 2400, hug: 2400 };
+// where each species' face is on the base look: eyes to swap for ^ ^, the body colour behind them,
+// the ink of the new eyes, the mouth (if any) and the cheek that puffs out with a candy
+const FACE = {
+  mochi: { eyes: [[22, 36, 5, 6], [37, 36, 5, 6]], body: "#FFB7C5", ink: "#23203A", mouth: [29, 44, 6, 2], cheek: [49, 38, 5, 6] },
+  squirrel: { eyes: [[18, 32, 5, 5], [29, 32, 5, 5]], body: "#C97A4A", ink: "#23203A", mouth: [24, 40, 4, 2], cheek: [43, 36, 4, 6] },
+  mole: { eyes: [[22, 30, 3, 3], [39, 30, 3, 3]], body: "#6B5A7A", ink: "#23203A", cheek: [49, 32, 4, 6] },
+  robot: { eyes: [[22, 21, 6, 8], [38, 21, 6, 8]], body: "#1C1A2E", ink: "#6FE3B3", cheek: [51, 24, 4, 6], cheekColor: "#8FB4FF" },
+  penguin: { eyes: [[22, 18, 5, 5], [37, 18, 5, 5]], body: "#2A2F6B", ink: "#F4F1FF", cheek: [49, 28, 4, 6] },
+  hamster: { eyes: [[22, 30, 5, 6], [37, 30, 5, 6]], body: "#F5D9A8", ink: "#23203A", mouth: [28, 40, 8, 2], cheek: [53, 34, 4, 6] },
+  rabbit: { eyes: [[20, 34, 5, 6], [36, 34, 5, 6]], body: "#D9D4F5", ink: "#23203A", mouth: [27, 44, 8, 2], cheek: [47, 36, 4, 6] },
+};
+
+const rect = (x, y, w, h, c, cls = "") => `<rect${cls ? ` class="${cls}"` : ""} x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
+
+// overlay markup for one reaction; the face only on the base look (evolved forms draw their own faces)
+function giftOverlay(id) {
+  const motion = GIFT_MOTION[id];
+  const f = state.form === "base" ? FACE[state.species || "mochi"] : null;
+  let s = "";
+  if (f && motion !== "chase" && motion !== "bounce") {
+    for (const [x, y, w, h] of f.eyes) {
+      const m = y + Math.floor(h / 2);
+      s += rect(x, y, w, h, f.body) + rect(x, m, 2, 2, f.ink) + rect(x + 1, m - 2, Math.max(1, w - 2), 2, f.ink) + rect(x + w - 2, m, 2, 2, f.ink);
+    }
+    if (f.mouth && (motion === "chew" || motion === "big")) {
+      const [x, y, w, h] = f.mouth, cx = x + Math.floor(w / 2);
+      s += rect(x, y, w, h, f.body) + rect(cx - 3, y, 6, 4, "#23203A") + rect(cx - 2, y + 2, 4, 2, "#F38BA3");
+    }
+  }
+  if (motion === "chew") {
+    const c = (f || FACE.mochi).cheek, col = f ? (f.cheekColor || f.body) : "#FFB7C5";
+    if (f) s += rect(c[0], c[1], c[2], c[3], col, "gm-bulge") + rect(c[0] + c[2], c[1] + 1, 1, c[3] - 2, col, "gm-bulge");
+    s += rect(50, 16, 4, 4, "#F5C451", "gm-spark") + rect(8, 20, 3, 3, "#F4F1FF", "gm-spark d2");
+  }
+  if (motion === "big") {
+    s += rect(30, 10, 3, 3, "#F5C451", "gm-conf c1") + rect(34, 10, 3, 3, "#8FB4FF", "gm-conf c2")
+      + rect(26, 10, 3, 3, "#6FE3B3", "gm-conf c3") + rect(38, 12, 3, 3, "#F38BA3", "gm-conf c4");
+  }
+  if (motion === "hug") {
+    s += '<g class="gm-heart">' + rect(48, 14, 3, 3, "#F38BA3") + rect(52, 14, 3, 3, "#F38BA3") + rect(48, 17, 7, 3, "#F38BA3") + rect(50, 20, 3, 2, "#F38BA3") + "</g>"
+      + rect(22, 46, 20, 9, "#6FE3B3") + rect(21, 43, 5, 4, "#6FE3B3") + rect(38, 43, 5, 4, "#6FE3B3") + rect(27, 49, 2, 2, "#23203A") + rect(35, 49, 2, 2, "#23203A");
+  }
+  return s;
+}
+
+function giftProp(id, cls, size) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", size);
+  svg.setAttribute("height", size);
+  svg.setAttribute("class", `gift-prop ${cls}`);
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = GIFT_ICON[id];
+  return svg;
+}
+
+let giftTimer = null;
+let skipGift = null;
+function playGift(id) {
+  const motion = GIFT_MOTION[id];
+  if (!motion || walkingOut) return;
+  const where = expanded ? "large" : "small";
+  const ms = GIFT_MS[motion];
+  const sprite = $(`sprite-${where}`);
+  clearTimeout(giftTimer);
+  for (const old of document.querySelectorAll(".gift-fx, .gift-prop:not(.doll-side)")) old.remove();
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("class", "gift-fx");
+  g.innerHTML = giftOverlay(id);
+  sprite.append(g);
+  const host = where === "large" ? $("stage") : $("collapsed");
+  if (motion === "chase") host.append(giftProp("yarn", "yarn", where === "large" ? 26 : 18));
+  if (motion === "bounce") host.append(giftProp("ball", "ball", where === "large" ? 22 : 16));
+  const el = $(`fx-${where}`);
+  el.classList.remove(...[...el.classList].filter((c) => c.startsWith("fx-")));
+  void el.offsetWidth;
+  el.classList.add(`fx-gm-${motion}`);
+  if (motion !== "chase" && motion !== "bounce") burst("heart", 4, where);
+  giftTimer = setTimeout(() => {
+    el.classList.remove(`fx-gm-${motion}`);
+    for (const old of document.querySelectorAll(".gift-fx, .gift-prop:not(.doll-side)")) old.remove();
+  }, ms + 100);
+}
+
+function toyNow(s = state) {
+  return s && s.toy && new Date(s.toy.until).getTime() > Date.now() ? s.toy.id : null;
+}
+
+// the doll sits by the pet while it plays with it
+function renderToy() {
+  const doll = toyNow() === "doll";
+  for (const [host, size] of [[$("stage"), 22], [$("collapsed"), 16]]) {
+    const have = host.querySelector(".gift-prop.doll-side");
+    if (doll && !have) host.append(giftProp("doll", "doll-side", size));
+    if (!doll && have) have.remove();
+  }
+}
+
+// while a toy lasts the pet picks it up again now and then
+function playAgain() {
+  const toy = toyNow();
+  if (toy && !document.hidden && !shop && !stats && !mailOpen) playGift(toy);
+  setTimeout(playAgain, (3 + Math.random() * 3) * 60 * 1000);
+}
+
+function giftCard(g, selected) {
+  const li = document.createElement("li");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "card" + (selected ? " selected" : "") + (g.no ? " locked" : "");
+  btn.setAttribute("aria-pressed", String(selected));
+  const icon = document.createElementNS(SVG_NS, "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("class", "card-icon");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = GIFT_ICON[g.id] || "";
+  const name = document.createElement("span");
+  name.className = "card-name";
+  name.textContent = g.name;
+  const eff = document.createElement("span");
+  eff.className = "card-sub mood";
+  eff.textContent = `기분 +${g.mood}` + (g.kind === "toy" ? ` · ${g.hours >= 24 ? "하루" : `${g.hours}시간`}` : "");
+  const price = document.createElement("span");
+  price.className = "card-sub";
+  price.textContent = String(g.price);
+  btn.title = g.kind === "toy" ? `${g.name} · 노는 동안 기분이 천천히 떨어져요` : `${g.name} · 간식은 하루 ${shop.treats_left}번 더`;
+  btn.append(icon, name, eff, price);
+  btn.addEventListener("click", () => { roomSel.gift = g.id; renderDress(); });
+  li.append(btn);
+  return li;
+}
+
+function giftAction(g) {
+  if (!g) return ["골라 주세요", null, false];
+  if (away()) return ["복귀하면 줄 수 있어요", null, true];
+  if (state.form === "runaway") return ["펫이 집을 나갔어요", null, true];
+  if (g.no) return ["간식은 안 먹는대요", null, true];
+  if (state.mood >= 100) return ["기분이 이미 최고예요", null, true];
+  if (g.kind === "treat" && shop.treats_left <= 0) return ["오늘 간식은 다 먹었어요", null, true];
+  if (state.coins < g.price) return [`${(g.price - state.coins).toLocaleString()}코인 부족`, null, true];
+  return [`${g.name} 선물하기 -${g.price}`, ["gift", g.id], false];
+}
+
+async function giveGift(args) {
+  $("room-action").disabled = true;
+  const res = await runPet(args);
+  if (!res) { renderDress(); return; }
+  closeDress();                       // back to the pet so the reaction shows
+  speakNote(res.result.line);
+  playGift(res.result.gift);
+  skipGift = { id: res.result.gift, until: Date.now() + 15000 };   // the file watcher brings the same gift back
+}
+
 // ---------------------------------------------------------------- PR mailbox
 // PRs matching the GitHub search conditions the player typed into the mailbox ("가져오는 곳"), through
 // gh (Rust `pr_inbox`), every 5 minutes, only after `/pet pr on`. A newly found PR makes the pet speak
@@ -972,6 +1141,13 @@ function sayNewEvent(s) {
     const since = lastEventAt ? new Date(lastEventAt).getTime() : 0;
     const ev = evs.filter((e) => SPOKEN_EVENTS.has(e.type) && new Date(e.at).getTime() > since).pop();
     if (ev && Date.now() - new Date(ev.at).getTime() < 2 * 60 * 1000) say(eventLine(ev, s.form), 6000);
+    // a gift given from the terminal (`/pet gift`): react here too, unless this widget just gave it
+    const gift = evs.filter((e) => e.type === "gift" && new Date(e.at).getTime() > since).pop();
+    if (gift && Date.now() - new Date(gift.at).getTime() < 2 * 60 * 1000) {
+      const mine = skipGift && skipGift.id === gift.gift && Date.now() < skipGift.until;
+      if (!mine) { say(gift.text, 6000); playGift(gift.gift); }
+      skipGift = null;
+    }
   }
   lastEventAt = newest;                    // nothing from before launch is said
 }
@@ -1379,6 +1555,20 @@ function renderDress() {
   list.classList.toggle("hidden", food);
   $("room-food").classList.toggle("hidden", !food);
   if (food) { renderFood(); return; }
+  if (dressTab === "gift") {
+    list.classList.add("grid");
+    list.classList.remove("wide");
+    const gifts = shop.gifts || [];
+    const sel = gifts.find((g) => g.id === roomSel.gift) || gifts.find((g) => !g.no) || gifts[0];
+    if (sel) roomSel.gift = sel.id;
+    list.replaceChildren(...gifts.map((g) => giftCard(g, g === sel)));
+    note.textContent = `간식은 오늘 ${shop.treats_left}번 더 · 장난감은 노는 동안 기분이 천천히 떨어져요`;
+    note.classList.add("hint");
+    note.classList.remove("hidden");
+    const [label, args, ghost] = giftAction(sel);
+    setRoomAction(label, args ? () => giveGift(args) : null, ghost);
+    return;
+  }
   if (dressTab === "dex") {
     list.classList.remove("grid", "wide");
     $("room-action").classList.add("hidden");
@@ -1583,6 +1773,7 @@ setInterval(() => {
 setInterval(render, 10 * 1000);
 scheduleBlink();
 setTimeout(chatter, 2 * 60 * 1000);
+setTimeout(playAgain, 3 * 60 * 1000);
 setInterval(() => { if (petMood === "sleep") burst("z", 1); }, 1800);   // bars visibly tick down between file updates
 restorePos();
 load();
