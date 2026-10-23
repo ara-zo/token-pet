@@ -29,6 +29,8 @@ const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop -
 const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경", hotel: "호텔" };
 
 const $ = (id) => document.getElementById(id);
+// The webview's own right-click menu (Reload, AutoFill) means nothing on a pet.
+window.addEventListener("contextmenu", (e) => e.preventDefault());
 const SVG_NS = "http://www.w3.org/2000/svg";
 let state = null;
 let expanded = false;
