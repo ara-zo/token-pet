@@ -579,3 +579,15 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .gift-prop.doll-side { margin-left: 26px; bottom: 10%; }
 .collapsed-view .gift-prop { bottom: 22px; }
 @media (prefers-reduced-motion: reduce) { .gift-prop { animation: none !important; } }
+.sprite .gm-cheek { animation: gm-cheek 2.4s ease-in-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes gm-cheek { 0%, 100% { transform: scale(1); } 15%, 55% { transform: scale(1.8); } }
+.sprite .gm-smoke { animation: gm-smoke 2.4s ease-out both; }
+@keyframes gm-smoke { 0% { opacity: 0; transform: none; } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px) scale(1.4); } }
+.sprite .gm-dust { animation: gm-spark 1.6s ease-out 2 both; transform-box: fill-box; transform-origin: center; }
+.sprite .gm-dust.d2 { animation-delay: .4s; }
+.sprite .gm-ant { animation: gm-ant .8s steps(1, end) 3; }
+@keyframes gm-ant { 0%, 100% { fill: #F5C451; } 50% { fill: #F4F1FF; } }
+.sprite .m-peek.gm-dip, .sprite .gm-dip { animation: gm-dip 2.4s ease-in-out; }
+@keyframes gm-dip { 0%, 100% { transform: none; } 8%, 22% { transform: translateY(26px); } 30% { transform: none; } }
+.pet-fx.fx-gm-roll { animation: gm-roll 3s ease-in-out; transform-origin: 50% 60%; }
+@keyframes gm-roll { 0%, 100% { transform: translateX(-12px) rotate(-360deg); } 50% { transform: translateX(12px) rotate(0); } }

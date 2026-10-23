@@ -851,13 +851,26 @@ function giftOverlay(id) {
   if (f && motion !== "chase" && motion !== "bounce") {
     for (const [x, y, w, h] of f.eyes) {
       const m = y + Math.floor(h / 2);
-      s += rect(x, y, w, h, f.body) + rect(x, m, 2, 2, f.ink) + rect(x + 1, m - 2, Math.max(1, w - 2), 2, f.ink) + rect(x + w - 2, m, 2, 2, f.ink);
+      s += rect(x, y, w, h, f.body);
+      s += w <= 3 ? rect(x - 1, y + 1, 2, 1, f.ink) + rect(x + 1, y, 1, 1, f.ink) + rect(x + 2, y + 1, 2, 1, f.ink)
+        : rect(x, m, 2, 2, f.ink) + rect(x + 1, m - 2, Math.max(1, w - 2), 2, f.ink) + rect(x + w - 2, m, 2, 2, f.ink);
     }
     if (f.mouth && (motion === "chew" || motion === "big")) {
       const [x, y, w, h] = f.mouth, cx = x + Math.floor(w / 2);
       s += rect(x, y, w, h, f.body) + rect(cx - 3, y, 6, 4, "#23203A") + rect(cx - 2, y + 2, 4, 2, "#F38BA3");
     }
   }
+  const kind = state.species || "mochi";
+  if (kind === "squirrel" && (motion === "chew" || motion === "jiggle")) {       // stuffs it in its cheeks
+    s += rect(14, 40, 5, 4, "#F38BA3", "gm-cheek") + rect(45, 40, 5, 4, "#F38BA3", "gm-cheek");
+  }
+  if (kind === "robot") {                                                         // heart-shaped smoke
+    s += '<g class="gm-smoke">' + rect(28, -6, 3, 3, "#F38BA3") + rect(33, -6, 3, 3, "#F38BA3") + rect(28, -3, 8, 3, "#F38BA3") + rect(30, 0, 4, 2, "#F38BA3") + "</g>";
+  }
+  if (kind === "penguin") {                                                       // star dust flying
+    s += rect(6, 18, 2, 2, "#F4F1FF", "gm-dust") + rect(54, 24, 2, 2, "#F5C451", "gm-dust d2") + rect(48, 8, 2, 2, "#8FB4FF", "gm-dust") + rect(10, 40, 2, 2, "#F5C451", "gm-dust d2");
+  }
+  if (kind === "rabbit") s += rect(19, 0, 4, 2, "#F5C451", "gm-ant");              // antenna tip blinks
   if (motion === "chew") {
     const c = (f || FACE.mochi).cheek, col = f ? (f.cheekColor || f.body) : "#FFB7C5";
     if (f) s += rect(c[0], c[1], c[2], c[3], col, "gm-bulge") + rect(c[0] + c[2], c[1] + 1, 1, c[3] - 2, col, "gm-bulge");
@@ -898,19 +911,50 @@ function playGift(id) {
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("class", "gift-fx");
   g.innerHTML = giftOverlay(id);
-  sprite.append(g);
+  const body = sprite.querySelector(".m-peek") || sprite.querySelector(".whole") || sprite;
+  body.append(g);
+  const kind = state.species || "mochi";
+  if (kind === "mole") moleDip(sprite);
   const host = where === "large" ? $("stage") : $("collapsed");
   if (motion === "chase") host.append(giftProp("yarn", "yarn", where === "large" ? 26 : 18));
   if (motion === "bounce") host.append(giftProp("ball", "ball", where === "large" ? 22 : 16));
   const el = $(`fx-${where}`);
   el.classList.remove(...[...el.classList].filter((c) => c.startsWith("fx-")));
   void el.offsetWidth;
-  el.classList.add(`fx-gm-${motion}`);
+  const cls = kind === "hamster" && motion === "chase" ? "fx-gm-roll" : `fx-gm-${motion}`;
+  el.classList.add(cls);
   if (motion !== "chase" && motion !== "bounce") burst("heart", 4, where);
   giftTimer = setTimeout(() => {
-    el.classList.remove(`fx-gm-${motion}`);
+    el.classList.remove(cls);
     for (const old of document.querySelectorAll(".gift-fx, .gift-prop:not(.doll-side)")) old.remove();
   }, ms + 100);
+}
+
+// The mole ducks into the ground with its present first. Its hat and outfit are drawn outside the
+// peeking group, so for the dip they go into a clipped group of their own and sink with it.
+function moleDip(sprite) {
+  const whole = sprite.querySelector(".whole"), peek = sprite.querySelector(".m-peek");
+  if (!whole || !peek) return;
+  const clip = peek.parentNode;
+  const outer = document.createElementNS(SVG_NS, "g");
+  outer.setAttribute("clip-path", clip.getAttribute("clip-path") || "");
+  const inner = document.createElementNS(SVG_NS, "g");
+  inner.setAttribute("class", "gm-dip");
+  outer.append(inner);
+  const worn = [...whole.children].filter((el) => el !== clip && !el.classList.contains("gift-fx"));
+  const marker = document.createComment("worn");
+  whole.insertBefore(marker, worn[0] || null);
+  inner.append(...worn);
+  whole.append(outer);
+  peek.classList.add("gm-dip");
+  setTimeout(() => {
+    peek.classList.remove("gm-dip");
+    if (!marker.parentNode) return;               // the sprite was redrawn meanwhile
+    whole.insertBefore(inner, marker);
+    inner.replaceWith(...inner.childNodes);
+    marker.remove();
+    outer.remove();
+  }, 2400);
 }
 
 function toyNow(s = state) {
