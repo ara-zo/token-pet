@@ -291,7 +291,6 @@ function render() {
   $("speech").textContent = s.speech || "…";
   $("speech").classList.remove("error");
   sayNewEvent(s);
-  renderToy();
   const { hunger, mood } = decayed(s);
   setMood(moodOf(s, hunger, mood));
   trayHunger = Math.round(hunger);
@@ -817,7 +816,7 @@ T.event.listen("tray-say", (ev) => {
 // ---------------------------------------------------------------- gifts (선물)
 // Bought in the room's 선물 tab and given right away (`pet.py gift`). The pet reacts on whichever view
 // is showing: a motion on its .pet-fx wrapper, a happy face and props drawn into the sprite, and for
-// toys a yarn or ball rolling by. A doll stays at the pet's side while it plays with it.
+// toys a yarn or ball rolling by.
 
 const GIFT_ICON = {
   candy: '<rect x="8" y="10" width="8" height="4" fill="#F38BA3"/><rect x="4" y="9" width="4" height="6" fill="#FFB7C5"/><rect x="16" y="9" width="4" height="6" fill="#FFB7C5"/><rect x="10" y="11" width="2" height="2" fill="#F4F1FF"/>',
@@ -907,7 +906,7 @@ function playGift(id) {
   const ms = GIFT_MS[motion];
   const sprite = $(`sprite-${where}`);
   clearTimeout(giftTimer);
-  for (const old of document.querySelectorAll(".gift-fx, .gift-prop:not(.doll-side)")) old.remove();
+  for (const old of document.querySelectorAll(".gift-fx, .gift-prop")) old.remove();
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("class", "gift-fx");
   g.innerHTML = giftOverlay(id);
@@ -926,7 +925,7 @@ function playGift(id) {
   if (motion !== "chase" && motion !== "bounce") burst("heart", 4, where);
   giftTimer = setTimeout(() => {
     el.classList.remove(cls);
-    for (const old of document.querySelectorAll(".gift-fx, .gift-prop:not(.doll-side)")) old.remove();
+    for (const old of document.querySelectorAll(".gift-fx, .gift-prop")) old.remove();
   }, ms + 100);
 }
 
@@ -959,16 +958,6 @@ function moleDip(sprite) {
 
 function toyNow(s = state) {
   return s && s.toy && new Date(s.toy.until).getTime() > Date.now() ? s.toy.id : null;
-}
-
-// the doll sits by the pet while it plays with it
-function renderToy() {
-  const doll = toyNow() === "doll";
-  for (const [host, size] of [[$("stage"), 22], [$("collapsed"), 16]]) {
-    const have = host.querySelector(".gift-prop.doll-side");
-    if (doll && !have) host.append(giftProp("doll", "doll-side", size));
-    if (!doll && have) have.remove();
-  }
 }
 
 // while a toy lasts the pet picks it up again now and then

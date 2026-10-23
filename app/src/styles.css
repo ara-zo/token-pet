@@ -580,7 +580,6 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .collapsed-view .gift-prop.yarn { animation-name: gm-yarn-small; }
 .gift-prop.ball { margin-left: -46px; animation: gm-ball 1.2s cubic-bezier(.5, 0, .5, 1) 2 both; }
 @keyframes gm-ball { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-36px); } }
-.gift-prop.doll-side { margin-left: 26px; bottom: 10%; }
 .collapsed-view .gift-prop { bottom: 22px; }
 @media (prefers-reduced-motion: reduce) { .gift-prop { animation: none !important; } }
 .sprite .gm-cheek { animation: gm-cheek 2.4s ease-in-out both; transform-box: fill-box; transform-origin: center; }
