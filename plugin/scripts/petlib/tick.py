@@ -36,6 +36,13 @@ def decay(state: dict, start: dt.datetime, end: dt.datetime) -> None:
         hunger = 0.0
     mood = float(state["mood"])
     mood -= economy.MOOD_PER_HOUR * (h - zero_hours) + economy.MOOD_PER_HOUR_STARVING * zero_hours
+    toy = state.get("toy")
+    if toy:                                   # playing: the normal-rate part of the segment falls slower
+        until = clock.parse(toy["until"])
+        play = max(0.0, min(h - zero_hours, clock.hours_between(start, min(end, until))))
+        mood += economy.MOOD_PER_HOUR * economy.TOY_DECAY * play
+        if until <= end:
+            state["toy"] = None
     state["hunger"] = round(_clamp(hunger, 0, 100), 2)
     state["mood"] = round(_clamp(mood, economy.mood_floor(form), 100), 2)
     if zero_hours > 0:

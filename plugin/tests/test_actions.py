@@ -188,3 +188,51 @@ def test_pat_limit_refusal_speaks_like_the_species():
     s["species"], s["form"] = "mole", "thug"           # any form: still the species' words
     with pytest.raises(ActionError, match="굴 들어간다"):
         actions.pat(s, NOW)
+
+
+def test_gift_treat_lifts_mood_with_a_daily_limit():
+    s = st(coins=1000, mood=20)
+    r = actions.gift(s, NOW, "pudding")
+    assert s["mood"] == 50 and s["coins"] == 920 and r["kind"] == "treat" and r["treats_left"] == 2
+    assert schema.today(s, NOW)["spent"] == 80 and schema.today(s, NOW)["purchases"] == 0   # not a shop purchase
+    assert s["events"][-1]["type"] == "gift" and s["events"][-1]["gift"] == "pudding"
+    actions.gift(s, NOW, "candy")
+    actions.gift(s, NOW, "candy")
+    with pytest.raises(ActionError, match="배탈"):
+        actions.gift(s, NOW, "candy")
+    s["mood"] = 10
+    assert actions.gift(s, at(21, 9), "candy")["treats_left"] == 2    # a new day
+
+
+def test_gift_refusals():
+    with pytest.raises(ActionError, match="그런 선물"):
+        actions.gift(st(), NOW, "pizza")
+    with pytest.raises(ActionError, match="모자라"):
+        actions.gift(st(coins=10, mood=10), NOW, "cake")
+    with pytest.raises(ActionError, match="최고"):
+        actions.gift(st(mood=100), NOW, "candy")
+    with pytest.raises(ActionError, match="가출"):
+        actions.gift(st(form="runaway", mood=10), NOW, "candy")
+    with pytest.raises(ActionError, match="애들이나"):
+        actions.gift(st(form="thug", mood=10), NOW, "candy")
+    assert actions.gift(st(form="thug", mood=10, coins=500), NOW, "ball")["kind"] == "toy"   # toys still work
+
+
+def test_gift_spender_gets_more_and_misers_grumble():
+    s = st(form="spender", mood=10, coins=500)
+    actions.gift(s, NOW, "candy")
+    assert s["mood"] == 10 + 15 * 1.5
+    r = actions.gift(st(form="miser", mood=10, coins=500), NOW, "candy")
+    assert "비싼데" in r["line"]
+
+
+def test_toy_halves_mood_decay_while_playing():
+    from petlib import tick
+    s = st(coins=500, mood=50, hunger=100)
+    actions.gift(s, NOW, "yarn")                       # +10 and 3 hours of half-speed decay
+    assert s["mood"] == 60 and s["toy"]["id"] == "yarn"
+    tick.decay(s, NOW, at(20, 16))                      # 2 hours, all while playing
+    assert s["mood"] == 60 - economy.MOOD_PER_HOUR * 2 * (1 - economy.TOY_DECAY)
+    tick.decay(s, at(20, 16), at(20, 19))               # 1 hour of play, then 2 normal
+    assert s["mood"] == 58 - economy.MOOD_PER_HOUR * (1 * (1 - economy.TOY_DECAY) + 2)
+    assert s["toy"] is None                             # play time over

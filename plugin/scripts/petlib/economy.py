@@ -70,6 +70,30 @@ CATALOG = {
     "golden_hotel": Item("황금 호텔", "hotel", 2500, forms=("tycoon",)),
 }
 SLOTS = ("head", "face", "body", "room", "bg", "hotel")
+
+
+@dataclass(frozen=True)
+class Gift:
+    """One-off present bought in the room's 선물 tab and given right away."""
+    name: str
+    kind: str          # treat: mood up at once | toy: mood up and slower mood decay for `hours`
+    price: int
+    mood: int
+    hours: float = 0
+
+
+GIFTS = {
+    "candy": Gift("사탕", "treat", 40, 15),
+    "pudding": Gift("푸딩", "treat", 80, 30),
+    "cake": Gift("케이크", "treat", 150, 60),
+    "yarn": Gift("털실", "toy", 60, 10, 3),
+    "ball": Gift("공", "toy", 120, 20, 6),
+    "doll": Gift("인형", "toy", 200, 25, 24),
+}
+TREAT_DAILY_LIMIT = 3                  # more and the pet gets a tummy ache
+TOY_DECAY = 0.5                        # mood falls at half speed while a toy is being played with
+GIFT_MOOD_MULT = {"spender": 1.5, "influencer": 1.5}
+NO_TREAT_FORMS = ("thug", "boss")      # too cool for sweets; toys still work
 STARTER_ITEMS = {"party_hat": "head", "street": "bg", "toki_hotel": "hotel"}
 FORM_ONLY_KO = {"tycoon": "재벌만"}
 GRANT_ON_FORM = {"thug": "alley", "boss": "alley", "tycoon": "mansion"}

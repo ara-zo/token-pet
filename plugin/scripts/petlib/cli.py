@@ -14,7 +14,7 @@ from . import actions, clock, economy, evolve, render, schema, species, speech, 
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -322,12 +322,18 @@ def _shop_payload(s: dict) -> dict:
             "grant": item.grant,
             "only": economy.FORM_ONLY_KO.get(item.forms[0], "특정 형태만") if item.forms else None,
         })
-    return {"blocked": blocked, "feed_cost": economy.FEED_COST, "catalog": catalog}
+    day = schema.today(s, clock.parse(s["last_tick_at"]))
+    mult = economy.GIFT_MOOD_MULT.get(form, 1)
+    gifts = [{"id": k, "name": g.name, "kind": g.kind, "price": g.price, "mood": round(g.mood * mult),
+              "hours": g.hours, "no": g.kind == "treat" and form in economy.NO_TREAT_FORMS}
+             for k, g in economy.GIFTS.items()]
+    return {"blocked": blocked, "feed_cost": economy.FEED_COST, "catalog": catalog, "gifts": gifts,
+            "treats_left": max(0, economy.TREAT_DAILY_LIMIT - day["treats"])}
 
 
 def _summary(s: dict) -> dict:
     return {k: s[k] for k in ("name", "level", "xp", "coins", "hunger", "mood", "form", "speech",
-                              "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges")} \
+                              "items_owned", "equipped", "last_turn_earned", "last_turn_at", "badges", "toy")} \
         | {"forecast": s.get("forecast"), "species": s.get("species", "mochi"), "dex": s.get("dex", ["mochi"]),
            "vacation": s.get("vacation")}
 
@@ -375,6 +381,17 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 if r["debt"]:
                     msg += f"  외상 {r['debt']}"
                 return out(0, msg, r, s)
+            if cmd == "gift":
+                if len(pos) < 2:
+                    lines = [f"  {k:<8} {g.name} · {g.price}코인 · 기분 +{g.mood}"
+                             + (f", {g.hours:g}시간 동안 기분이 천천히 떨어짐" if g.kind == "toy" else "")
+                             for k, g in economy.GIFTS.items()]
+                    return out(0, "🎁 선물 (사면 바로 줘요)\n" + "\n".join(lines) + "\n/pet gift <id>")
+                r = actions.gift(s, now, pos[1])
+                s["speech"] = r["line"]
+                g = economy.GIFTS[r["gift"]]
+                tail = f" · {g.hours:g}시간 동안 기분이 천천히 떨어져요" if g.kind == "toy" else f" · 오늘 간식 {r['treats_left']}번 더"
+                return out(0, f"🎁 {g.name}! {r['line']} 기분 {round(r['mood'])}{tail}", r, s)
             if cmd == "pat":
                 r = actions.pat(s, now)
                 s["speech"] = speech.choose(s, now, "PAT")

@@ -44,6 +44,45 @@ def feed(state: dict, now: dt.datetime, force: bool = False) -> dict:
     return {"hunger": state["hunger"], "coins": state["coins"], "cost": cost, "debt": flags["debt"]}
 
 
+GIFT_LINES = {
+    "candy": "냠냠, 달다!", "pudding": "말랑말랑 푸딩이다!", "cake": "케이크다!! 오늘 무슨 날이야?",
+    "yarn": "털실이다! 잡아라!", "ball": "공 던져 줘! 한 번 더!", "doll": "꼭 안고 있을래",
+}
+
+
+def gift(state: dict, now: dt.datetime, gift_id: str) -> dict:
+    """Buy a present and give it right away: treats lift the mood, toys also slow its fall for a while."""
+    _at_home(state)
+    g = economy.GIFTS.get(gift_id)
+    if g is None:
+        raise ActionError(f"그런 선물은 없어: {gift_id} ({', '.join(economy.GIFTS)})")
+    form = state["form"]
+    if form == "runaway":
+        raise ActionError("가출 중이라 줄 수 없어. /pet find 로 찾아봐")
+    if g.kind == "treat" and form in economy.NO_TREAT_FORMS:
+        raise ActionError("간식? 애들이나 먹는 거지. 장난감이면 받아 줄게")
+    if float(state["mood"]) >= 100:
+        raise ActionError("기분이 이미 최고야. 나중에 줘")
+    day = schema.today(state, now)
+    if g.kind == "treat" and day["treats"] >= economy.TREAT_DAILY_LIMIT:
+        raise ActionError(f"오늘은 간식을 {economy.TREAT_DAILY_LIMIT}번 먹었어. 더 먹으면 배탈 나")
+    if state["coins"] < g.price:
+        raise ActionError(f"코인이 모자라. {g.price}코인 필요한데 {state['coins']}코인뿐이야")
+    state["coins"] -= g.price
+    day["spent"] += g.price
+    gain = g.mood * economy.GIFT_MOOD_MULT.get(form, 1)
+    state["mood"] = round(min(100.0, float(state["mood"]) + gain), 2)
+    if g.kind == "treat":
+        day["treats"] += 1
+    else:
+        state["toy"] = {"id": gift_id, "until": clock.fmt(now + dt.timedelta(hours=g.hours))}
+    line = "비싼데… 그래도 고마워" if form in ("miser", "tycoon", "loanshark") else GIFT_LINES[gift_id]
+    schema.push_event(state, now, "gift", line, gift=gift_id)
+    return {"gift": gift_id, "kind": g.kind, "cost": g.price, "mood": state["mood"], "coins": state["coins"],
+            "line": line, "toy": state.get("toy"),
+            "treats_left": economy.TREAT_DAILY_LIMIT - day["treats"]}
+
+
 def _at_home(state: dict) -> None:
     if vacation.active(state):
         raise ActionError(vacation.refused(state))

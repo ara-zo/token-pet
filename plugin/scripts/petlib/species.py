@@ -45,7 +45,7 @@ ADOPT_COST = {"hamster": 500, "squirrel": 800, "robot": 800, "penguin": 1000, "m
 
 # Fields that belong to one pet. Everything else in state is the player's (wallet, wardrobe, logs).
 PET_FIELDS = ("name", "created_at", "level", "xp", "hunger", "mood", "form", "form_since",
-              "equipped", "last_fed_at", "since_form", "flags", "species", "forecast")
+              "equipped", "last_fed_at", "since_form", "flags", "species", "forecast", "toy")
 
 
 def progress(state: dict, key: str) -> Tuple[int, int]:
@@ -170,12 +170,15 @@ def _bring_back(state: dict, key: str, now: dt.datetime) -> None:
     for k in PET_FIELDS:
         if k in snap:
             state[k] = snap[k]
+    state["toy"] = snap.get("toy")           # a toy stays with the pet it was given to
     # time stood still while resting: move the pet's clocks forward by the rest
     delta = now - rested
     _shift(state, "last_fed_at", delta)
     _shift(state, "form_since", delta)
     for flag in ("burnout_until", "demand_since"):
         _shift(state, flag, delta, state["flags"])
+    if state.get("toy"):
+        _shift(state, "until", delta, state["toy"])
 
 
 def adopt(state: dict, now: dt.datetime, key: str, name: Optional[str] = None) -> dict:
