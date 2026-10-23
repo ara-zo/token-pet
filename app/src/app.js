@@ -916,7 +916,7 @@ function playGift(id) {
   const kind = state.species || "mochi";
   if (kind === "mole") moleDip(sprite);
   const host = where === "large" ? $("stage") : $("collapsed");
-  if (motion === "chase") host.append(giftProp("yarn", "yarn", where === "large" ? 26 : 18));
+  if (motion === "chase") host.append(giftProp("yarn", "yarn", where === "large" ? 40 : 32));
   if (motion === "bounce") host.append(giftProp("ball", "ball", where === "large" ? 22 : 16));
   const el = $(`fx-${where}`);
   el.classList.remove(...[...el.classList].filter((c) => c.startsWith("fx-")));

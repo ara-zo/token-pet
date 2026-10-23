@@ -572,8 +572,12 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .sprite .gm-bulge { animation: gm-bulge 2.4s ease-in-out both; transform-box: fill-box; transform-origin: 0 50%; }
 @keyframes gm-bulge { 0%, 80%, 100% { transform: scaleX(0); } 12% { transform: scaleX(1.1); } 20%, 40% { transform: scaleX(.8); } 30%, 50% { transform: scaleX(1.1); } 65% { transform: scaleX(.9); } }
 .gift-prop { position: absolute; bottom: 14%; left: 50%; z-index: 3; pointer-events: none; shape-rendering: crispEdges; }
-.gift-prop.yarn { animation: gm-yarn 3s ease-in-out both; }
-@keyframes gm-yarn { 0%, 100% { transform: translateX(-60px) rotate(0); } 50% { transform: translateX(40px) rotate(540deg); } }
+/* the yarn rolls along the ground in front of the pet, not under its feet */
+.gift-prop.yarn { bottom: 0; margin-left: -20px; animation: gm-yarn 3s ease-in-out both; }
+@keyframes gm-yarn { 0%, 100% { transform: translateX(-48px) rotate(0); } 50% { transform: translateX(48px) rotate(540deg); } }
+.collapsed-view .gift-prop.yarn { bottom: 6px; margin-left: -16px; z-index: 4; }
+@keyframes gm-yarn-small { 0%, 100% { transform: translateX(-40px) rotate(0); } 50% { transform: translateX(40px) rotate(540deg); } }
+.collapsed-view .gift-prop.yarn { animation-name: gm-yarn-small; }
 .gift-prop.ball { margin-left: -46px; animation: gm-ball 1.2s cubic-bezier(.5, 0, .5, 1) 2 both; }
 @keyframes gm-ball { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-36px); } }
 .gift-prop.doll-side { margin-left: 26px; bottom: 10%; }
