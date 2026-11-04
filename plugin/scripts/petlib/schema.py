@@ -56,7 +56,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "hunger": 80, "mood": 80,
         "form": "base", "form_since": ts,
         "items_owned": list(economy.STARTER_ITEMS), "equipped": {v: k for k, v in economy.STARTER_ITEMS.items()},
-        "last_fed_at": ts, "last_tick_at": ts, "last_turn_at": None, "last_turn_earned": 0,
+        "last_fed_at": ts, "last_tick_at": ts, "last_turn_at": None, "last_turn_earned": 0, "last_turn_hunger": 0,
         "plugin_root": None,
         "speech": "",
         "events": [],
@@ -72,6 +72,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "pets": {},
         "vacation": None,
         "toy": None,               # {"id", "until"} while a gifted toy is being played with
+        "work_hour": None,         # {"hour", "out", "tired"}: output in the current clock hour (work.py)
     }
 
 

@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget
+from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
@@ -74,6 +74,7 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
         if earn_form == "burnout" and not evolve.burnout_active(s, now):
             earn_form = "model"
         total = 0.0
+        worked = 0.0                           # hunger the work cost this turn
         capped_before = day["tokens_out"] >= economy.DAILY_SOFTCAP_OUT
         for u in usages:
             per = clock.period(u.ts)
@@ -85,6 +86,8 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             day["cache_read"] += u.cache_read
             if per == "night":
                 day["night_out"] += u.output
+            if not away:
+                worked += work.apply_output(s, u.ts, u.output, now)
             life = s["lifetime"]
             life["tokens_out"] += u.output
             if per == "night":
@@ -103,6 +106,8 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
         elif usages:
             s["last_turn_earned"] = 0
             s["last_turn_at"] = clock.fmt(now)
+        if usages:
+            s["last_turn_hunger"] = round(worked, 2)
         if not capped_before and day["tokens_out"] >= economy.DAILY_SOFTCAP_OUT:
             schema.push_event(s, now, "softcap", speech_lines.EVENTS["softcap"])
         new_level = economy.level_for_xp(s["xp"])

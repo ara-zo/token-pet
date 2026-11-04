@@ -21,6 +21,13 @@ HUNGER_PER_HOUR = 5.0
 MOOD_PER_HOUR = 2.0
 MOOD_PER_HOUR_STARVING = 4.0
 
+# working tires the pet (on top of the time decay above)
+WORK_HUNGER_PER_OUT = 1 / 10_000      # every 10k output tokens: hunger -1
+RUSH_OUT_PER_HOUR = 100_000           # output within one clock hour past this is a rush
+RUSH_MOOD_PER_OUT = 1 / 10_000        # every 10k of rush output: mood -1
+GOOD_DAY_OUT = (50_000, 300_000)      # a day's output in this range (softcap included) …
+GOOD_DAY_MOOD = 5                     # … lifts mood at midnight
+
 LEVELS = [0, 1500, 4000, 7000, 10000, 15000, 20000, 26000, 33000, 40000]   # xp needed for level index+1
 LEVEL_STEP_AFTER_10 = 15000
 FIRST_EVOLUTION_LEVEL = 5

@@ -594,3 +594,8 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes gm-dip { 0%, 100% { transform: none; } 8%, 22% { transform: translateY(26px); } 30% { transform: none; } }
 .pet-fx.fx-gm-roll { animation: gm-roll 3s ease-in-out; transform-origin: 50% 60%; }
 @keyframes gm-roll { 0%, 100% { transform: translateX(-12px) rotate(-360deg); } 50% { transform: translateX(12px) rotate(0); } }
+
+/* ---------- worked too hard (petlib work.py) ---------- */
+.earn-bubble .earn-hunger { color: #F5A54A; }
+.sprite .tf-sweat { animation: tf-sweat 2.4s ease-in infinite; }
+@keyframes tf-sweat { 0% { opacity: 0; transform: translateY(-2px); } 12% { opacity: 1; transform: none; } 85% { opacity: 1; transform: translateY(5px); } 100% { opacity: 0; transform: translateY(6px); } }

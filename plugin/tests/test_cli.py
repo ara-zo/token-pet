@@ -402,3 +402,13 @@ def test_installed_root_reads_claude_code_record(tmp_path, monkeypatch):
     assert cli._installed_root() == str(new)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "nowhere"))
     assert cli._installed_root() is None
+
+
+def test_collect_work_costs_hunger_and_records_it(pet_home):
+    with store.transaction(NOW) as s:
+        s["hunger"] = 50
+    cli.main_collect(STOP, NOW)
+    s = store.load()
+    assert s["last_turn_hunger"] == pytest.approx(547 * economy.WORK_HUNGER_PER_OUT, abs=0.01)
+    # msg_A 22:58, msg_B 23:30 KST: the hour bucket holds only the last one
+    assert s["work_hour"] == {"hour": "2026-10-20T23", "out": 100, "tired": False}

@@ -8,9 +8,9 @@ from conftest import at
 EXPECTED_KEYS = {
     "version", "name", "created_at", "level", "xp", "coins", "coin_carry",
     "hunger", "mood", "form", "form_since", "items_owned", "equipped",
-    "last_fed_at", "last_tick_at", "last_turn_at", "last_turn_earned",
+    "last_fed_at", "last_tick_at", "last_turn_at", "last_turn_earned", "last_turn_hunger",
     "plugin_root", "speech", "events", "sessions", "daily_log", "since_form",
-    "flags", "badges", "settings", "species", "dex", "lifetime", "pets", "vacation", "toy",
+    "flags", "badges", "settings", "species", "dex", "lifetime", "pets", "vacation", "toy", "work_hour",
 }
 
 

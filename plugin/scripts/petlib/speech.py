@@ -9,7 +9,7 @@ from . import speech_lines as L
 
 RECENT_EVENT_MINUTES = 10
 
-EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap",
+EVENT_TYPES_TO_SPEAK = ("evolve", "runaway", "extort", "demand", "sold", "rehab", "born", "debt", "softcap", "tired", "goodday",
                         "vacation_leave", "vacation_back", "vacation_early")
 
 

@@ -9,7 +9,7 @@ import datetime as dt
 import math
 from typing import List
 
-from . import clock, economy, evolve, schema, speech_lines, vacation
+from . import clock, economy, evolve, schema, speech_lines, vacation, work
 
 SESSION_TTL_HOURS = 7 * 24
 RUNAWAY_HOURS = 7 * 24
@@ -120,6 +120,8 @@ def close_day(state: dict, day: dict, now: dt.datetime) -> List[dict]:
             state["mood"] = round(_clamp(state["mood"] - economy.BROKE_MOOD_HIT, 0, 100), 2)
             events.append(schema.push_event(state, now, "sold", speech_lines.EVENTS["sold"].format(
                 item=clock.josa(economy.CATALOG[item].name, "이/가"), coins=got)))
+
+    events += work.close_day(state, day, now)
 
     mood_bonus = economy.bg_bonus(economy.BG_MOOD_BONUS, state)
     if mood_bonus:

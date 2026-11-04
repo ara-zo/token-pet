@@ -279,7 +279,7 @@ function render() {
   const hotel = (s.equipped || {}).hotel;
   if (isAway && lastHotel !== null && hotel !== lastHotel) { fx("pop"); fx("pop", "large"); }   // the pet moves
   lastHotel = hotel;
-  if (!walkingOut) setSprite(spriteMarkup(s));
+  if (!walkingOut) { setSprite(spriteMarkup(s)); renderTired(); }
   setBackground((s.equipped || {}).bg);
   $("sprite-small").setAttribute("aria-label", s.name);
   $("sprite-large").setAttribute("aria-label", s.name);
@@ -333,7 +333,7 @@ function render() {
 
   if (s.last_turn_at && s.last_turn_at !== lastTurnAt) {
     const fresh = Date.now() - new Date(s.last_turn_at).getTime() < 5000;
-    if (lastTurnAt !== null && fresh && s.last_turn_earned > 0) showEarn(s.last_turn_earned);
+    if (lastTurnAt !== null && fresh && s.last_turn_earned > 0) showEarn(s.last_turn_earned, s.last_turn_hunger);
     lastTurnAt = s.last_turn_at;
   }
   if (lastLevel !== null && s.level > lastLevel && samePet) {
@@ -469,9 +469,17 @@ function coinRain(n) {
   setTimeout(() => fx("wiggle", where), ((count - 1) * 0.11 + dur) * 1000);   // after the last coin lands
 }
 
-function showEarn(n) {
+function showEarn(n, worked = 0) {
   const el = $("earn-bubble");
   el.textContent = `+${n}`;
+  const cost = Math.floor(worked || 0);          // the work made it hungry: shown from a whole point
+  if (cost >= 1) {
+    const h = document.createElement("span");
+    h.className = "earn-hunger";
+    h.textContent = ` -${cost}`;
+    h.title = `일해서 배고픔 -${cost}`;
+    el.append(h);
+  }
   el.classList.remove("hidden");
   earning();
   coinRain(n);
@@ -923,9 +931,11 @@ function playGift(id) {
   const cls = kind === "hamster" && motion === "chase" ? "fx-gm-roll" : `fx-gm-${motion}`;
   el.classList.add(cls);
   if (motion !== "chase" && motion !== "bounce") burst("heart", 4, where);
+  for (const old of document.querySelectorAll(".tired-fx")) old.remove();
   giftTimer = setTimeout(() => {
     el.classList.remove(cls);
     for (const old of document.querySelectorAll(".gift-fx, .gift-prop")) old.remove();
+    renderTired();
   }, ms + 100);
 }
 
@@ -954,6 +964,52 @@ function moleDip(sprite) {
     marker.remove();
     outer.remove();
   }, 2400);
+}
+
+// Worked past the hourly rush line (petlib work.py): sweat and flat eyes until that clock hour is over.
+function tiredNow(s = state) {
+  const w = s && s.work_hour;
+  if (!w || !w.tired || s.form === "runaway") return false;
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return w.hour === `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}`;
+}
+
+function tiredOverlay() {
+  const kind = state.species || "mochi";
+  const f = state.form === "base" ? FACE[kind] : null;
+  let s = "";
+  if (f) for (const [x, y, w, h] of f.eyes) {                // eyes go flat: 一 一
+    s += rect(x, y, w, h, f.body) + rect(x, y + Math.floor(h / 2), w, Math.min(2, h - 1), f.ink);
+  }
+  return s;
+}
+
+// a sweat drop just off the right side of each species' head
+const SWEAT = { mochi: [57, 28], squirrel: [4, 22], mole: [56, 18], robot: [58, 12], penguin: [62, 8], hamster: [60, 22], rabbit: [54, 24] };
+function sweatDrop() {
+  const [x, y] = SWEAT[state.species || "mochi"] || SWEAT.mochi;
+  return rect(x + 1, y, 2, 2, "#8FB4FF") + rect(x, y + 2, 4, 4, "#8FB4FF") + rect(x + 1, y + 3, 1, 2, "#F4F1FF");
+}
+
+function renderTired() {
+  const on = tiredNow();
+  for (const id of ["sprite-small", "sprite-large"]) {
+    const sprite = $(id);
+    const old = [...sprite.querySelectorAll(".tired-fx")];
+    if (!on || sprite.querySelector(".gift-fx")) { old.forEach((el) => el.remove()); continue; }   // a gift's happy face wins
+    if (old.length && old[0].dataset.key === state.species + state.form) continue;
+    old.forEach((el) => el.remove());
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "tired-fx");
+    g.dataset.key = state.species + state.form;
+    g.innerHTML = tiredOverlay();
+    (sprite.querySelector(".m-peek") || sprite.querySelector(".whole") || sprite).append(g);
+    const drop = document.createElementNS(SVG_NS, "g");       // outside the mole's clipped peek
+    drop.setAttribute("class", "tired-fx tf-sweat");
+    drop.dataset.key = g.dataset.key;
+    drop.innerHTML = sweatDrop();
+    (sprite.querySelector(".whole") || sprite).append(drop);
+  }
 }
 
 function toyNow(s = state) {
