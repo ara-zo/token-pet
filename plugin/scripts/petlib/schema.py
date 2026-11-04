@@ -65,7 +65,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "since_form": new_since_form(),
         "flags": new_flags(),
         "badges": [],
-        "settings": {"widget": True, "widget_install_tried": None, "pr_inbox": False, "vacation_days": {}},
+        "settings": {"widget": True, "widget_install_tried": None, "pr_inbox": False, "alerts": True, "vacation_days": {}},
         "species": "mochi",
         "dex": ["mochi"],
         "lifetime": new_lifetime(),
@@ -73,6 +73,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "vacation": None,
         "toy": None,               # {"id", "until"} while a gifted toy is being played with
         "work_hour": None,         # {"hour", "out", "tired"}: output in the current clock hour (work.py)
+        "alerts": {},              # Claude Code session -> working / waiting / done, for the widget (alerts.py)
     }
 
 

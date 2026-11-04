@@ -218,6 +218,7 @@ async function applyExtra() {
   // "+N" at the head's top-right corner, in front of the mail bubble
   $("earn-bubble").style.bottom = `${Math.round(headFromBottom - 4)}px`;
   $("mail-small").style.bottom = `${Math.round(headFromBottom + MAIL_GAP)}px`;
+  $("alert-small").style.bottom = `${Math.round(headFromBottom + MAIL_GAP)}px`;
   $("vac-badge").style.bottom = `${Math.round(headFromBottom - 30)}px`;
   if (want === extra) return;
   const diff = want - extra;
@@ -343,6 +344,7 @@ function render() {
   }
   lastLevel = s.level;
   lastSpecies = kind;
+  renderAlerts();
   if (mailEnabled() !== mailOn) {           // turned on/off with /pet pr
     mailOn = mailEnabled();
     pollMail();
@@ -1269,7 +1271,7 @@ function renderMail() {
   const n = unread.length;
   const reviews = unread.filter((it) => it.category === "review").length;
   $("mail-btn").classList.toggle("hidden", !on);
-  $("mail-small").classList.toggle("hidden", !on || n === 0);
+  $("mail-small").classList.toggle("hidden", !on || n === 0 || alertBubbleOn);
   $("mail-small").classList.toggle("review", reviews > 0);    // pink while a review request waits
   $("collapsed").classList.toggle("review", reviews > 0);
   $("mail-letter").classList.toggle("hidden", !on || n === 0);
@@ -1277,7 +1279,8 @@ function renderMail() {
   const full = mailLine(state ? state.form : "base", reviews > 0 ? "review" : "wait", shown);
   $("mail-count-small").textContent = full;
   $("mail-small").setAttribute("aria-label", `PR 우편함 열기, ${full}`);
-  setBand(on && n > 0);
+  mailWants = on && n > 0;
+  setBand(mailWants || alertBubbleOn);
   updateTray();
   $("mail-count").textContent = n > 99 ? "99+" : String(n);
   $("mail-count").classList.toggle("hidden", n === 0);
@@ -1412,6 +1415,7 @@ function showMailTab(tab) {
 function openMailbox() {
   closeDress();
   closeStats();
+  closeAlerts();
   mailOpen = true;
   if (!mailSources.length) mailTab = "src";           // nothing to fetch yet: start where conditions are added
   $("expanded").classList.add("panel-open");
@@ -1435,6 +1439,7 @@ const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 async function openStats() {
   closeDress();
   closeMailbox();
+  closeAlerts();
   const res = await runPet(["stats"]);
   if (!res) return;
   stats = res.result;
@@ -1543,6 +1548,7 @@ let roomSel = {};                     // tab -> selected item id
 async function openDress() {
   closeStats();
   closeMailbox();
+  closeAlerts();
   const res = await runPet(["shop"]);
   if (!res) return;
   shop = res.result;
@@ -1807,6 +1813,165 @@ async function load() {
   }
 }
 
+
+// ---------------------------------------------------------------- 작업 알림
+// Claude Code sessions, written into state.alerts by the plugin's hooks (petlib/alerts.py):
+// "working" after a prompt, "waiting" on a permission prompt, "done" when a turn of 30 s or more ends.
+// One bubble above the collapsed pet (the session waiting longest, else the newest finished one),
+// the rest folded into a grey "+ N개 더" line that opens the task list. A click opens that session.
+
+const ALERT_STALE = 30 * 60 * 1000, ALERT_STALE_WORKING = 6 * 3600 * 1000;
+const ALERT_TEXT = { permission: "허락이 필요해요!", input: "대답을 기다려요!", done: "다 했어!" };
+const ALERT_CHIP = { waiting: "기다림", done: "완료", working: "작업 중" };
+let alertBubbleOn = false, mailWants = false;
+let alertShown = null;                 // the session in the bubble
+let alertsOpen = false;
+let celebrated = null;                 // done sessions already greeted with a hop (null until first render)
+
+// The furnace scene, in the sprite's own coordinates (viewBox -4 -20 72 84): a shard pile at the
+// pet's feet, a shovel pivoting at the hand, the furnace at its right with fire and a chimney.
+const WORK_SVG =
+  '<rect x="60" y="38" width="22" height="22" fill="#3A3660"/><rect x="62" y="36" width="18" height="2" fill="#4A4677"/>' +
+  '<rect x="73" y="26" width="5" height="10" fill="#3A3660"/><rect x="63" y="47" width="16" height="10" fill="#1C1A2E"/>' +
+  '<rect x="64" y="52" width="14" height="5" fill="#F5A04B"/><rect x="67" y="50" width="8" height="3" fill="#F5C451"/>' +
+  '<g class="wk-flare"><rect x="65" y="48" width="12" height="4" fill="#F5A04B"/><rect x="68" y="46" width="6" height="3" fill="#F5C451"/></g>' +
+  '<rect class="wk-puff" x="74" y="22" width="3" height="3" fill="#4A4677"/><rect class="wk-puff p2" x="75" y="22" width="2" height="2" fill="#4A4677"/>' +
+  '<rect x="54" y="58" width="5" height="2" fill="#D9A33A"/><rect x="55" y="57" width="3" height="1" fill="#F5C451"/>' +
+  '<g class="wk-shovel"><rect x="51" y="47" width="2" height="2" fill="#9A6E12"/><rect x="53" y="49" width="2" height="2" fill="#9A6E12"/>' +
+  '<rect x="55" y="51" width="2" height="2" fill="#9A6E12"/><rect x="56" y="52" width="6" height="5" fill="#A9A3C9"/>' +
+  '<rect x="61" y="51" width="2" height="2" fill="#A9A3C9"/><rect class="wk-load" x="57" y="50" width="4" height="2" fill="#F5C451"/></g>' +
+  '<rect class="wk-toss" x="58" y="37" width="3" height="3" fill="#F5C451"/>';
+$("work-small").innerHTML = WORK_SVG;
+$("work-large").innerHTML = WORK_SVG;
+
+function alertsOn(s) { return !!(s && (s.settings || {}).alerts !== false); }
+
+function liveAlerts(s) {
+  if (!alertsOn(s)) return [];
+  const now = Date.now();
+  const list = Object.entries(s.alerts || {}).map(([sid, a]) => ({ sid, ...a })).filter((a) => {
+    const t = new Date(a.updated_at || a.since).getTime();
+    return now - t < (a.state === "working" ? ALERT_STALE_WORKING : ALERT_STALE);
+  });
+  const rank = { waiting: 0, done: 1, working: 2 };
+  const t = (a) => new Date(a.since).getTime();
+  // waiting: longest first; done: newest first; working: longest first
+  return list.sort((a, b) => rank[a.state] - rank[b.state] || (a.state === "done" ? t(b) - t(a) : t(a) - t(b)));
+}
+
+function alertAgo(a) {
+  const m = Math.floor((Date.now() - new Date(a.since).getTime()) / 60000);
+  if (a.state === "working") return m < 1 ? "방금 시작" : `${m}분째`;
+  const when = m < 1 ? "방금" : m < 60 ? `${m}분 전` : `${Math.floor(m / 60)}시간 전`;
+  return a.state === "waiting" ? `${ALERT_TEXT[a.kind || "input"].replace("!", "")} · ${when}` : when;
+}
+
+function renderAlerts() {
+  const list = liveAlerts(state);
+  const ringing = list.filter((a) => a.state !== "working" && !a.seen);
+  const shown = ringing[0] || null;
+  alertShown = shown;
+  const working = list.some((a) => a.state === "working");
+  const waitingShown = !!shown && shown.state === "waiting";
+  for (const id of ["collapsed", "stage"]) {
+    $(id).classList.toggle("alert-waiting", waitingShown);
+    $(id).classList.toggle("alert-working", working && !waitingShown);
+  }
+  $("work-small").classList.toggle("hidden", !(working && !waitingShown));
+  $("work-large").classList.toggle("hidden", !(working && !waitingShown));
+
+  const bubble = $("alert-small");
+  bubble.classList.toggle("hidden", !shown);
+  if (shown) {
+    bubble.classList.toggle("waiting", shown.state === "waiting");
+    $("alert-name").textContent = shown.name || "Claude Code";
+    $("alert-text").textContent = ALERT_TEXT[shown.state === "done" ? "done" : shown.kind || "input"];
+    $("alert-open").setAttribute("aria-label", `${shown.name} ${$("alert-text").textContent} 누르면 그 세션으로 가요`);
+    const others = ringing.slice(1);
+    const w = others.filter((a) => a.state === "waiting").length;
+    const d = others.filter((a) => a.state === "done").length;
+    const k = list.filter((a) => a.state === "working").length;
+    const more = w ? `+ ${w + d}개 더` : d ? (shown.state === "waiting" ? `+ 완료 ${d}개` : `+ ${d}개 더`) : k ? `${k}개 더 작업 중` : "";
+    $("alert-more").textContent = more;
+    $("alert-more").classList.toggle("hidden", !more);
+  }
+  // a finished session says hello once: a hop and sparkles (not for ones finished before launch)
+  const doneIds = list.filter((a) => a.state === "done").map((a) => a.sid);
+  if (celebrated === null) celebrated = new Set(doneIds);
+  else if (shown && shown.state === "done" && !celebrated.has(shown.sid)) {
+    fx("hop");
+    burst("sparkle", 10);
+  }
+  for (const id of doneIds) celebrated.add(id);
+  if (!!shown !== alertBubbleOn) {
+    alertBubbleOn = !!shown;
+    $("mail-small").classList.toggle("hidden", alertBubbleOn || !mailWants);
+    setBand(mailWants || alertBubbleOn);
+  }
+  const count = ringing.length;
+  $("alerts-btn").classList.toggle("hidden", !list.length);
+  $("alerts-count").textContent = String(count);
+  $("alerts-count").classList.toggle("hidden", count === 0);
+  if (alertsOpen) renderAlertList(list);
+}
+
+function renderAlertList(list = liveAlerts(state)) {
+  $("alerts-sub").textContent = list.length ? `Claude Code 세션 ${list.length}개` : "";
+  if (!list.length) {
+    const li = document.createElement("li");
+    li.className = "mail-empty";
+    li.textContent = alertsOn(state) ? "지금은 돌아가는 세션이 없어요" : "작업 알림이 꺼져 있어요 (/pet alert on)";
+    $("alerts-list").replaceChildren(li);
+    return;
+  }
+  $("alerts-list").replaceChildren(...list.map((a) => {
+    const li = document.createElement("li");
+    li.className = "item alert-item" + (a.seen ? " seen" : "");
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    const chip = document.createElement("span");
+    chip.className = `alert-chip ${a.state}`;
+    chip.textContent = ALERT_CHIP[a.state];
+    const meta = document.createElement("div");
+    meta.className = "item-meta";
+    const name = document.createElement("span");
+    name.className = "item-name";
+    name.textContent = a.name || "Claude Code";
+    const sub = document.createElement("span");
+    sub.className = "item-sub";
+    sub.textContent = alertAgo(a);
+    meta.append(name, sub);
+    li.append(chip, meta);
+    const go = () => openAlert(a.sid);
+    li.addEventListener("click", go);
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    return li;
+  }));
+}
+
+async function openAlert(sid) {
+  const res = await runPet(["alert", "open", sid]);
+  if (res && !res.ok) toast(res.text);
+  if (expanded) setExpanded(false);
+}
+
+function openAlerts() {
+  closeDress();
+  closeStats();
+  closeMailbox();
+  alertsOpen = true;
+  $("expanded").classList.add("panel-open");
+  $("alerts-panel").classList.remove("hidden");
+  renderAlertList();
+}
+
+function closeAlerts() {
+  alertsOpen = false;
+  $("alerts-panel").classList.add("hidden");
+  $("expanded").classList.remove("panel-open");
+}
+setInterval(() => { if (alertsOpen) renderAlertList(); }, 30 * 1000);    // "N분째" ticks on
+
 // ---------------------------------------------------------------- wiring
 
 makeDraggable($("collapsed"));
@@ -1816,7 +1981,7 @@ $("collapsed").addEventListener("click", () => {
   setExpanded(true);
 });
 
-$("collapse").addEventListener("click", () => { closeDress(); closeStats(); closeMailbox(); setExpanded(false); });
+$("collapse").addEventListener("click", () => { closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); });
 $("feed").addEventListener("click", feed);
 $("dress").addEventListener("click", openDress);
 $("dress-close").addEventListener("click", closeDress);
@@ -1835,12 +2000,24 @@ $("fx-large").addEventListener("click", () => {
 });
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else setExpanded(false);
+  if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else if (alertsOpen) closeAlerts(); else setExpanded(false);
 });
-window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); closeMailbox(); setExpanded(false); } });
+window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); } });
 
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
+$("alerts-btn").addEventListener("click", () => (alertsOpen ? closeAlerts() : openAlerts()));
+$("alerts-close").addEventListener("click", closeAlerts);
+$("alert-open").addEventListener("click", (e) => {
+  e.stopPropagation();                      // not a click on the pet
+  if (dragged) { dragged = false; return; }
+  if (alertShown) openAlert(alertShown.sid);
+});
+$("alert-more").addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (dragged) { dragged = false; return; }
+  setExpanded(true).then(openAlerts);
+});
 $("mail-close").addEventListener("click", closeMailbox);
 $("mail-readall").addEventListener("click", readAllMail);
 $("mail-tab-list").addEventListener("click", () => showMailTab("list"));
@@ -1855,7 +2032,8 @@ setInterval(pollMail, 5 * 60 * 1000);
 // while mail waits, every 10 s the bubble rings and the pet hops (collapsed only)
 setInterval(() => {
   if (!bandOn || expanded) return;
-  const b = $("mail-small");
+  const b = alertBubbleOn ? $("alert-small") : $("mail-small");
+  if (alertBubbleOn && !b.classList.contains("waiting")) return;     // only a waiting session keeps ringing
   b.classList.remove("ring", "fresh");
   void b.offsetWidth;
   b.classList.add("ring");

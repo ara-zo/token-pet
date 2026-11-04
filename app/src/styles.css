@@ -599,3 +599,91 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .earn-bubble .earn-hunger { color: #F5A54A; }
 .sprite .tf-sweat { animation: tf-sweat 2.4s ease-in infinite; }
 @keyframes tf-sweat { 0% { opacity: 0; transform: translateY(-2px); } 12% { opacity: 1; transform: none; } 85% { opacity: 1; transform: translateY(5px); } 100% { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- 작업 알림: Claude Code sessions working / waiting / done ---------- */
+/* collapsed: one bubble above the head (waiting beats done), placed by applyExtra like the mail bubble */
+.alert-bubble {
+  position: absolute; bottom: 120px; left: 8px; right: 8px; z-index: 5;
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px;
+  border: 2px solid #23203A; background: var(--text); color: #23203A; border-radius: 6px; padding: 3px 5px 4px;
+  box-shadow: 0 3px 0 #23203A; animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+.alert-bubble::before, .alert-bubble::after { content: ""; position: absolute; left: 50%; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.alert-bubble::before { bottom: -10px; width: 14px; height: 8px; margin-left: -7px; background: #23203A; }
+.alert-bubble::after { bottom: -6px; width: 9px; height: 5px; margin-left: -4.5px; background: var(--text); }
+.alert-bubble.waiting { background: var(--coin); }
+.alert-bubble.waiting::after { background: var(--coin); }
+/* waiting rings like the PR bubble: a ring of light spreads out, the bubble floats */
+.alert-bubble.waiting {
+  animation: tp-mail-in .4s cubic-bezier(.2, 1.5, .4, 1) both, tp-mail-float 2.4s ease-in-out .4s infinite,
+    tp-alert-ping 1.6s ease-out .4s infinite;
+}
+.alert-bubble.waiting.ring { animation: tp-mail-ring .7s ease-in-out 2, tp-alert-ping 1.6s ease-out infinite; }
+@keyframes tp-alert-ping {
+  from { box-shadow: 0 3px 0 #23203A, 0 0 0 0 rgba(245, 196, 81, .9); }
+  to { box-shadow: 0 3px 0 #23203A, 0 0 0 10px rgba(245, 196, 81, 0); }
+}
+.alert-main {
+  display: flex; flex-direction: column; align-items: center; gap: 0; border: 0; padding: 0; background: none;
+  color: inherit; cursor: pointer; font: 800 10.5px/1.2 var(--sans); text-align: center; word-break: keep-all;
+}
+.alert-name { font-size: 9px; font-weight: 600; opacity: .75; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-more {
+  align-self: center; border: 0; border-radius: 999px; padding: 1px 6px; background: rgba(35, 32, 58, .14); color: #23203A;
+  font: 600 9px/1.3 var(--sans); cursor: pointer;
+}
+.alert-more:hover, .alert-main:hover .alert-text { text-decoration: underline; }
+.alert-more:focus-visible, .alert-main:focus-visible { outline: 2px solid #23203A; outline-offset: 1px; }
+
+/* waiting: the pet tilts its head, "what now?" */
+.pet-host.alert-waiting .sprite { animation: tp-tilt 1.6s ease-in-out infinite; }
+@keyframes tp-tilt { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+
+/* working: a small furnace stands by the pet, which shovels token shards into it. In the collapsed
+   window the pet steps 24px left to make room; the drawing shares the sprite's viewBox. */
+.work-fx { position: absolute; left: 0; top: 0; overflow: visible; shape-rendering: crispEdges; pointer-events: none; }
+.collapsed-view .pet-fx { left: 0; transition: translate .15s, left .3s; }
+.collapsed-view.alert-working .pet-fx { left: -24px; }
+.collapsed-view .shadow-small { transition: translate .3s; }
+.collapsed-view.alert-working .shadow-small { translate: -24px 0; }
+.work-fx .wk-shovel { transform-origin: 50px 46px; animation: wk-shovel 1.8s ease-in-out infinite; }
+@keyframes wk-shovel {
+  0% { transform: none; } 10% { transform: rotate(6deg); } 16% { transform: none; } 44% { transform: rotate(-70deg); }
+  50% { transform: rotate(-82deg); } 58% { transform: rotate(-74deg); } 100% { transform: none; }
+}
+.work-fx .wk-load { opacity: 0; animation: wk-load 1.8s steps(1) infinite; }
+@keyframes wk-load { 0%, 13% { opacity: 0; } 14%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.work-fx .wk-toss { opacity: 0; animation: wk-toss 1.8s linear infinite; }
+@keyframes wk-toss {
+  0%, 49% { opacity: 0; transform: none; } 50% { opacity: 1; transform: none; } 56% { opacity: 1; transform: translate(4px, -3px); }
+  66% { opacity: 1; transform: translate(9px, 11px); } 68%, 100% { opacity: 0; transform: translate(9px, 13px); }
+}
+.work-fx .wk-flare { opacity: 0; animation: wk-flare 1.8s ease-out infinite; }
+@keyframes wk-flare {
+  0%, 66% { opacity: 0; transform: none; } 72% { opacity: 1; transform: translateY(-3px); }
+  88% { opacity: .6; transform: translateY(-1px); } 100% { opacity: 0; transform: none; }
+}
+.work-fx .wk-puff { opacity: 0; animation: wk-puff 1.8s ease-out infinite; }
+.work-fx .wk-puff.p2 { animation-delay: .9s; }
+@keyframes wk-puff { 0% { opacity: 0; transform: none; } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(2px, -14px); } }
+
+/* expanded: the task list sheet */
+.alerts-btn { position: relative; }
+.alerts-btn svg { shape-rendering: crispEdges; }
+.alerts-sub { flex: 1; margin-left: 8px; font-size: 11px; color: var(--sub); }
+.alerts-note { margin: 6px 0 0; font-size: 11px; color: var(--sub); text-align: center; }
+.alert-item { cursor: pointer; align-items: center; }
+.alert-item:hover { outline: 1.5px solid var(--line); }
+.alert-item:focus-visible { outline: 2px solid var(--coin); }
+.alert-chip { flex: none; min-width: 44px; text-align: center; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+.alert-chip.waiting { background: var(--coin); color: #23203A; }
+.alert-chip.done { background: var(--text); color: #23203A; }
+.alert-chip.working { background: var(--card2); color: var(--sub2); }
+.alert-item.seen { opacity: .6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-bubble, .alert-bubble.waiting, .alert-bubble.waiting.ring { animation: none; box-shadow: 0 3px 0 #23203A, 0 0 0 4px rgba(245, 196, 81, .45); }
+  .alert-bubble:not(.waiting) { box-shadow: 0 3px 0 #23203A; }
+  .pet-host.alert-waiting .sprite, .work-fx * { animation: none; }
+  .work-fx .wk-load { opacity: 1; }
+}

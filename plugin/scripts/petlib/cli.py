@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
+from . import actions, alerts, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -183,6 +183,31 @@ def _pr_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
                    "처음엔 비어 있으니 예: is:pr org:*** is:open 처럼 넣어 주세요. gh 로그인이 필요해요 (gh auth login)")
     on = store.load(now)["settings"].get("pr_inbox", False) if store.state_path().exists() else False
     return 0, f"PR 우편함이 {'켜져' if on else '꺼져'} 있어요. /pet pr on 또는 /pet pr off"
+
+
+def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
+    """작업 알림 in the widget: /pet alert on|off, and the widget's own `alert open|seen <session>`."""
+    sub = pos[1] if len(pos) > 1 else ""
+    if sub in ("on", "off"):
+        with store.transaction(now, tick=False) as s:
+            s["settings"]["alerts"] = sub == "on"
+            if sub == "off":
+                s["alerts"] = {}
+        if sub == "off":
+            return 0, "작업 알림을 껐어요. 위젯이 Claude Code 세션 상태를 알려 주지 않아요"
+        return 0, "작업 알림을 켰어요. 위젯이 일하는 중·기다림·다 했어를 알려 줘요"
+    if sub in ("open", "seen") and len(pos) > 2:
+        sid = pos[2]
+        with store.transaction(now, tick=False) as s:
+            entry = dict((s.get("alerts") or {}).get(sid) or {})
+            found = alerts.seen(s, sid)
+        if not found:
+            return 1, "그 세션은 이미 끝났어요"
+        if sub == "open" and not alerts.open_session(entry):
+            return 0, f"{entry.get('name', '그 세션')} 창을 찾지 못했어요"
+        return 0, f"{entry.get('name', '세션')} 으로 가요" if sub == "open" else "확인했어요"
+    on = store.load(now)["settings"].get("alerts", True) if store.state_path().exists() else True
+    return 0, f"작업 알림이 {'켜져' if on else '꺼져'} 있어요. /pet alert on 또는 /pet alert off"
 
 
 def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
@@ -367,6 +392,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
         return out(*_widget_cmd(pos[1] if len(pos) > 1 else "", now))
     if cmd == "pr":
         return out(*_pr_cmd(pos[1] if len(pos) > 1 else "", now))
+    if cmd == "alert":
+        return out(*_alert_cmd(pos, now))
     if cmd == "update":
         return out(*_update_cmd())
 
@@ -532,6 +559,16 @@ def run(argv: List[str]) -> int:
             _widget_check(now, force=updated)
         except Exception as e:
             store.log(f"widget launch failed: {e!r}")
+        return 0
+    if cmd == "alert-hook":
+        event = argv[1] if len(argv) > 1 else ""
+        try:
+            data = _read_stdin_json()
+            term = alerts.term_info(dict(os.environ), alerts._tty(os.getppid())) if event == "prompt" else None
+            with store.transaction(now, tick=False) as s:
+                alerts.record(s, event, data, now, term)
+        except Exception as e:  # never break the session
+            store.log(f"alert {event} failed: {e!r}")
         return 0
     if cmd == "statusline":
         try:
