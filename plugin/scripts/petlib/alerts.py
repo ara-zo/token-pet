@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 from typing import Dict, List, Optional
 
@@ -123,6 +124,72 @@ def seen(state: dict, sid: str) -> bool:
     else:
         a["seen"] = True
     return True
+
+
+def front_bundle() -> Optional[str]:
+    """The frontmost app's bundle id (lsappinfo needs no Automation permission)."""
+    try:
+        front = subprocess.run(["lsappinfo", "front"], capture_output=True, text=True, timeout=2).stdout.strip()
+        out = subprocess.run(["lsappinfo", "info", "-only", "bundleid", front], capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r'bundleID="([^"]+)"', out)
+    return m.group(1) if m else None
+
+
+def _herdr_focused(t: dict) -> Optional[set]:
+    """Session ids whose herdr pane has the focus."""
+    try:
+        out = subprocess.run([t.get("herdr_bin") or "herdr", "agent", "list"], capture_output=True, text=True,
+                             timeout=3, env=_herdr_env(t)).stdout
+        return {(a.get("agent_session") or {}).get("value") for a in json.loads(out)["result"]["agents"] if a.get("focused")}
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _osa(script: str) -> Optional[str]:
+    try:
+        return subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=3).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def glance(state: dict) -> List[str]:
+    """Sessions the user is looking at right now count as seen, as if the bubble was clicked.
+    Only the frontmost terminal, and its focused tab or pane when the terminal can tell us."""
+    alerts = state.setdefault("alerts", {})
+    ringing = {sid: a for sid, a in alerts.items() if a.get("state") != "working" and not a.get("seen")}
+    if not ringing:
+        return []
+    front = front_bundle()
+    if not front:
+        return []
+    same_app = [a for a in alerts.values() if (a.get("term") or {}).get("bundle") == front]
+    herdr = iterm = tty = None
+    looked: List[str] = []
+    for sid, a in ringing.items():
+        t = a.get("term") or {}
+        if t.get("bundle") != front:
+            continue
+        if t.get("herdr"):
+            if herdr is None:
+                herdr = _herdr_focused(t) or set()
+            hit = sid in herdr
+        elif t.get("iterm") and front.startswith("com.googlecode.iterm2"):
+            if iterm is None:
+                iterm = _osa('tell application "iTerm2" to get unique id of current session of current window') or ""
+            hit = iterm == t["iterm"]
+        elif t.get("tty") and front == "com.apple.Terminal":
+            if tty is None:
+                tty = _osa('tell application "Terminal" to get tty of selected tab of front window') or ""
+            hit = tty == t["tty"]
+        else:
+            hit = len(same_app) == 1          # no tab to tell apart: only when it's that app's one session
+        if hit:
+            looked.append(sid)
+    for sid in looked:
+        seen(state, sid)
+    return looked
 
 
 def open_commands(entry: dict) -> List[List[str]]:

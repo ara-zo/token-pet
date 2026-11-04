@@ -1977,6 +1977,15 @@ function closeAlerts() {
 }
 setInterval(() => { if (alertsOpen) renderAlertList(); }, 30 * 1000);    // "N분째" ticks on
 
+// Went to the session without clicking the bubble: once its terminal tab has the focus, it counts as seen.
+let glancing = false;
+setInterval(async () => {
+  if (glancing || !liveAlerts(state).some((a) => a.state !== "working" && !a.seen)) return;
+  glancing = true;
+  try { await invoke("pet", { args: ["alert", "glance"] }); } catch (e) {}   // quiet: the file watcher re-renders
+  glancing = false;
+}, 3000);
+
 // ---------------------------------------------------------------- wiring
 
 makeDraggable($("collapsed"));

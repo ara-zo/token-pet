@@ -186,7 +186,7 @@ def _pr_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
 
 
 def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
-    """작업 알림 in the widget: /pet alert on|off, and the widget's own `alert open|seen <session>`."""
+    """작업 알림 in the widget: /pet alert on|off, and the widget's own `alert open|seen <session>` and `alert glance`."""
     sub = pos[1] if len(pos) > 1 else ""
     if sub in ("on", "off"):
         with store.transaction(now, tick=False) as s:
@@ -196,6 +196,13 @@ def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
         if sub == "off":
             return 0, "작업 알림을 껐어요. 위젯이 Claude Code 세션 상태를 알려 주지 않아요"
         return 0, "작업 알림을 켰어요. 위젯이 일하는 중·기다림·다 했어를 알려 줘요"
+    if sub == "glance":                   # the widget polls this while a bubble rings
+        looked = alerts.glance(store.load(now)) if store.state_path().exists() else []
+        if looked:                        # write only when something changed: the widget watches the file
+            with store.transaction(now, tick=False) as s:
+                for sid in looked:
+                    alerts.seen(s, sid)
+        return 0, f"{len(looked)}개 확인"
     if sub in ("open", "seen") and len(pos) > 2:
         sid = pos[2]
         with store.transaction(now, tick=False) as s:

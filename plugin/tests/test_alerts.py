@@ -70,6 +70,37 @@ def test_seen_clears_done_and_quiets_waiting(state):
     assert SID not in state["alerts"]
 
 
+def test_glance_at_the_focused_herdr_pane_counts_as_seen(state, monkeypatch):
+    herdr = {"bundle": "com.mitchellh.ghostty", "herdr": "w1:p1"}
+    prompt(state, at(20, 14), term=herdr)
+    alerts.record(state, "stop", {"session_id": SID}, at(20, 14, 1))
+    alerts.record(state, "prompt", {"session_id": "s-2", "cwd": "/w/b"}, at(20, 14), dict(herdr, herdr="w1:p2"))
+    alerts.record(state, "notify", {"session_id": "s-2", "message": "needs your permission"}, at(20, 14, 1))
+
+    class R:
+        stdout = json.dumps({"result": {"agents": [
+            {"agent_session": {"value": SID}, "focused": False},
+            {"agent_session": {"value": "s-2"}, "focused": True}]}})
+    monkeypatch.setattr(alerts.subprocess, "run", lambda *a, **k: R)
+    monkeypatch.setattr(alerts, "front_bundle", lambda: "com.mitchellh.ghostty")
+    assert alerts.glance(state) == ["s-2"]
+    assert state["alerts"]["s-2"]["seen"] is True and not state["alerts"][SID].get("seen")
+
+    monkeypatch.setattr(alerts, "front_bundle", lambda: "com.google.Chrome")
+    R.stdout = R.stdout.replace("false", "true")
+    assert alerts.glance(state) == []      # the terminal isn't in front
+
+
+def test_glance_without_tabs_needs_the_apps_only_session(state, monkeypatch):
+    prompt(state, at(20, 14), term={"bundle": "com.mitchellh.ghostty"})
+    alerts.record(state, "stop", {"session_id": SID}, at(20, 14, 1))
+    monkeypatch.setattr(alerts, "front_bundle", lambda: "com.mitchellh.ghostty")
+    alerts.record(state, "prompt", {"session_id": "s-2", "cwd": "/w/b"}, at(20, 14), {"bundle": "com.mitchellh.ghostty"})
+    assert alerts.glance(state) == []
+    alerts.record(state, "end", {"session_id": "s-2"}, at(20, 14, 2))
+    assert alerts.glance(state) == [SID] and SID not in state["alerts"]
+
+
 def test_long_folder_names_are_cut():
     assert alerts.name_of("/a/dk-server-observability") == "dk-server…"
     assert alerts.name_of(None) == "Claude Code"
