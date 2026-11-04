@@ -3,7 +3,7 @@
 Hooks write one entry per session into state["alerts"]:
   UserPromptSubmit → "working"   (a prompt was sent)
   Notification     → "waiting"   (a permission prompt, or Claude waiting for an answer mid-turn)
-  Stop             → "done"      (only for turns of DONE_MIN_SECONDS or more; short turns just clear)
+  Stop             → "done"      (every turn, short ones too)
   SessionEnd       → removed
 The widget shows one bubble (waiting > done) and a list; a click opens that session's terminal.
 """
@@ -16,7 +16,6 @@ from typing import Dict, List, Optional
 
 from . import clock
 
-DONE_MIN_SECONDS = 30          # shorter turns don't ring "다 했어!"
 STALE = dt.timedelta(minutes=30)
 STALE_WORKING = dt.timedelta(hours=6)   # a long agent run keeps working without hook writes
 NAME_MAX = 10
@@ -102,13 +101,6 @@ def record(state: dict, event: str, data: dict, now: dt.datetime, term: Optional
         cur.update(state="waiting", kind=kind_of(data.get("message", "")), since=ts, updated_at=ts, seen=False)
         return cur
     if event == "stop":
-        try:
-            took = (now - clock.parse(cur.get("started_at"))).total_seconds()
-        except (ValueError, TypeError):
-            took = 0
-        if took < DONE_MIN_SECONDS:
-            alerts.pop(sid, None)
-            return None
         cur.update(state="done", since=ts, updated_at=ts, seen=False)
         cur.pop("kind", None)
         return cur

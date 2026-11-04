@@ -17,12 +17,11 @@ def test_prompt_marks_the_session_working(state):
     assert a["term"] == {"app": "Orca", "orca": "term_1"}
 
 
-def test_long_turn_ends_done_short_turn_clears(state):
+def test_every_turn_ends_done_even_a_short_one(state):
     prompt(state, at(20, 14))
     assert alerts.record(state, "stop", {"session_id": SID}, at(20, 14, 1))["state"] == "done"
     prompt(state, at(20, 15))
-    assert alerts.record(state, "stop", {"session_id": SID}, at(20, 15, 0)) is None
-    assert SID not in state["alerts"]
+    assert alerts.record(state, "stop", {"session_id": SID}, at(20, 15, 0))["state"] == "done"
 
 
 def test_permission_prompt_waits_until_the_next_turn(state):
