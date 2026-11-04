@@ -203,7 +203,7 @@ def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
             found = alerts.seen(s, sid)
         if not found:
             return 1, "그 세션은 이미 끝났어요"
-        if sub == "open" and not alerts.open_session(entry):
+        if sub == "open" and not alerts.open_session(entry, sid):
             return 0, f"{entry.get('name', '그 세션')} 창을 찾지 못했어요"
         return 0, f"{entry.get('name', '세션')} 으로 가요" if sub == "open" else "확인했어요"
     on = store.load(now)["settings"].get("alerts", True) if store.state_path().exists() else True

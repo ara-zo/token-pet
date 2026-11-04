@@ -83,6 +83,28 @@ def test_term_info_from_the_hook_environment():
         "orca": "term_9", "orca_bin": "/Applications/Orca.app/Contents/Resources/bin/orca"}
 
 
+def test_herdr_pane_from_the_hook_environment():
+    env = {"TERM_PROGRAM": "herdr", "__CFBundleIdentifier": "com.mitchellh.ghostty", "HERDR_ENV": "1",
+           "HERDR_PANE_ID": "w1:p3", "HERDR_BIN_PATH": "/opt/homebrew/bin/herdr", "HERDR_SOCKET_PATH": "/h/herdr.sock"}
+    t = alerts.term_info(env)
+    assert t == {"app": "herdr", "bundle": "com.mitchellh.ghostty", "herdr": "w1:p3",
+                 "herdr_bin": "/opt/homebrew/bin/herdr", "herdr_sock": "/h/herdr.sock"}
+    assert alerts.open_commands({"term": t}) == [
+        ["open", "-b", "com.mitchellh.ghostty"], ["/opt/homebrew/bin/herdr", "agent", "focus", "w1:p3"]]
+
+
+def test_herdr_follows_a_moved_pane(monkeypatch):
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        out = json.dumps({"result": {"agents": [{"pane_id": "w2:p1", "agent_session": {"value": SID}}]}})
+        return type("R", (), {"returncode": 0, "stdout": out})()
+    monkeypatch.setattr(alerts.subprocess, "run", run)
+    assert alerts.open_session({"term": {"bundle": "b", "herdr": "w1:p3", "herdr_bin": "/h"}}, SID)
+    assert calls[-1] == ["/h", "agent", "focus", "w2:p1"]
+
+
 def test_open_commands_per_terminal():
     orca = alerts.open_commands({"term": {"bundle": "com.stablyai.orca", "orca": "term_9", "orca_bin": "/o/orca"}})
     assert orca == [["open", "-b", "com.stablyai.orca"], ["/o/orca", "terminal", "switch", "--terminal", "term_9"]]

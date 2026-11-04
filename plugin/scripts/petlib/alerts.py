@@ -10,6 +10,7 @@ The widget shows one bubble (waiting > done) and a list; a click opens that sess
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import subprocess
 from typing import Dict, List, Optional
@@ -50,6 +51,10 @@ def term_info(env: Dict[str, str], tty: Optional[str] = None) -> dict:
         bin_dir = env.get("ORCA_CLI_BIN_DIR")
         if bin_dir:
             info["orca_bin"] = os.path.join(bin_dir, "orca")
+    if env.get("HERDR_PANE_ID"):           # herdr inside a terminal app: TERM_PROGRAM is herdr, the bundle is the app
+        info["herdr"] = env["HERDR_PANE_ID"]
+        info["herdr_bin"] = env.get("HERDR_BIN_PATH")
+        info["herdr_sock"] = env.get("HERDR_SOCKET_PATH")
     if env.get("ITERM_SESSION_ID"):
         info["iterm"] = env["ITERM_SESSION_ID"].split(":", 1)[-1]
     return {k: v for k, v in info.items() if v}
@@ -131,6 +136,8 @@ def open_commands(entry: dict) -> List[List[str]]:
         cmds.append(["open", "-b", bundle])
     if t.get("orca"):
         cmds.append([t.get("orca_bin") or "orca", "terminal", "switch", "--terminal", t["orca"]])
+    elif t.get("herdr"):
+        cmds.append([t.get("herdr_bin") or "herdr", "agent", "focus", t["herdr"]])
     elif t.get("iterm") and (app.startswith("iterm") or (bundle or "").startswith("com.googlecode.iterm2")):
         cmds.append(["osascript", "-e", _ITERM.replace("{id}", t["iterm"])])
     elif t.get("tty") and (app == "apple_terminal" or bundle == "com.apple.Terminal"):
@@ -170,11 +177,37 @@ _TERMINAL = '''tell application "Terminal"
 end tell'''
 
 
-def open_session(entry: dict) -> bool:
+def _herdr_env(t: dict) -> Optional[dict]:
+    return dict(os.environ, HERDR_SOCKET_PATH=t["herdr_sock"]) if t.get("herdr_sock") else None
+
+
+def _herdr_pane(t: dict, sid: Optional[str]) -> Optional[str]:
+    """The pane now hosting this Claude session; panes moved between workspaces get new ids."""
+    if not sid:
+        return None
+    try:
+        out = subprocess.run([t.get("herdr_bin") or "herdr", "agent", "list"], capture_output=True, text=True,
+                             timeout=3, env=_herdr_env(t)).stdout
+        for a in json.loads(out)["result"]["agents"]:
+            if (a.get("agent_session") or {}).get("value") == sid:
+                return a.get("pane_id")
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
+def open_session(entry: dict, sid: Optional[str] = None) -> bool:
+    t = entry.get("term") or {}
+    env = None
+    if t.get("herdr"):
+        pane = _herdr_pane(t, sid)
+        if pane:
+            entry = dict(entry, term=dict(t, herdr=pane))
+        env = _herdr_env(t)
     ok = False
     for cmd in open_commands(entry):
         try:
-            ok = subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0 or ok
+            ok = subprocess.run(cmd, capture_output=True, timeout=5, env=env).returncode == 0 or ok
         except (OSError, subprocess.SubprocessError):
             pass
     return ok
