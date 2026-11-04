@@ -156,6 +156,24 @@ def test_hook_entry_point_writes_state(pet_home, monkeypatch):
     assert store.load()["alerts"][SID]["state"] == "working"
 
 
+def test_a_turn_ending_in_front_of_the_user_does_not_ring(pet_home, monkeypatch):
+    monkeypatch.setattr(alerts, "_tty", lambda ppid: None)
+    monkeypatch.setenv("__CFBundleIdentifier", "com.mitchellh.ghostty")
+    monkeypatch.delenv("HERDR_PANE_ID", raising=False)
+    monkeypatch.delenv("ITERM_SESSION_ID", raising=False)
+    for event in ("prompt", "stop"):
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"session_id": SID, "cwd": "/w/docs"})))
+        monkeypatch.setattr(alerts, "front_bundle", lambda: "com.mitchellh.ghostty")
+        cli.run(["alert-hook", event])
+    assert SID not in store.load()["alerts"]
+
+    for event in ("prompt", "stop"):
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"session_id": SID, "cwd": "/w/docs"})))
+        monkeypatch.setattr(alerts, "front_bundle", lambda: "com.google.Chrome")
+        cli.run(["alert-hook", event])
+    assert store.load()["alerts"][SID]["state"] == "done"
+
+
 def test_pet_alert_off_clears(pet_home, monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"session_id": SID, "cwd": "/w/docs"})))
     monkeypatch.setattr(alerts, "_tty", lambda ppid: None)

@@ -154,12 +154,12 @@ def _osa(script: str) -> Optional[str]:
         return None
 
 
-def glance(state: dict) -> List[str]:
-    """Sessions the user is looking at right now count as seen, as if the bubble was clicked.
-    Only the frontmost terminal, and its focused tab or pane when the terminal can tell us."""
+def looking(state: dict, sids) -> List[str]:
+    """Of these sessions, the ones the user is looking at right now:
+    only the frontmost terminal, and its focused tab or pane when the terminal can tell us."""
     alerts = state.setdefault("alerts", {})
-    ringing = {sid: a for sid, a in alerts.items() if a.get("state") != "working" and not a.get("seen")}
-    if not ringing:
+    sids = [sid for sid in sids if sid in alerts]
+    if not sids:
         return []
     front = front_bundle()
     if not front:
@@ -167,8 +167,8 @@ def glance(state: dict) -> List[str]:
     same_app = [a for a in alerts.values() if (a.get("term") or {}).get("bundle") == front]
     herdr = iterm = tty = None
     looked: List[str] = []
-    for sid, a in ringing.items():
-        t = a.get("term") or {}
+    for sid in sids:
+        t = alerts[sid].get("term") or {}
         if t.get("bundle") != front:
             continue
         if t.get("herdr"):
@@ -187,6 +187,13 @@ def glance(state: dict) -> List[str]:
             hit = len(same_app) == 1          # no tab to tell apart: only when it's that app's one session
         if hit:
             looked.append(sid)
+    return looked
+
+
+def glance(state: dict) -> List[str]:
+    """Sessions the user is looking at right now count as seen, as if the bubble was clicked."""
+    alerts = state.setdefault("alerts", {})
+    looked = looking(state, [sid for sid, a in alerts.items() if a.get("state") != "working" and not a.get("seen")])
     for sid in looked:
         seen(state, sid)
     return looked

@@ -572,8 +572,12 @@ def run(argv: List[str]) -> int:
         try:
             data = _read_stdin_json()
             term = alerts.term_info(dict(os.environ), alerts._tty(os.getppid())) if event == "prompt" else None
+            # a session finishing or asking in front of the user needn't ring: check before taking the lock
+            watched = (event in ("stop", "notify") and data.get("session_id") and store.state_path().exists()
+                       and alerts.looking(store.load(now), [data["session_id"]]))
             with store.transaction(now, tick=False) as s:
-                alerts.record(s, event, data, now, term)
+                if alerts.record(s, event, data, now, term) and watched:
+                    alerts.seen(s, data["session_id"])
         except Exception as e:  # never break the session
             store.log(f"alert {event} failed: {e!r}")
         return 0
