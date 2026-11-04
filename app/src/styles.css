@@ -641,7 +641,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 #art-large { scale: calc(126 / 108); }
 .pet-host.alert-waiting .sprite { animation: pk-tilt 1.6s ease-in-out infinite; }
 .pet-host.alert-done .sprite { animation: pk-hop 2.4s cubic-bezier(.3, .7, .4, 1) infinite; }
-.pet-host.alert-working .m-peek, .pet-host.alert-waiting .m-peek { animation: none; }   /* the mole stays up */
+.pet-host.alert-working .m-peek, .pet-host.alert-waiting .m-peek, .pet-host.alert-done .m-peek { animation: none; }   /* the mole stays up */
 .sprite .r-stub, .pet-host.alert-working .sprite .r-arm { display: none; }   /* the robot's arm moves in the art */
 .pet-host.alert-working .sprite .r-stub { display: inline; }
 /* tailed species face the other way while they shovel ("scale" composes with the bob's transform) */
