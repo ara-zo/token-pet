@@ -2,7 +2,8 @@ import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
 import { hotelMarkup, returnMove } from "./hotel.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
 import { speciesMarkup, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
-import { mailLine, eventLine, SPOKEN_EVENTS } from "./lines.js";
+import { mailLine, eventLine, alertLine, SPOKEN_EVENTS } from "./lines.js";
+import { ART, ART_CSS } from "./alerts-art.js";
 
 const T = window.__TAURI__;
 const invoke = T.core.invoke;
@@ -106,7 +107,13 @@ function spriteMarkup(s) {
   // a hat on the mole ducks into the hole with it (same clip and motion as its body)
   items += worn && sp && peeks(kind) && sp.markup.includes("tp-peek-clip")
     ? `<g clip-path="url(#tp-peek-clip)"><g class="m-peek">${worn}</g></g>` : worn;
-  if (sp) return { body: sp.markup, items, grouped: true, wrap: sp.wrap, whole: sp.whole, form, kind };
+  // the robot's right arm: while it works the 작업 알림 art draws a moving arm from the shoulder instead
+  // (the board "작업 알림 · 종족별 상태" cuts it to a stub there), so it is tagged to hide then
+  const body = kind === "robot"
+    ? sp.markup.replace('<rect x="48" y="40" width="10" height="6" fill="#8FB4FF"/>', '<rect class="r-arm" x="48" y="40" width="10" height="6" fill="#8FB4FF"/>')
+        .replace('<rect x="56" y="38" width="4" height="10" fill="#5F5B82"/>', '<rect class="r-arm" x="56" y="38" width="4" height="10" fill="#5F5B82"/><rect class="r-stub" x="46" y="41" width="3" height="4" fill="#5F5B82"/>')
+    : sp && sp.markup;
+  if (sp) return { body, items, grouped: true, wrap: sp.wrap, whole: sp.whole, form, kind };
   return { body: SPRITES[form], items, grouped: false, wrap: "", whole: "", form, kind };
 }
 
@@ -1821,28 +1828,32 @@ async function load() {
 // the rest folded into a grey "+ N개 더" line that opens the task list. A click opens that session.
 
 const ALERT_STALE = 30 * 60 * 1000, ALERT_STALE_WORKING = 6 * 3600 * 1000;
-const ALERT_TEXT = { permission: "허락이 필요해요!", input: "대답을 기다려요!", done: "다 했어!" };
 const ALERT_CHIP = { waiting: "기다림", done: "완료", working: "작업 중" };
 let alertBubbleOn = false, mailWants = false;
 let alertShown = null;                 // the session in the bubble
 let alertsOpen = false;
 let celebrated = null;                 // done sessions already greeted with a hop (null until first render)
 
-// The furnace scene, in the sprite's own coordinates (viewBox -4 -20 72 84): a shard pile at the
-// pet's feet, a shovel pivoting at the hand, the furnace at its right with fire and a chimney.
-const WORK_SVG =
-  '<rect x="60" y="38" width="22" height="22" fill="#3A3660"/><rect x="62" y="36" width="18" height="2" fill="#4A4677"/>' +
-  '<rect x="73" y="26" width="5" height="10" fill="#3A3660"/><rect x="63" y="47" width="16" height="10" fill="#1C1A2E"/>' +
-  '<rect x="64" y="52" width="14" height="5" fill="#F5A04B"/><rect x="67" y="50" width="8" height="3" fill="#F5C451"/>' +
-  '<g class="wk-flare"><rect x="65" y="48" width="12" height="4" fill="#F5A04B"/><rect x="68" y="46" width="6" height="3" fill="#F5C451"/></g>' +
-  '<rect class="wk-puff" x="74" y="22" width="3" height="3" fill="#4A4677"/><rect class="wk-puff p2" x="75" y="22" width="2" height="2" fill="#4A4677"/>' +
-  '<rect x="54" y="58" width="5" height="2" fill="#D9A33A"/><rect x="55" y="57" width="3" height="1" fill="#F5C451"/>' +
-  '<g class="wk-shovel"><rect x="51" y="47" width="2" height="2" fill="#9A6E12"/><rect x="53" y="49" width="2" height="2" fill="#9A6E12"/>' +
-  '<rect x="55" y="51" width="2" height="2" fill="#9A6E12"/><rect x="56" y="52" width="6" height="5" fill="#A9A3C9"/>' +
-  '<rect x="61" y="51" width="2" height="2" fill="#A9A3C9"/><rect class="wk-load" x="57" y="50" width="4" height="2" fill="#F5C451"/></g>' +
-  '<rect class="wk-toss" x="58" y="37" width="3" height="3" fill="#F5C451"/>';
-$("work-small").innerHTML = WORK_SVG;
-$("work-large").innerHTML = WORK_SVG;
+// The pet's art per species and state is the mockup board's, copied by tools/alert_art.py (alerts-art.js).
+const artStyle = document.createElement("style");
+artStyle.textContent = ART_CSS;
+document.head.append(artStyle);
+let artKey = null;
+function placeArt(kind, artState) {
+  const key = `${kind}:${artState}`;
+  if (key === artKey) return;
+  artKey = key;
+  const a = (ART[kind] || ART.mochi)[artState];
+  $("art-small").innerHTML = a.overlay;
+  $("art-large").innerHTML = a.overlay;
+  $("collapsed").style.setProperty("--art-shift", `${a.shift}px`);
+  for (const id of ["collapsed", "stage"]) {
+    $(id).classList.toggle("flip-art", a.flip);
+    $(id).classList.toggle("alert-waiting", a.motion === "pk-tilt");
+    $(id).classList.toggle("alert-done", a.motion === "pk-hop");
+    $(id).classList.toggle("alert-working", artState === "working");
+  }
+}
 
 function alertsOn(s) { return !!(s && (s.settings || {}).alerts !== false); }
 
@@ -1863,29 +1874,26 @@ function alertAgo(a) {
   const m = Math.floor((Date.now() - new Date(a.since).getTime()) / 60000);
   if (a.state === "working") return m < 1 ? "방금 시작" : `${m}분째`;
   const when = m < 1 ? "방금" : m < 60 ? `${m}분 전` : `${Math.floor(m / 60)}시간 전`;
-  return a.state === "waiting" ? `${ALERT_TEXT[a.kind || "input"].replace("!", "")} · ${when}` : when;
+  return a.state === "waiting" ? `${a.kind === "permission" ? "확인이 필요해요" : "대답을 기다려요"} · ${when}` : when;
 }
 
 function renderAlerts() {
+  const kind = (state && state.species) || "mochi";
   const list = liveAlerts(state);
   const ringing = list.filter((a) => a.state !== "working" && !a.seen);
   const shown = ringing[0] || null;
   alertShown = shown;
   const working = list.some((a) => a.state === "working");
-  const waitingShown = !!shown && shown.state === "waiting";
-  for (const id of ["collapsed", "stage"]) {
-    $(id).classList.toggle("alert-waiting", waitingShown);
-    $(id).classList.toggle("alert-working", working && !waitingShown);
-  }
-  $("work-small").classList.toggle("hidden", !(working && !waitingShown));
-  $("work-large").classList.toggle("hidden", !(working && !waitingShown));
+  const artState = state && away(state) ? "idle"                // at the hotel the pet isn't at the furnace
+    : shown ? (shown.state === "waiting" ? "waiting" : "done") : working ? "working" : "idle";
+  placeArt(kind, artState);
 
   const bubble = $("alert-small");
   bubble.classList.toggle("hidden", !shown);
   if (shown) {
     bubble.classList.toggle("waiting", shown.state === "waiting");
     $("alert-name").textContent = shown.name || "Claude Code";
-    $("alert-text").textContent = ALERT_TEXT[shown.state === "done" ? "done" : shown.kind || "input"];
+    $("alert-text").textContent = alertLine(kind, shown.state === "done" ? "done" : shown.kind || "input");
     $("alert-open").setAttribute("aria-label", `${shown.name} ${$("alert-text").textContent} 누르면 그 세션으로 가요`);
     const others = ringing.slice(1);
     const w = others.filter((a) => a.state === "waiting").length;
@@ -1898,10 +1906,7 @@ function renderAlerts() {
   // a finished session says hello once: a hop and sparkles (not for ones finished before launch)
   const doneIds = list.filter((a) => a.state === "done").map((a) => a.sid);
   if (celebrated === null) celebrated = new Set(doneIds);
-  else if (shown && shown.state === "done" && !celebrated.has(shown.sid)) {
-    fx("hop");
-    burst("sparkle", 10);
-  }
+  else if (shown && shown.state === "done" && !celebrated.has(shown.sid)) fx("pop");
   for (const id of doneIds) celebrated.add(id);
   if (!!shown !== alertBubbleOn) {
     alertBubbleOn = !!shown;

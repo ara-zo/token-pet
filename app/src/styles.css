@@ -635,37 +635,23 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .alert-more:hover, .alert-main:hover .alert-text { text-decoration: underline; }
 .alert-more:focus-visible, .alert-main:focus-visible { outline: 2px solid #23203A; outline-offset: 1px; }
 
-/* waiting: the pet tilts its head, "what now?" */
-.pet-host.alert-waiting .sprite { animation: tp-tilt 1.6s ease-in-out infinite; }
-@keyframes tp-tilt { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
-
-/* working: a small furnace stands by the pet, which shovels token shards into it. In the collapsed
-   window the pet steps 24px left to make room; the drawing shares the sprite's viewBox. */
-.work-fx { position: absolute; left: 0; top: 0; overflow: visible; shape-rendering: crispEdges; pointer-events: none; }
+/* The pet's art for each state comes from the mockup board "작업 알림 · 종족별 상태" (alerts-art.js, generated
+   by tools/alert_art.py): the overlay sits in the sprite's own box, its keyframes are injected by app.js. */
+.alert-art { position: absolute; left: 0; top: 0; width: 108px; height: 126px; pointer-events: none; transform-origin: 0 0; }
+#art-large { scale: calc(126 / 108); }
+.pet-host.alert-waiting .sprite { animation: pk-tilt 1.6s ease-in-out infinite; }
+.pet-host.alert-done .sprite { animation: pk-hop 2.4s cubic-bezier(.3, .7, .4, 1) infinite; }
+.pet-host.alert-working .m-peek, .pet-host.alert-waiting .m-peek { animation: none; }   /* the mole stays up */
+.sprite .r-stub, .pet-host.alert-working .sprite .r-arm { display: none; }   /* the robot's arm moves in the art */
+.pet-host.alert-working .sprite .r-stub { display: inline; }
+/* tailed species face the other way while they shovel ("scale" composes with the bob's transform) */
+.pet-host.flip-art .sprite { scale: -1 1; }
+/* in the collapsed window the pet steps aside as far as the board shows, the furnace fits the 120px */
 .collapsed-view .pet-fx { left: 0; transition: translate .15s, left .3s; }
-.collapsed-view.alert-working .pet-fx { left: -24px; }
-.collapsed-view .shadow-small { transition: translate .3s; }
-.collapsed-view.alert-working .shadow-small { translate: -24px 0; }
-.work-fx .wk-shovel { transform-origin: 50px 46px; animation: wk-shovel 1.8s ease-in-out infinite; }
-@keyframes wk-shovel {
-  0% { transform: none; } 10% { transform: rotate(6deg); } 16% { transform: none; } 44% { transform: rotate(-70deg); }
-  50% { transform: rotate(-82deg); } 58% { transform: rotate(-74deg); } 100% { transform: none; }
-}
-.work-fx .wk-load { opacity: 0; animation: wk-load 1.8s steps(1) infinite; }
-@keyframes wk-load { 0%, 13% { opacity: 0; } 14%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-.work-fx .wk-toss { opacity: 0; animation: wk-toss 1.8s linear infinite; }
-@keyframes wk-toss {
-  0%, 49% { opacity: 0; transform: none; } 50% { opacity: 1; transform: none; } 56% { opacity: 1; transform: translate(4px, -3px); }
-  66% { opacity: 1; transform: translate(9px, 11px); } 68%, 100% { opacity: 0; transform: translate(9px, 13px); }
-}
-.work-fx .wk-flare { opacity: 0; animation: wk-flare 1.8s ease-out infinite; }
-@keyframes wk-flare {
-  0%, 66% { opacity: 0; transform: none; } 72% { opacity: 1; transform: translateY(-3px); }
-  88% { opacity: .6; transform: translateY(-1px); } 100% { opacity: 0; transform: none; }
-}
-.work-fx .wk-puff { opacity: 0; animation: wk-puff 1.8s ease-out infinite; }
-.work-fx .wk-puff.p2 { animation-delay: .9s; }
-@keyframes wk-puff { 0% { opacity: 0; transform: none; } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(2px, -14px); } }
+.collapsed-view .pet-fx { left: var(--art-shift, 0px); }
+.collapsed-view .shadow-small { transition: translate .3s; translate: var(--art-shift, 0px) 0; }
+/* the sparkles of a finished session fly in front of its bubble */
+.collapsed-view .pet-fx:has(.alert-art:not(:empty)) { z-index: 6; }
 
 /* expanded: the task list sheet */
 .alerts-btn { position: relative; }
@@ -684,6 +670,5 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @media (prefers-reduced-motion: reduce) {
   .alert-bubble, .alert-bubble.waiting, .alert-bubble.waiting.ring { animation: none; box-shadow: 0 3px 0 #23203A, 0 0 0 4px rgba(245, 196, 81, .45); }
   .alert-bubble:not(.waiting) { box-shadow: 0 3px 0 #23203A; }
-  .pet-host.alert-waiting .sprite, .work-fx * { animation: none; }
-  .work-fx .wk-load { opacity: 1; }
+  .pet-host.alert-waiting .sprite, .pet-host.alert-done .sprite, .alert-art * { animation: none !important; }
 }

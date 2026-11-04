@@ -42,3 +42,20 @@ export function eventLine(ev, form) {
   const n = (String(ev.text).match(/(\d+)코인/) || [])[1];
   return own && n ? own.replace("{n}", n) : ev.text;
 }
+
+// 작업 알림 bubbles, in each species' voice (the same voices as the plugin's speech_lines.py).
+// permission: Claude asks you to check and allow something, input: it waits for an answer, done: a long turn finished.
+// The bubble is about two short lines: keep each within about 12 characters.
+const ALERT = {
+  mochi: { permission: "확인해 줘!", input: "대답을 기다려요!", done: "다 했어!" },
+  squirrel: { permission: "끼양!! 확인해 줘!!", input: "끼양!! 대답!!", done: "끼양!! 다 했다!!" },
+  mole: { permission: "…확인 부탁.", input: "…대답 기다림.", done: "…다 팠다." },
+  robot: { permission: "보고: 확인 요청", input: "보고: 입력 대기", done: "보고: 작업 완료" },
+  penguin: { permission: "확인… 해 줄래…?", input: "대답… 기다릴게…", done: "다 했어… 반짝…" },
+  hamster: { permission: "근데근데 확인해 줘", input: "근데근데 대답은?", done: "근데근데 다 했어!" },
+  rabbit: { permission: "확인 신호 보냄!", input: "대답 신호 대기 중", done: "완료 신호 수신!" },
+};
+
+export function alertLine(kind, which) {
+  return ((ALERT[kind] || ALERT.mochi)[which]) || ALERT.mochi[which];
+}
