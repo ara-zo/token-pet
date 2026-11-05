@@ -1420,6 +1420,7 @@ function showMailTab(tab) {
 }
 
 function openMailbox() {
+  closeDiary();
   closeDress();
   closeStats();
   closeAlerts();
@@ -1444,6 +1445,7 @@ const W_CHART = 268;
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 async function openStats() {
+  closeDiary();
   closeDress();
   closeMailbox();
   closeAlerts();
@@ -1546,6 +1548,312 @@ function showTip(d, cx, wd, isToday) {
   tip.classList.remove("hidden");
 }
 
+// ---------------------------------------------------------------- diary
+// `pet diary --json`: this week (or last) in three pages, opened from the records panel. The book drops
+// onto the pet, the cover opens, and each page fills in: bars grow, the hour strip lights, the pet
+// writes its lines and stamps them; then it walks to the busiest spot and hops. Session titles stay in
+// the terminal: the widget shows repo names only.
+
+let diary = null;                     // last payload while the diary is open
+let diaryWhich = "this";
+let diaryPage = 0;
+const DIARY_PAGES = ["time", "grid", "work"];
+const RUSH_OUT = 100000;              // economy.RUSH_OUT_PER_HOUR: a 「지친 시간」
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Korean count units, like diary.man: 152000 -> "15만", 15200 -> "1.5만"
+function man(n) {
+  if (n >= 1e8) return `${+(n / 1e8).toFixed(1)}억`;
+  if (n >= 1e5) return `${Math.round(n / 1e4)}만`;
+  if (n >= 1e4) return `${+(n / 1e4).toFixed(1)}만`;
+  return n.toLocaleString();
+}
+
+function hourKo(h) {
+  h %= 24;
+  if (h === 0) return ["밤", 12];
+  if (h < 6) return ["새벽", h];
+  if (h < 12) return ["오전", h];
+  if (h === 12) return ["낮", 12];
+  if (h <= 18) return ["오후", h - 12];
+  return [h <= 20 ? "저녁" : "밤", h - 12];
+}
+
+async function openDiary(which = "this", loaded = null) {
+  closeStats();
+  closeDress();
+  closeMailbox();
+  closeAlerts();
+  const res = loaded || await runPet(which === "last" ? ["diary", "last"] : ["diary"]);
+  if (!res) return;
+  diary = res.result;
+  diaryWhich = which;
+  diaryPage = 0;
+  $("expanded").classList.add("room-open");
+  $("diary-panel").classList.remove("hidden");
+  $("diary-title").textContent = `${diary.name}의 일기`;
+  $("diary-cover-name").textContent = `${diary.name}의 일기`;
+  $("diary-this").setAttribute("aria-selected", String(which === "this"));
+  $("diary-last").setAttribute("aria-selected", String(which === "last"));
+  const pet = $("diary-pet"), src = $("sprite-large");
+  pet.innerHTML = src.innerHTML;
+  pet.dataset.form = src.dataset.form || "";
+  pet.dataset.species = src.dataset.species || "";
+  const book = $("diary-book"), cover = $("diary-cover");
+  book.classList.remove("drop");
+  cover.classList.remove("open");
+  cover.classList.toggle("hidden", reducedMotion());
+  void book.offsetWidth;
+  book.classList.add("drop");
+  cover.classList.add("open");
+  renderDiary(reducedMotion() ? 0 : 1.1);
+}
+
+// The first time the widget is opened in a new week (Monday, or the first day after it stayed shut),
+// last week's diary opens by itself, once. Skipped when that week has nothing to report.
+const DIARY_WEEK_KEY = "token-pet.diary.week";
+async function weeklyDiary() {
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const week = `${monday.getFullYear()}-${monday.getMonth() + 1}-${monday.getDate()}`;
+  try { if (localStorage.getItem(DIARY_WEEK_KEY) === week) return; } catch (e) { return; }
+  let res = null;
+  try { res = await invoke("pet", { args: ["diary", "last"] }); } catch (e) { return; }
+  try { localStorage.setItem(DIARY_WEEK_KEY, week); } catch (e) {}
+  if (!res || !res.ok || !res.result || !res.result.total.out) return;
+  if (!expanded || diary || shop || stats || mailOpen || alertsOpen) return;    // the user already went elsewhere
+  openDiary("last", res);
+}
+
+function closeDiary() {
+  if (!diary) return;
+  diary = null;
+  $("diary-panel").classList.add("hidden");
+  $("diary-bub").classList.add("hidden");
+  $("expanded").classList.remove("room-open");
+}
+
+function turnDiary(step) {
+  const next = diaryPage + step;
+  if (!diary || next < 0 || next >= DIARY_PAGES.length) return;
+  diaryPage = next;
+  const page = $("diary-page");
+  page.classList.remove("flip");
+  void page.offsetWidth;
+  page.classList.add("flip");
+  renderDiary(0.25);
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+// A line the pet writes one letter at a time; returns when it is done (s).
+function writeLine(box, text, at) {
+  const line = el("div");
+  [...text].forEach((ch, i) => {
+    const span = el("span", "ch", ch);
+    span.style.animationDelay = `${(at + i * 0.035).toFixed(3)}s`;
+    line.append(span);
+  });
+  box.append(line);
+  return at + text.length * 0.035 + 0.15;
+}
+
+function stamps(page, list, at) {
+  if (!list.length) return at;
+  const box = el("div", "d-stamps");
+  list.forEach((s, i) => {
+    const st = el("span", `d-stamp slam ${s.id}`, s.label);
+    st.style.setProperty("--r", `${[-7, 5, -3][i % 3]}deg`);
+    st.style.animationDelay = `${(at + i * 0.3).toFixed(2)}s`;
+    box.append(st);
+  });
+  page.append(box);
+  return at + list.length * 0.3;
+}
+
+function renderDiary(t0) {
+  const d = diary, page = $("diary-page");
+  page.replaceChildren();
+  page.scrollTop = 0;
+  const head = el("div", "d-head");
+  const [, sm, sd] = d.start.split("-"), [, em, ed] = d.end.split("-");
+  head.append(el("b", null, ["이번 주 시간", "이번 주 시간표", "이번 주 작업한 곳"][diaryPage].replace("이번 주", d.which === "last" ? "지난주" : "이번 주")),
+    el("span", null, `${d.label} · ${+sm}/${+sd}~${+em}/${+ed}`));
+  page.append(head);
+  const dots = $("diary-dots");
+  dots.replaceChildren(...DIARY_PAGES.map((_, i) => el("i", i === diaryPage ? "on" : "")));
+  $("diary-prev").disabled = diaryPage === 0;
+  $("diary-next").disabled = diaryPage === DIARY_PAGES.length - 1;
+  let walkTo = null, say = null;
+  const kind = DIARY_PAGES[diaryPage];
+  if (kind === "time") ({ walkTo, say } = diaryTime(page, t0));
+  else if (kind === "grid") diaryGrid(page, t0);
+  else ({ walkTo, say } = diaryWork(page, t0));
+  walkDiaryPet(walkTo, say, t0);
+}
+
+function diaryTime(page, t) {
+  const d = diary;
+  if (!d.total.out) {
+    page.append(el("p", "d-empty", d.lines.time[0] || "아직 쓸 게 없어요"));
+    return {};
+  }
+  const peakDay = d.peak ? d.days.find((x) => x.date === d.peak.date) : d.days.find((x) => x.today) || d.days[0];
+  const top = Math.max(1, ...d.days.map((x) => x.out));
+  const week = el("div", "d-week");
+  d.days.forEach((x, i) => {
+    const col = el("div", `${x.today ? "today" : ""} ${x.future ? "future" : ""}`);
+    const bar = el("i", `grow ${x === peakDay ? "peak" : ""}`);
+    bar.style.height = `${x.out ? Math.max(3, Math.round((x.out / top) * 34)) : 2}px`;
+    bar.style.animationDelay = `${(t + i * 0.08).toFixed(2)}s`;
+    if (x === peakDay) bar.dataset.peak = "1";
+    col.append(bar, el("span", null, x.weekday));
+    week.append(col);
+  });
+  page.append(week);
+  t += 0.7;
+  page.append(el("span", "d-label", `${peakDay.weekday}요일 · 시간별 출력`));
+  const strip = el("div", "d-strip");
+  const ptop = Math.max(1, ...peakDay.hours);
+  peakDay.hours.forEach((v, h) => {
+    const c = el("i", `lit ${v > RUSH_OUT ? "rush" : v ? "on" : ""} ${d.peak && h === d.peak.hour ? "blink" : ""}`);
+    c.style.height = `${v ? Math.max(4, Math.round((v / ptop) * 30)) : 2}px`;
+    c.style.animationDelay = `${(t + h * 0.03).toFixed(2)}s`;
+    c.title = `${h}시 · 출력 ${man(v)}`;
+    strip.append(c);
+  });
+  page.append(strip);
+  t += 0.9;
+  const lines = el("div", "d-lines");
+  for (const line of d.lines.time.slice(0, 2)) t = writeLine(lines, line, t);
+  page.append(lines);
+  stamps(page, d.stamps, t + 0.1);
+  if (!d.peak) return {};
+  const [part, h12] = hourKo(d.peak.hour);
+  return { walkTo: week.querySelector("[data-peak]"), say: `${part} ${h12}시 ${man(d.peak.out)}!` };
+}
+
+function diaryGrid(page, t) {
+  const d = diary;
+  const cell = 9, gap = 1, left = 14, topPad = 10;
+  const W = left + 24 * (cell + gap), H = topPad + 7 * (cell + gap);
+  const svg = svgEl("svg", { class: "d-grid", viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": d.peak ? `요일별 시간별 출력. ${d.peak.weekday}요일 ${d.peak.hour}시가 가장 많음` : "요일별 시간별 출력" });
+  for (const h of [0, 6, 12, 18]) {
+    const tx = svgEl("text", { x: left + h * (cell + gap), y: 7 });
+    tx.textContent = `${h}`;
+    svg.append(tx);
+  }
+  const top = Math.max(1, ...d.days.flatMap((x) => x.hours));
+  const shades = ["#EFE2CC", "#E8C99A", "#D9A35F", "#C07A45", "#8E4A42"];
+  const tip = el("div", "d-tip");
+  const tipText = () => (d.peak ? `제일 많이: ${d.peak.weekday} ${d.peak.hour}시 · 출력 ${man(d.peak.out)}` : "");
+  tip.textContent = tipText();
+  d.days.forEach((x, r) => {
+    const lab = svgEl("text", { x: 0, y: topPad + r * (cell + gap) + 8 });
+    lab.textContent = x.weekday;
+    svg.append(lab);
+    x.hours.forEach((v, h) => {
+      const fill = v > RUSH_OUT ? "#F38BA3" : v ? shades[Math.min(4, 1 + Math.floor((v / top) * 4))] : shades[0];
+      const peak = d.peak && x.date === d.peak.date && h === d.peak.hour;
+      const rect = svgEl("rect", { x: left + h * (cell + gap), y: topPad + r * (cell + gap), width: cell, height: cell,
+        rx: 1.5, fill, class: `lit${peak ? " blink" : ""}`, style: `animation-delay:${(t + (r * 24 + h) * 0.004).toFixed(3)}s` });
+      rect.addEventListener("mouseenter", () => { tip.textContent = `${x.weekday} ${h}시 · 출력 ${man(v)}`; });
+      rect.addEventListener("mouseleave", () => { tip.textContent = tipText(); });
+      svg.append(rect);
+    });
+  });
+  page.append(svg, tip);
+  const legend = el("div", "d-legend");
+  for (const [c, label] of [["#E8C99A", "적음"], ["#8E4A42", "많음"], ["#F38BA3", "한 시간 10만 넘음"]]) {
+    const s = el("span", null, label);
+    const dot = el("i");
+    dot.style.background = c;
+    s.prepend(dot);
+    legend.append(s);
+  }
+  page.append(legend);
+  const lines = el("div", "d-lines");
+  const said = d.lines.time.slice(1);
+  if (!d.hours_known) said.unshift("시간표는 일기를 켠 뒤부터 쌓여요.");
+  let at = t + 0.7;
+  for (const line of said.slice(0, 2)) at = writeLine(lines, line, at);
+  page.append(lines);
+}
+
+function diaryWork(page, t) {
+  const d = diary;
+  if (!d.repos.length) {
+    page.append(el("p", "d-empty", "아직 작업한 곳이 없어요"));
+    return {};
+  }
+  let first = null;
+  d.repos.forEach((r, i) => {
+    const box = el("div", `d-repo${i === 0 ? " top" : ""}`);
+    const top = el("div", "d-repo-top");
+    const name = el("span", "d-repo-name", r.name === "기타" && r.other ? `기타 ${r.other}곳` : r.name);
+    const chips = el("span", "d-chips");
+    for (const [k, label] of [["commits", "커밋"], ["tests", "테스트"], ["prs", "PR"]]) {
+      if (!r[k]) continue;
+      const c = el("span", `d-chip ${k} lit`, `${label} ${r[k]}`);
+      c.style.animationDelay = `${(t + i * 0.25 + 0.35).toFixed(2)}s`;
+      chips.append(c);
+    }
+    top.append(name, chips, el("span", "d-repo-share", `${r.share}% · ${man(r.out)}`));
+    const track = el("div", "d-track");
+    const bar = el("i", "grow");
+    bar.style.width = `${Math.max(2, r.share)}%`;
+    bar.style.animationDelay = `${(t + i * 0.25).toFixed(2)}s`;
+    track.append(bar);
+    box.append(top, track);
+    page.append(box);
+    if (!first) first = bar;
+  });
+  let at = t + d.repos.length * 0.25 + 0.5;
+  const lines = el("div", "d-lines");
+  for (const line of d.lines.work) at = writeLine(lines, line, at);
+  page.append(lines);
+  stamps(page, d.work_stamps, at + 0.1);
+  return d.repos[0].name === "기타" ? {} : { walkTo: first, say: "여기 제일 오래!" };
+}
+
+// The pet walks under the spot `target` marks (or stays put) and hops with `say` over its head.
+let walkTimer = null;
+function walkDiaryPet(target, say, delay) {
+  clearTimeout(walkTimer);
+  const walker = $("diary-walker"), hop = $("diary-hop"), bub = $("diary-bub");
+  bub.classList.add("hidden");
+  walkTimer = setTimeout(() => {
+    // layout offsets, not the on-screen box: while the page drops in or flips, its transform squeezes
+    // every x toward the spine
+    const stage = walker.parentElement.parentElement;
+    const maxX = stage.clientWidth - 44;
+    let x = maxX * 0.75;
+    if (target && target.isConnected) {
+      let left = 0;
+      for (let n = target; n && n !== stage; n = n.offsetParent) left += n.offsetLeft;
+      x = Math.min(maxX, Math.max(0, left + Math.min(target.offsetWidth, 60) / 2 - 22));
+    }
+    walker.classList.add("walking");
+    walker.style.transform = `translateX(${x}px)`;
+    walkTimer = setTimeout(() => {
+      walker.classList.remove("walking");
+      if (!say) return;
+      hop.classList.remove("hop");
+      void hop.offsetWidth;
+      hop.classList.add("hop");
+      bub.textContent = say;
+      bub.classList.remove("hidden");
+      walkTimer = setTimeout(() => bub.classList.add("hidden"), 2600);
+    }, reducedMotion() ? 0 : 1300);
+  }, (reducedMotion() ? 0 : delay * 1000 + 300));
+}
+
 // ---------------------------------------------------------------- room
 // "{name}의 방" takes the whole expanded window: 밥 · 상점 · 옷장 · 배경 · 도감. Items are cards in a
 // grid; picking one fills the single action button at the bottom (구매 / 착용 / 벗기).
@@ -1553,6 +1861,7 @@ function showTip(d, cx, wd, isToday) {
 let roomSel = {};                     // tab -> selected item id
 
 async function openDress() {
+  closeDiary();
   closeStats();
   closeMailbox();
   closeAlerts();
@@ -1961,6 +2270,7 @@ async function openAlert(sid) {
 }
 
 function openAlerts() {
+  closeDiary();
   closeDress();
   closeStats();
   closeMailbox();
@@ -1992,10 +2302,10 @@ makeDraggable($("collapsed"));
 makeDraggable($("expanded"));
 $("collapsed").addEventListener("click", () => {
   if (dragged) { dragged = false; return; }       // the press was a drag, not a click
-  setExpanded(true);
+  setExpanded(true).then(weeklyDiary);
 });
 
-$("collapse").addEventListener("click", () => { closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); });
+$("collapse").addEventListener("click", () => { closeDiary(); closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); });
 $("feed").addEventListener("click", feed);
 $("dress").addEventListener("click", openDress);
 $("dress-close").addEventListener("click", closeDress);
@@ -2008,15 +2318,22 @@ for (const tab of document.querySelectorAll(".tabs .tab")) {
 }
 $("stats-btn").addEventListener("click", () => (stats ? closeStats() : openStats()));
 $("stats-close").addEventListener("click", closeStats);
+$("diary-btn").addEventListener("click", () => openDiary("this"));
+$("diary-close").addEventListener("click", closeDiary);
+$("diary-this").addEventListener("click", () => { if (diaryWhich !== "this") openDiary("this"); });
+$("diary-last").addEventListener("click", () => { if (diaryWhich !== "last") openDiary("last"); });
+$("diary-prev").addEventListener("click", () => turnDiary(-1));
+$("diary-next").addEventListener("click", () => turnDiary(1));
 $("fx-large").addEventListener("click", () => {
   if (dragged) { dragged = false; return; }       // the press was a drag
   patPet();
 });
 window.addEventListener("keydown", (e) => {
+  if (diary && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { turnDiary(e.key === "ArrowLeft" ? -1 : 1); return; }
   if (e.key !== "Escape") return;
-  if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else if (alertsOpen) closeAlerts(); else setExpanded(false);
+  if (diary) closeDiary(); else if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else if (alertsOpen) closeAlerts(); else setExpanded(false);
 });
-window.addEventListener("blur", () => { if (expanded) { closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); } });
+window.addEventListener("blur", () => { if (expanded) { closeDiary(); closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); } });
 
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));

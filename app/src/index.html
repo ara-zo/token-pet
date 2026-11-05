@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Token Pet</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=Gaegu:wght@400;700&family=Silkscreen:wght@400;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body class="collapsed">
@@ -150,7 +150,10 @@
   <section id="stats-panel" class="dress-panel hidden" aria-label="최근 7일 기록">
     <header class="row">
       <span class="pixel name">기록</span>
-      <button id="stats-close" class="icon-btn" type="button" aria-label="기록 닫기">×</button>
+      <div class="row gap6">
+        <button id="diary-btn" class="btn small ghost diary-btn" type="button"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="9" height="10" fill="currentColor"/><rect x="3" y="1" width="1" height="10" fill="#23203A"/><rect x="5" y="3" width="4" height="1" fill="#23203A"/><rect x="5" y="5" width="3" height="1" fill="#23203A"/></svg>일기장</button>
+        <button id="stats-close" class="icon-btn" type="button" aria-label="기록 닫기">×</button>
+      </div>
     </header>
     <dl id="stats-today" class="stats-card"></dl>
     <div class="chart-wrap">
@@ -158,6 +161,35 @@
       <div id="chart-tip" class="chart-tip hidden"></div>
     </div>
     <p id="stats-total" class="stats-total"></p>
+  </section>
+  <section id="diary-panel" class="dress-panel diary hidden" aria-label="펫 일기">
+    <header class="row">
+      <div class="row gap8 room-head">
+        <button id="diary-close" class="icon-btn back-btn" type="button" aria-label="일기 닫기"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
+        <span id="diary-title" class="room-title">일기</span>
+      </div>
+      <div class="mail-tabs diary-weeks" role="tablist" aria-label="어느 주">
+        <button id="diary-this" class="mtab" type="button" role="tab" aria-selected="true">이번 주</button>
+        <button id="diary-last" class="mtab" type="button" role="tab" aria-selected="false">지난주</button>
+      </div>
+    </header>
+    <div class="diary-stage">
+      <div id="diary-book" class="diary-book">
+        <div id="diary-page" class="diary-page" aria-live="polite"></div>
+        <div id="diary-cover" class="diary-cover hidden" aria-hidden="true"><span id="diary-cover-name"></span></div>
+      </div>
+      <div class="diary-walk" aria-hidden="true">
+        <div id="diary-walker" class="diary-walker">
+          <div id="diary-bub" class="diary-bub hidden"></div>
+          <div id="diary-hop" class="diary-hop"><svg id="diary-pet" class="sprite" width="44" height="52" viewBox="-4 -20 72 84"></svg></div>
+        </div>
+      </div>
+    </div>
+    <nav class="diary-nav" aria-label="일기 장">
+      <button id="diary-prev" class="icon-btn" type="button" aria-label="앞 장"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
+      <span id="diary-dots" class="diary-dots"></span>
+      <button id="diary-next" class="icon-btn" type="button" aria-label="다음 장"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+    </nav>
   </section>
   <div id="toast" class="toast hidden"></div>
   <div id="coinfly-large" class="coinfly" aria-hidden="true"></div>

@@ -672,3 +672,98 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
   .alert-bubble:not(.waiting) { box-shadow: 0 3px 0 #23203A; }
   .pet-host.alert-waiting .sprite, .pet-host.alert-done .sprite, .alert-art * { animation: none !important; }
 }
+
+/* ---------- diary (canvas '펫 일기 · 제안 v2', '펫 일기 · 작업한 곳'): takes the whole window ---------- */
+.btn.small.diary-btn { height: 26px; padding: 0 9px; gap: 5px; font-size: 11.5px; }
+.room-open #diary-panel { top: 0; border-top: 0; border-radius: 24px; padding: 16px; gap: 10px; }
+.diary-weeks { width: 124px; }
+.diary-stage { position: relative; flex: 1; min-height: 0; }
+.diary-book { position: absolute; inset: 0 0 46px; perspective: 700px; }
+.diary-page, .diary-cover { position: absolute; inset: 0; border-radius: 14px; }
+.diary-page {
+  --paper: #FFF6E6; --ink: #3A2A1A; --ink2: #8A6A4A; --rule: #EFE2CC;
+  background: var(--paper); color: var(--ink); padding: 10px 12px; box-shadow: inset 6px 0 0 #EADBC2;
+  display: flex; flex-direction: column; gap: 6px; overflow-y: auto; scrollbar-width: none; transform-origin: 0 50%;
+}
+.diary-page::-webkit-scrollbar { display: none; }
+.diary-page > * { flex: none; }
+.diary-cover {
+  background: #B5655A; box-shadow: inset 6px 0 0 #8E4A42; display: grid; place-items: center; transform-origin: 0 50%;
+  font: 700 22px Gaegu, var(--sans); color: #FFF6E6; backface-visibility: hidden;
+}
+.hand { font-family: Gaegu, var(--sans); }
+.d-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.d-head b { font: 700 16px Gaegu, var(--sans); }
+.d-head span { font-size: 10px; color: var(--ink2); white-space: nowrap; }
+.d-label { font-size: 9.5px; color: var(--ink2); }
+.d-week { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.d-week > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; justify-content: flex-end; }
+.d-week i { display: block; width: 100%; border-radius: 2px; background: #E8C99A; }
+.d-week i.peak { background: #F38BA3; }
+.d-week span { font-size: 8.5px; color: var(--ink2); }
+.d-week .today span { color: var(--ink); font-weight: 700; }
+.d-week .future { opacity: .35; }
+.d-strip { display: flex; align-items: flex-end; gap: 1px; height: 30px; }
+.d-strip i { flex: 1; display: block; background: #E8D9C0; border-radius: 1px; min-height: 2px; }
+.d-strip i.on { background: #E8A35F; }
+.d-strip i.rush { background: #F38BA3; }
+.d-lines { display: flex; flex-direction: column; gap: 2px; font: 400 13.5px/1.3 Gaegu, var(--sans); word-break: keep-all; }
+.d-stamps { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 2px 2px; }
+.d-stamp {
+  --r: -6deg; font-size: 10px; font-weight: 700; border: 2px solid currentColor; border-radius: 999px; padding: 1px 6px;
+  transform: rotate(var(--r)); color: #B5655A;
+}
+.d-stamp.good, .d-stamp.tests { color: #3F7F5E; }
+.d-stamp.night { color: #6E5FA8; }
+.d-stamp.ship, .d-stamp.repos { color: #2F6F99; }
+.d-grid { display: block; width: 100%; height: auto; shape-rendering: crispEdges; }
+.d-grid text { font: 8px var(--sans); fill: var(--ink2); }
+.d-tip { font-size: 10px; color: var(--ink); min-height: 13px; }
+.d-legend { display: flex; gap: 8px; align-items: center; font-size: 9px; color: var(--ink2); }
+.d-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+.d-repo { display: flex; flex-direction: column; gap: 3px; }
+.d-repo-top { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; min-width: 0; }
+.d-repo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+.d-repo-share { margin-left: auto; padding-left: 4px; color: var(--ink2); white-space: nowrap; flex: none; }
+.d-track { height: 7px; background: var(--rule); border-radius: 4px; overflow: hidden; }
+.d-track i { display: block; height: 100%; border-radius: 4px; background: #E8C99A; transform-origin: 0 50%; }
+.d-repo.top .d-track i { background: #F38BA3; }
+.d-chips { display: flex; gap: 3px; flex: none; }
+.d-chip { font-size: 8.5px; font-weight: 700; border: 1.5px solid currentColor; border-radius: 999px; padding: 0 4px; line-height: 12px; }
+.d-chip.commits { color: #6E5FA8; } .d-chip.tests { color: #3F7F5E; } .d-chip.prs { color: #2F6F99; }
+.d-empty { font: 400 14px/1.4 Gaegu, var(--sans); color: var(--ink2); margin: auto 0; text-align: center; }
+.diary-walk { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; }
+.diary-walker { position: absolute; left: 0; bottom: 0; width: 44px; transition: transform 1.3s linear; }
+.diary-bub {
+  position: absolute; left: 50%; bottom: 50px; translate: -50% 0; background: var(--text); color: var(--bg);
+  font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 8px; white-space: nowrap; animation: pop .25s ease-out;
+}
+.diary-nav { display: flex; align-items: center; justify-content: space-between; flex: none; height: 24px; }
+.diary-nav .icon-btn:disabled { opacity: .3; cursor: default; }
+.diary-dots { display: flex; gap: 6px; }
+.diary-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--card2); }
+.diary-dots i.on { background: var(--coin); }
+
+/* motion: the book drops in, the cover opens, then each page fills in; every piece ends where it rests */
+.diary-book.drop { animation: d-drop .55s cubic-bezier(.3, 1.4, .5, 1) both; }
+@keyframes d-drop { from { transform: translateY(-240px) rotate(-8deg); opacity: 0; } 70% { transform: rotate(2deg); opacity: 1; } }
+.diary-cover.open { animation: d-cover .6s .55s ease-in both; }
+@keyframes d-cover { to { transform: perspective(600px) rotateY(-100deg); visibility: hidden; } }
+.diary-page.flip { animation: d-flip .35s ease-out both; }
+@keyframes d-flip { from { transform: perspective(700px) rotateY(-70deg); opacity: .3; } }
+.diary-page .grow { animation: d-grow .45s ease-out both; transform-origin: 50% 100%; }
+.diary-page .d-track .grow { animation-name: d-growx; transform-origin: 0 50%; }
+@keyframes d-grow { from { transform: scaleY(0); } }
+@keyframes d-growx { from { transform: scaleX(0); } }
+.diary-page .lit { animation: d-lit .3s ease-out both; }
+@keyframes d-lit { from { opacity: .1; } }
+.diary-page .ch { animation: d-ch .08s linear both; }
+@keyframes d-ch { from { opacity: 0; } }
+.diary-page .slam { animation: d-slam .32s ease-out both; }
+@keyframes d-slam { from { opacity: 0; transform: scale(2.4) rotate(calc(var(--r) * -3)); } }
+.diary-page .blink { animation: d-blink 1.2s ease-in-out infinite; }
+@keyframes d-blink { 50% { opacity: .35; } }
+.diary-walker.walking .diary-hop { animation: d-bob .32s steps(2) infinite; }
+@keyframes d-bob { 50% { transform: translateY(-2px); } }
+.diary-hop.hop { animation: d-hop .7s ease-out; }
+@keyframes d-hop { 25% { transform: translateY(-10px); } 50% { transform: none; } 70% { transform: translateY(-5px); } }
