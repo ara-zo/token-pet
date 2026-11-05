@@ -749,8 +749,12 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes d-drop { from { transform: translateY(-240px) rotate(-8deg); opacity: 0; } 70% { transform: rotate(2deg); opacity: 1; } }
 .diary-cover.open { animation: d-cover .6s .55s ease-in both; }
 @keyframes d-cover { to { transform: perspective(600px) rotateY(-100deg); visibility: hidden; } }
-.diary-page.flip { animation: d-flip .35s ease-out both; }
-@keyframes d-flip { from { transform: perspective(700px) rotateY(-70deg); opacity: .3; } }
+/* page turns: ▶ the read page (a frozen copy) swings off to the left; ◀ the earlier page swings back in */
+.diary-turn { pointer-events: none; animation: d-away .45s ease-in both; box-shadow: inset 6px 0 0 #EADBC2, 6px 0 14px rgba(20, 19, 30, .25); }
+.diary-turn * { animation: none !important; }
+@keyframes d-away { to { transform: perspective(700px) rotateY(-105deg); opacity: .15; } }
+.diary-page.back { animation: d-back .45s ease-out both; }
+@keyframes d-back { from { transform: perspective(700px) rotateY(-105deg); opacity: .15; } }
 .diary-page .grow { animation: d-grow .45s ease-out both; transform-origin: 50% 100%; }
 .diary-page .d-track .grow { animation-name: d-growx; transform-origin: 0 50%; }
 @keyframes d-grow { from { transform: scaleY(0); } }

@@ -1637,11 +1637,27 @@ function turnDiary(step) {
   const next = diaryPage + step;
   if (!diary || next < 0 || next >= DIARY_PAGES.length) return;
   diaryPage = next;
-  const page = $("diary-page");
-  page.classList.remove("flip");
-  void page.offsetWidth;
-  page.classList.add("flip");
-  renderDiary(0.25);
+  // like a real book: ▶ lifts the page you are reading off to the left and shows the next one under it,
+  // ◀ brings the previous page back from the left over the one you are reading
+  const page = $("diary-page"), book = $("diary-book");
+  for (const old of book.querySelectorAll(".diary-turn")) old.remove();
+  page.classList.remove("back");
+  if (reducedMotion()) { renderDiary(0); return; }
+  if (step > 0) {
+    const leaf = page.cloneNode(true);
+    leaf.removeAttribute("id");
+    leaf.removeAttribute("aria-live");
+    leaf.setAttribute("aria-hidden", "true");
+    leaf.classList.add("diary-turn");
+    leaf.scrollTop = page.scrollTop;
+    page.after(leaf);
+    setTimeout(() => leaf.remove(), 500);
+    renderDiary(0.3);
+  } else {
+    void page.offsetWidth;
+    page.classList.add("back");
+    renderDiary(0.4);
+  }
 }
 
 function el(tag, cls, text) {
