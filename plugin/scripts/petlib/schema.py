@@ -20,6 +20,8 @@ def new_day(date: str) -> dict:
         "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "night_out": 0,
         "earned": 0, "spent": 0, "purchases": 0, "refusals": 0, "pats": 0, "treats": 0,
         "hunger_zero_hours": 0.0, "max_gap_hours": 0.0, "zero_balance": False,
+        "hours_out": [0] * 24,     # output per clock hour, for the diary's week grid
+        "repos": {},               # repo -> {"out", "sessions", "titles", "commits", "tests", "prs"} (diary.py)
     }
 
 

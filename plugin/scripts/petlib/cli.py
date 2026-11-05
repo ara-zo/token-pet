@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, alerts, clock, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
+from . import actions, alerts, clock, diary, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|diary [last]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -57,17 +57,21 @@ def main_collect(stdin_json: dict, now: dt.datetime, plugin_root: Optional[str] 
             day["sessions"] += 1
             if clock.period(now) == "day":
                 day["day_sessions"] += 1
-        usages, off, seen = transcript.read_new(path, sess["offset"], sess["seen_ids"])
+        meta: dict = {}
+        usages, off, seen = transcript.read_new(path, sess["offset"], sess["seen_ids"], meta=meta)
         sess.update(offset=off, seen_ids=seen, updated_at=clock.fmt(now))
         # subagents write their own transcripts next to the session's; same earning rules
         subs = sess.setdefault("subagents", {})
         for sub_path in transcript.subagent_files(path):
             key = os.path.basename(sub_path)
             cur = subs.get(key) or {"offset": 0, "seen_ids": []}
+            sub_meta: dict = {}
             more, sub_off, sub_seen = transcript.read_new(sub_path, cur["offset"], cur["seen_ids"],
-                                                          include_sidechain=True)
+                                                          include_sidechain=True, meta=sub_meta)
             subs[key] = {"offset": sub_off, "seen_ids": sub_seen}
             usages.extend(more)
+            meta.setdefault("acts", []).extend(sub_meta.get("acts") or [])
+        diary.record(day, sess, sid, usages, meta, stdin_json.get("cwd") or "")
 
         away = vacation.active(s)
         earn_form = s["form"]
@@ -481,6 +485,11 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
                 return out(0, species.dex_text(s), species.dex_payload(s), s)
             if cmd == "stats":
                 return out(0, render.stats_text(s, now), render.stats_payload(s, now), s)
+            if cmd == "diary":
+                which = "last" if len(pos) > 1 and pos[1] == "last" else "this"
+                if len(pos) > 1 and pos[1] not in ("last", "this"):
+                    raise ActionError("어느 주를 볼지 알려줘: /pet diary [last]")
+                return out(0, diary.text(s, now, which), diary.widget_payload(s, now, which), s)
             if cmd == "buy":
                 if len(pos) < 2:
                     raise ActionError("무엇을 살지 알려줘: /pet buy <id>")
