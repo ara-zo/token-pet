@@ -391,6 +391,57 @@ fn place_bottom_right(win: &tauri::WebviewWindow) {
     }
 }
 
+/// `visibleOnAllWorkspaces` only joins the ordinary desktops. A full-screen app's space takes only
+/// non-activating panels marked full-screen auxiliary, so the pet's window becomes such a panel.
+/// Tauri's window class (TaoWindow) is rebuilt on top of NSPanel with the same ivar and methods,
+/// so tao keeps working on it; if the layout would differ the window is left as it is.
+#[cfg(target_os = "macos")]
+fn float_over_full_screen(win: &tauri::WebviewWindow) {
+    use objc2::encode::Encode;
+    use objc2::ffi;
+    use objc2::runtime::{AnyClass, AnyObject, Bool};
+    use objc2::{sel, ClassType};
+    use objc2_app_kit::{NSPanel, NSWindowCollectionBehavior as B, NSWindowStyleMask};
+    use std::ffi::{CStr, CString};
+
+    let Ok(ptr) = win.ns_window() else { return };
+    let obj = ptr as *mut AnyObject;
+    // setup runs on the main thread, and the window lives as long as the app
+    unsafe {
+        let tao = ffi::object_getClass(obj);
+        let name = c"TokenPetPanel";
+        let mut panel = ffi::objc_getClass(name.as_ptr()) as *mut AnyClass;
+        if panel.is_null() {
+            panel = ffi::objc_allocateClassPair(NSPanel::class(), name.as_ptr(), 0);
+            if panel.is_null() {
+                return;
+            }
+            let bool_enc = CString::new(Bool::ENCODING.to_string()).unwrap();
+            ffi::class_addIvar(panel, c"focusable".as_ptr(), 1, 0, bool_enc.as_ptr());
+            for sel in [sel!(canBecomeKeyWindow), sel!(canBecomeMainWindow), sel!(sendEvent:)] {
+                let m = ffi::class_getInstanceMethod(tao, sel);
+                if let (false, Some(imp)) = (m.is_null(), ffi::method_getImplementation(m)) {
+                    ffi::class_addMethod(panel, sel, imp, ffi::method_getTypeEncoding(m));
+                }
+            }
+            ffi::objc_registerClassPair(panel);
+        }
+        let same = ffi::class_getInstanceSize(panel) == ffi::class_getInstanceSize(tao);
+        // AppKit may already have put a key-value-observing wrapper over it
+        let tao_name = CStr::from_ptr(ffi::class_getName(tao)).to_bytes();
+        if !same || !tao_name.ends_with(b"TaoWindow") {
+            eprintln!("token-pet: window class {tao_name:?} not swapped, the pet stays off full-screen spaces");
+            return;
+        }
+        ffi::object_setClass(obj, panel);
+        let ns = &*(ptr as *const NSPanel);
+        ns.setStyleMask(ns.styleMask() | NSWindowStyleMask::NonactivatingPanel);
+        ns.setHidesOnDeactivate(false);
+        ns.setFloatingPanel(true);
+        ns.setCollectionBehavior(B::CanJoinAllSpaces | B::FullScreenAuxiliary | B::Stationary | B::IgnoresCycle);
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
@@ -400,6 +451,8 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             if let Some(win) = app.get_webview_window("main") {
                 place_bottom_right(&win);
+                #[cfg(target_os = "macos")]
+                float_over_full_screen(&win);
             }
             sync_autostart(app.handle(), read_state_file().ok().as_ref());
             if let Err(e) = build_tray(app) {
