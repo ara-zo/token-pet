@@ -556,6 +556,25 @@ async function clampToMonitor(p, size) {
   }
 }
 
+// Whether a window of `size` at `p` shows on some connected screen. With screens of different scales
+// (a Retina laptop beside 1x monitors) a move can come back with doubled coordinates; such a spot is
+// never saved or used, the pet goes home to the main screen's bottom-right instead.
+async function onScreen(p, size) {
+  try {
+    const mons = await T.window.availableMonitors();
+    return mons.map((m) => monitorRect(m)).some((r) =>
+      p.x + size.w > r.x + 20 && p.x < r.x + r.w - 20 && p.y + size.h > r.y + 20 && p.y < r.y + r.h - 20);
+  } catch (e) {
+    return true;
+  }
+}
+
+async function homePos(size) {
+  const m = await T.window.primaryMonitor();
+  const r = monitorRect(m, true);
+  return { x: r.x + r.w - size.w - 24, y: r.y + r.h - size.h - 24 };
+}
+
 async function restorePos() {
   const p = loadPos();
   if (!p || typeof p.x !== "number" || typeof p.y !== "number") return;
@@ -566,10 +585,7 @@ async function restorePos() {
   p.y += oldH - SMALL.h;
   try {
     // only if the saved spot is still on a connected screen (a monitor may have been unplugged)
-    const mons = await T.window.availableMonitors();
-    const visible = mons.map(monitorRect).some((r) =>
-      p.x + SMALL.w > r.x + 20 && p.x < r.x + r.w - 20 && p.y + SMALL.h > r.y + 20 && p.y < r.y + r.h - 20);
-    if (visible) await win.setPosition(new LogicalPosition(p.x, p.y - bandH()));
+    if (await onScreen(p, SMALL)) await win.setPosition(new LogicalPosition(p.x, p.y - bandH()));
   } catch (e) {}
 }
 
@@ -600,8 +616,10 @@ async function setExpanded(on) {
       petArea = !movedWhileExpanded && collapsedPos
         ? collapsedPos
         : await clampToMonitor({ x: here.x + LARGE.w - SMALL.w, y: here.y + LARGE.h - SMALL.h }, SMALL);
+      if (!(await onScreen(petArea, SMALL))) petArea = await homePos(SMALL);
       target = { x: petArea.x, y: petArea.y - bandH() };
     }
+    if (on && !(await onScreen(target, LARGE))) target = await homePos(LARGE);
     document.body.className = on ? "expanded" : "collapsed";
     if (on) { fitText($("name"), 13, 10); placeSpeech(); }
     const size = on ? LARGE : { w: SMALL.w, h: SMALL.h + bandH() };
@@ -643,7 +661,7 @@ win.onMoved(() => {
   saveTimer = setTimeout(async () => {
     if (expanded) return;
     const p = await currentPos();
-    savePos({ x: p.x, y: p.y + bandH() });
+    if (await onScreen({ x: p.x, y: p.y + bandH() }, SMALL)) savePos({ x: p.x, y: p.y + bandH() });
   }, 300);
 }).catch(() => {});
 
