@@ -831,6 +831,8 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .ans-opt.pick { border-color: var(--coin); }
 .ans-opt .top { display: flex; gap: 7px; align-items: flex-start; }
 .ans-opt b { font: 700 10px/1.6 var(--pixel); color: var(--coin); flex: none; }
+.ans-opt b.chk { width: 13px; height: 13px; margin-top: 2px; border: 1.5px solid var(--sub); border-radius: 4px; font: 700 10px/12px var(--sans); text-align: center; color: #23203A; }
+.ans-opt.pick b.chk { background: var(--coin); border-color: var(--coin); }
 .ans-opt .label { flex: 1; min-width: 0; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ans-opt .rec { flex: none; font-size: 9px; font-weight: 700; color: #23203A; background: var(--mood); border-radius: 999px; padding: 0 5px; margin-top: 2px; }
 .ans-opt .desc { font-size: 10.5px; color: var(--sub); line-height: 1.4; padding-left: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

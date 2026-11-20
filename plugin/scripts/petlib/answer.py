@@ -120,8 +120,8 @@ def build(data: dict, now: dt.datetime) -> dict:
     if tool == "AskUserQuestion":
         qs = questions_of(ti)
         ask.update(kind="question", questions=qs)
-        if not qs or any(q["multi"] or any(o["preview"] for o in q["options"]) for q in qs):
-            ask["terminal"] = True            # multi-select and previews are answered in the terminal
+        if not qs or any(any(o["preview"] for o in q["options"]) for q in qs):
+            ask["terminal"] = True            # previews are answered in the terminal
     else:
         ask.update(kind="permission", **summary(tool, ti))
         if is_danger(tool, ti):

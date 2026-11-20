@@ -2394,7 +2394,7 @@ async function sendAnswer(sid, ask, args) {
 }
 
 // ---- the collapsed bubble: only 「확인해 줘!」; a click opens the answer screen (or the terminal for what
-// the widget doesn't take: dangerous commands, multi-select and preview questions)
+// the widget doesn't take: dangerous commands and preview questions)
 function renderBubbleActs(a) {
   const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
   $("alert-small").classList.toggle("danger", !!(ask && ask.danger));
@@ -2567,7 +2567,19 @@ function permCard(a) {
 }
 
 function picksOf(a) { return (ansPicks[a.ask.id] = ansPicks[a.ask.id] || {}); }
-function pickText(q, p) { return p == null ? null : typeof p === "string" ? p : (p.text || "").trim() || null; }
+function pickText(q, p) {
+  if (p == null) return null;
+  if (typeof p === "string") return p;
+  if (q.multi) {
+    const parts = q.options.map((o) => o.label).filter((l) => (p.labels || []).includes(l));
+    if ((p.text || "").trim()) parts.push(p.text.trim());
+    return parts.length ? parts.join(", ") : null;      // the terminal sends a multi-select as "A, B"
+  }
+  return (p.text || "").trim() || null;
+}
+// a multi-select question keeps {labels, text}: options toggle, the written line rides along
+function multiPick(picks, q) { const p = picks[q.question]; return (picks[q.question] = p && typeof p === "object" ? { labels: p.labels || [], text: p.text || "" } : { labels: [], text: "" }); }
+function toggleOpt(a, q, label) { const p = multiPick(picksOf(a), q); p.labels = p.labels.includes(label) ? p.labels.filter((l) => l !== label) : p.labels.concat(label); ansFresh(a); }
 
 function questionCard(a) {
   const ask = a.ask, qs = ask.questions || [], picks = picksOf(a);
@@ -2594,26 +2606,33 @@ function questionCard(a) {
   const q = qs[Math.min(ansTab, qs.length - 1)];
   const mid = el("div", "ans-mid");
   mid.append(el("span", "ans-q", multi ? `Q${ansTab + 1}. ${q.question}` : q.question));
+  if (q.multi) mid.append(el("span", "ans-hint", "여러 개 고를 수 있어요"));
   const cur = picks[q.question];
+  const on = (o) => q.multi ? !!(cur && (cur.labels || []).includes(o.label)) : cur === o.label;
   q.options.forEach((o, i) => {
-    const b = el("button", "ans-opt" + (cur === o.label ? " pick" : ""));
+    const b = el("button", "ans-opt" + (on(o) ? " pick" : ""));
     b.type = "button";
     const top = el("span", "top");
-    top.append(el("b", "", String(i + 1)), el("span", "label", cleanLabel(o.label)));
+    top.append(q.multi ? el("b", "chk", on(o) ? "✓" : "") : el("b", "", String(i + 1)), el("span", "label", cleanLabel(o.label)));
     if (isRec(o.label)) top.append(el("span", "rec", "권장"));
     b.append(top);
     if (o.description) b.append(el("span", "desc", o.description));
-    b.addEventListener("click", () => { picks[q.question] = o.label; ansFresh(a); });
+    b.addEventListener("click", () => { if (q.multi) toggleOpt(a, q, o.label); else { picks[q.question] = o.label; ansFresh(a); } });
     mid.append(b);
   });
-  const write = el("label", "ans-write" + (cur && typeof cur === "object" ? " pick" : ""));
+  const written = cur && typeof cur === "object" && (!q.multi || (cur.text || "").trim());
+  const write = el("label", "ans-write" + (written ? " pick" : ""));
   const input = el("input");
   input.type = "text";
   input.placeholder = "직접 쓰기…";
   input.size = 1;
   input.value = cur && typeof cur === "object" ? cur.text : "";
-  input.addEventListener("focus", () => { if (typeof picks[q.question] !== "object") { picks[q.question] = { text: input.value }; write.classList.add("pick"); mid.querySelectorAll(".ans-opt.pick").forEach((x) => x.classList.remove("pick")); updateFoot(a); } });
-  input.addEventListener("input", () => { picks[q.question] = { text: input.value }; updateFoot(a); });
+  input.addEventListener("focus", () => { if (q.multi) return; if (typeof picks[q.question] !== "object") { picks[q.question] = { text: input.value }; write.classList.add("pick"); mid.querySelectorAll(".ans-opt.pick").forEach((x) => x.classList.remove("pick")); updateFoot(a); } });
+  input.addEventListener("input", () => {
+    if (q.multi) { multiPick(picks, q).text = input.value; write.classList.toggle("pick", !!input.value.trim()); }
+    else picks[q.question] = { text: input.value };
+    updateFoot(a);
+  });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); advance(a); } e.stopPropagation(); });
   write.append(el("b", "", String(q.options.length + 1)), input);
   mid.append(write);
@@ -2660,9 +2679,9 @@ function confirmPane(a) {
     const b = el("button", "ans-sum");
     b.type = "button";
     const v = pickText(q, picks[q.question]);
-    const n = q.options.findIndex((o) => o.label === picks[q.question]);
+    const n = q.multi ? -2 : q.options.findIndex((o) => o.label === picks[q.question]);
     b.append(el("span", "lab", q.header || `질문 ${i + 1}`),
-      el("span", "val" + (v == null ? " missing" : ""), v == null ? "아직 안 골랐어요" : n >= 0 ? `${n + 1}. ${cleanLabel(v)}` : `직접 쓰기 · 「${v}」`));
+      el("span", "val" + (v == null ? " missing" : ""), v == null ? "아직 안 골랐어요" : n === -2 ? v : n >= 0 ? `${n + 1}. ${cleanLabel(v)}` : `직접 쓰기 · 「${v}」`));
     b.addEventListener("click", () => { ansTab = i; renderAnswer(); });
     mid.append(b);
   });
@@ -2738,6 +2757,14 @@ function answerKey(e) {
   }
   if (ansTab >= qs.length) { if (e.key === "Enter") submitQuestions(a); return; }
   const q = qs[ansTab], picks = picksOf(a);
+  if (q.multi) {
+    const j = /^[1-9]$/.test(e.key) ? Number(e.key) - 1 : -1;
+    if (j >= 0 && j < q.options.length) toggleOpt(a, q, q.options[j].label);
+    else if (j === q.options.length) { const inp = $("ans-card").querySelector(".ans-write input"); if (inp) inp.focus(); }
+    else if (j === q.options.length + 1) { openAlert(a.sid); closeAnswer(); }
+    else if (e.key === "Enter") advance(a);
+    return;
+  }
   const i = q.options.findIndex((o) => o.label === picks[q.question]);
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     const j = Math.max(0, Math.min(q.options.length - 1, (i < 0 ? -1 : i) + (e.key === "ArrowDown" ? 1 : -1)));

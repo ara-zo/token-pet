@@ -30,7 +30,7 @@ def test_permission_prompt_goes_on_the_widget(state):
     assert entry["name"] == "token-pet"           # a session the prompt hook never saw still gets an entry
 
 
-def test_dangerous_commands_and_odd_questions_stay_in_the_terminal(state):
+def test_dangerous_commands_and_previews_stay_in_the_terminal(state):
     state
     for cmd in ("rm -rf build", "git push --force origin main", "git push -f", "git reset --hard HEAD~1",
                 "psql -c 'DROP TABLE users'", "sudo rm x"):
@@ -39,7 +39,7 @@ def test_dangerous_commands_and_odd_questions_stay_in_the_terminal(state):
     assert not answer.offer(state, dict(BASH, tool_input={"command": "rm build.log"}), at(20, 14)).get("danger")
     multi = json.loads(json.dumps(QUESTION))
     multi["tool_input"]["questions"][0]["multiSelect"] = True
-    assert answer.offer(state, multi, at(20, 14))["terminal"]
+    assert not answer.offer(state, multi, at(20, 14)).get("terminal")   # the widget ticks several
     preview = json.loads(json.dumps(QUESTION))
     preview["tool_input"]["questions"][0]["options"][0]["preview"] = "<b>시안</b>"
     assert answer.offer(state, preview, at(20, 14))["terminal"]
