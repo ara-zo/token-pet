@@ -21,7 +21,8 @@
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false,
-        "visibleOnAllWorkspaces": true
+        "visibleOnAllWorkspaces": true,
+        "acceptFirstMouse": true
       }
     ],
     "security": {

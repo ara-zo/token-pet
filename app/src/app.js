@@ -27,7 +27,6 @@ const LARGE = { w: 300, h: 390 };
 const ANSWER = { w: 360, h: 560 };   // 위젯에서 답하기: the answer screen opens bigger than the expanded widget
 let bigSize = LARGE;                  // the size of the big window while expanded (LARGE or ANSWER)
 let answering = false;                // the answer screen is open (expanded stays true)
-let actsExtra = 0;                    // px the answer buttons in the alert bubble add above the head
 const HUNGER_PER_HOUR = 3, MOOD_PER_HOUR = 1, MOOD_PER_HOUR_STARVING = 3;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
@@ -224,7 +223,7 @@ new ResizeObserver(placeSpeech).observe($("speech"));
 async function applyExtra() {
   const room = SMALL.h - headFromBottom;
   const need = (px) => Math.max(0, Math.ceil(px - room));
-  const want = Math.max(bandOn ? need(BAND + actsExtra) : 0, talkOn ? need(TALK) : 0);
+  const want = Math.max(bandOn ? need(BAND) : 0, talkOn ? need(TALK) : 0);
   $("collapsed").style.height = `${SMALL.h + want}px`;
   // "+N" at the head's top-right corner, in front of the mail bubble
   $("earn-bubble").style.bottom = `${Math.round(headFromBottom - 4)}px`;
@@ -2416,11 +2415,6 @@ setInterval(async () => {
 // dialog; whichever answers first wins. The collapsed bubble gets a row of buttons for short ones, the answer
 // screen (ANSWER) takes the rest one card at a time, oldest first. Answers go back with `pet.py alert answer`.
 
-const SHORT_CMD = 30;                      // a command longer than this isn't allowed from the collapsed bubble
-const SHORT_Q = 40;                        // a question longer than this opens the answer screen
-let actsFor = null;                        // the ask id the bubble's buttons are for
-let actsShownAt = 0;                       // clicks in the first half second after the buttons appear are ignored
-let undoTimer = null;
 let ansOrder = [];                         // ask ids in the order the cards are shown ("나중에" moves one back)
 let ansDone = [];                          // cards answered this time: {sid, ask, said} ("‹ 이전" shows them locked)
 let ansView = null;                        // {sid, id} of the card on screen, or {past: i}
@@ -2441,10 +2435,6 @@ function askList(s = state) {
 
 function isRec(label) { return /\((권장|Recommended)\)\s*$/i.test(label); }
 function cleanLabel(label) { return label.replace(/\s*\((권장|Recommended)\)\s*$/i, ""); }
-function shortQuestion(ask) {
-  const qs = ask.questions || [];
-  return qs.length === 1 && qs[0].options.length <= 3 && qs[0].question.length <= SHORT_Q;
-}
 function permText(ask) {
   if (ask.command) return "이 명령을 실행해도 돼요?";
   if (ask.file) return "이 파일을 고쳐도 돼요?";
@@ -2458,79 +2448,20 @@ async function sendAnswer(sid, ask, args) {
   return !!(res && res.ok);
 }
 
-// ---- the collapsed bubble's buttons
-function actButton(label, cls, onClick, title) {
-  const b = el("button", cls, label);
-  b.type = "button";
-  if (title) { b.title = title; b.setAttribute("aria-label", title); }
-  b.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (dragged) { dragged = false; return; }
-    if (Date.now() - actsShownAt < 500) return;          // the bubble just popped up under the pointer
-    onClick(b);
-  });
-  return b;
+// ---- the collapsed bubble: only 「확인해 줘!」; a click opens the answer screen (or the terminal for what
+// the widget doesn't take: dangerous commands, multi-select and preview questions)
+function renderBubbleActs(a) {
+  const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
+  $("alert-small").classList.toggle("danger", !!(ask && ask.danger));
+  if (ask && ask.danger) $("alert-text").textContent = "위험한 명령이야";
 }
 
-function setActsExtra(px) {
-  if (px === actsExtra) return;
-  actsExtra = px;
-  applyExtra();
-}
-
+// 다 했어 → 이어서 시키기: only where text can be typed into the session's terminal
 function canSend(a) {
   const t = (a && a.term) || {};
   return !!(t.herdr || t.orca || t.tmux || (t.iterm && /^iterm/i.test(t.app || "") || (t.bundle || "").startsWith("com.googlecode.iterm2")));
 }
 function replies() { return ((state && state.settings && state.settings.alert_replies) || ["커밋해", "계속해", "테스트 돌려"]).slice(0, 6); }
-
-function renderBubbleActs(a) {
-  const acts = $("alert-acts"), cmd = $("alert-cmd");
-  const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
-  if (!ask) {
-    actsFor = null;
-    $("alert-small").classList.remove("danger");
-    acts.classList.add("hidden");
-    cmd.classList.add("hidden");
-    setActsExtra(0);
-    return;
-  }
-  if (actsFor === ask.id) return;                         // keep a running countdown
-  actsFor = ask.id;
-  actsShownAt = Date.now();
-  clearTimeout(undoTimer);
-  const buttons = [];
-  let line = "";
-  if (ask.kind === "permission") {
-    line = permDetail(ask);
-    if (ask.terminal) buttons.push(actButton("터미널에서 보기", "wide", () => openAlert(a.sid)));
-    else if (line.length > SHORT_CMD || line.includes("\n")) buttons.push(actButton("전체 보고 허용", "wide", () => openAnswer(a.sid)));
-    else {
-      buttons.push(actButton("허용", "yes", (b) => startAllow(a, ask, b)));
-      buttons.push(actButton("거부", "", () => bubbleSend(a, ask, ["deny"], "거부했어요")));
-      buttons.push(actButton("···", "soft num", () => openAnswer(a.sid), "펼쳐서 보기"));
-    }
-  } else {
-    const q = (ask.questions || [])[0];
-    line = q ? q.question : "";
-    if (ask.terminal) buttons.push(actButton("터미널에서 답하기 ↗", "wide", () => openAlert(a.sid)));
-    else if (!shortQuestion(ask)) buttons.push(actButton("펼쳐서 답하기", "wide", () => openAnswer(a.sid)));
-    else {
-      q.options.forEach((o, i) => buttons.push(actButton(String(i + 1), "num", () =>
-        bubbleSend(a, ask, ["answers", JSON.stringify({ [q.question]: o.label })], `「${i + 1}」 보냈어요`), cleanLabel(o.label))));
-      buttons.push(actButton("···", "soft num", () => openAnswer(a.sid), "펼쳐서 답하기"));
-    }
-  }
-  cmd.textContent = line;
-  cmd.title = line;
-  cmd.classList.toggle("plain", ask.kind === "question");
-  $("alert-small").classList.toggle("danger", !!ask.danger);
-  if (ask.danger) $("alert-text").textContent = "위험한 명령이야";
-  cmd.classList.toggle("hidden", !line);
-  acts.replaceChildren(...buttons);
-  acts.classList.remove("hidden");
-  setActsExtra(24 + (!line ? 0 : ask.kind === "question" ? 24 : 13));
-}
 
 async function sendReply(a, text) {
   const res = await runPet(["alert", "send", a.sid, text]);
@@ -2538,30 +2469,6 @@ async function sendReply(a, text) {
   if (!ok && res) toast(res.text);
   if (ok) fx("pop");
   return ok;
-}
-
-// 허용 waits two seconds before it goes, and a second press takes it back
-function startAllow(a, ask, b) {
-  const others = [...b.parentElement.children].filter((x) => x !== b);
-  if (b.classList.contains("counting")) {
-    clearTimeout(undoTimer);
-    b.classList.remove("counting", "wide");
-    b.textContent = "허용";
-    others.forEach((x) => x.classList.remove("hidden"));
-    return;
-  }
-  b.classList.add("counting", "wide");
-  b.textContent = "허용 · 누르면 취소";
-  others.forEach((x) => x.classList.add("hidden"));
-  undoTimer = setTimeout(() => bubbleSend(a, ask, ["allow"], "허용했어요"), 2000);
-}
-
-async function bubbleSend(a, ask, args, done) {
-  const acts = $("alert-acts");
-  acts.replaceChildren(el("span", "alert-sent", "보내는 중…"));
-  const ok = await sendAnswer(a.sid, ask, args);
-  acts.replaceChildren(el("span", "alert-sent", ok ? done : "이미 답했어요"));
-  if (ok) fx("pop");
 }
 
 // ---- the answer screen
@@ -2966,9 +2873,11 @@ $("alert-open").addEventListener("click", (e) => {
   e.stopPropagation();                      // not a click on the pet
   if (dragged) { dragged = false; return; }
   if (!alertShown) return;
-  if (answerable(alertShown)) openAnswer(alertShown.sid); else openAlert(alertShown.sid);
+  // the task list, with this session's row open (a waiting row opens the answer screen from there)
+  const a = alertShown;
+  if (answerOn()) setExpanded(true).then(() => openAlerts(a.state === "done" ? a.sid : undefined));
+  else openAlert(a.sid);
 });
-$("alert-acts").addEventListener("click", (e) => e.stopPropagation());
 $("ans-close").addEventListener("click", closeAnswer);
 $("ans-prev").addEventListener("click", () => stepAnswer(-1));
 $("ans-later").addEventListener("click", answerLater);

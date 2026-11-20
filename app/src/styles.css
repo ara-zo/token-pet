@@ -652,8 +652,9 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .collapsed-view .pet-fx { left: 0; transition: translate .15s, left .3s; }
 .collapsed-view .pet-fx { left: var(--art-shift, 0px); }
 .collapsed-view .shadow-small { transition: translate .3s; translate: var(--art-shift, 0px) 0; }
-/* the sparkles of a finished session fly in front of its bubble */
-.collapsed-view .pet-fx:has(.alert-art:not(:empty)) { z-index: 6; }
+/* the sparkles of a finished session fly in front of its bubble; clicks still reach the bubble
+   (a click on the pet itself lands on the collapsed view, which expands the widget either way) */
+.collapsed-view .pet-fx:has(.alert-art:not(:empty)) { z-index: 6; pointer-events: none; }
 
 /* expanded: the task list sheet */
 .alerts-btn { position: relative; }
@@ -775,30 +776,8 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes d-hop { 25% { transform: translateY(-10px); } 50% { transform: none; } 70% { transform: translateY(-5px); } }
 
 /* ---------- 위젯에서 답하기: answer a session's permission prompt or question ---------- */
-/* collapsed: the alert bubble gets a row of buttons (and the command, one line) */
-.alert-cmd {
-  font: 500 8.5px/1.3 'IBM Plex Mono', ui-monospace, Menlo, monospace; background: rgba(35, 32, 58, .12);
-  border-radius: 4px; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
-}
-.alert-acts { display: flex; gap: 3px; justify-content: center; }
-.alert-acts button {
-  flex: 1 1 0; min-width: 0; height: 20px; border: 0; border-radius: 5px; padding: 0 3px; cursor: pointer;
-  font: 700 9.5px/1 var(--sans); background: #23203A; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.alert-acts button.yes { background: var(--mood); color: #23203A; }
-.alert-acts button.num { flex: 0 0 20px; font-family: var(--pixel); font-size: 9px; }
-.alert-acts button.soft { background: rgba(35, 32, 58, .16); color: #23203A; font: 800 10px/1 var(--sans); }
-.alert-acts button.wide { flex: 1 1 auto; }
-.alert-cmd.plain { font: 600 9px/1.3 var(--sans); background: none; padding: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: center; }
+/* collapsed: a dangerous command turns the bubble pink (it only opens the terminal) */
 .alert-bubble.danger { background: var(--warn); } .alert-bubble.danger::after { background: var(--warn); }
-.alert-acts button:focus-visible { outline: 2px solid #23203A; outline-offset: 1px; }
-.alert-acts button.counting { position: relative; background: var(--mood); color: #23203A; }
-.alert-acts button.counting::after {
-  content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: #23203A;
-  transform-origin: 0 50%; animation: tp-undo 2s linear forwards;
-}
-@keyframes tp-undo { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-.alert-sent { font: 700 9.5px/1.3 var(--sans); text-align: center; }
 
 /* the answer screen: a bigger window (ANSWER in app.js), one card per question, oldest first */
 .answer-view {
@@ -885,7 +864,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .ans-done .btn { height: 32px; padding: 0 14px; font-size: 12px; border-radius: 10px; }
 .ans-locked { flex: none; font-size: 11px; font-weight: 700; color: var(--mood); }
 @media (prefers-reduced-motion: reduce) {
-  .ans-card.leaving, .ans-card.arriving, .answer-view, .alert-acts button.counting::after { animation: none; }
+  .ans-card.leaving, .ans-card.arriving, .answer-view { animation: none; }
 }
 
 /* the done list: what each finished session said, and 이어서 시키기 right there */
