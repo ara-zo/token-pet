@@ -859,7 +859,7 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .ans-write { flex: none; display: flex; align-items: center; gap: 7px; border: 1.5px dashed var(--line); border-radius: 10px; padding: 0 9px; height: 32px; }
 .ans-write.pick { border-style: solid; border-color: var(--coin); }
 .ans-write b { font: 700 10px/1 var(--pixel); color: var(--coin); }
-.ans-write input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: 500 12px var(--sans); outline: none; user-select: text; -webkit-user-select: text; }
+.ans-write input { flex: 1 1 0; min-width: 0; width: 0; border: 0; background: transparent; color: var(--text); font: 500 12px var(--sans); outline: none; user-select: text; -webkit-user-select: text; }
 .ans-write input::placeholder { color: var(--sub); }
 .ans-foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .ans-foot .btn { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 10px; }
@@ -894,12 +894,12 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 .item-said { font-size: 10.5px; color: var(--sub); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
 .alert-item.open { box-shadow: 0 0 0 1.5px var(--mood); }
 .done-go { flex: none; width: 22px; height: 22px; font-size: 11px; }
-.done-box { flex: 0 0 100%; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 2px 2px; cursor: default; }
+.done-box { flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 2px 2px; cursor: default; }
 .done-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .btn.small.done-chip { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 8px; }
-.done-row { display: flex; gap: 5px; margin: 0; }
+.done-row { display: flex; gap: 5px; margin: 0; min-width: 0; width: 100%; }
 .done-row input {
-  flex: 1; min-width: 0; height: 28px; border: 1.5px solid var(--line); border-radius: 9px; padding: 0 8px;
+  flex: 1 1 0; min-width: 0; width: 0; height: 28px; border: 1.5px solid var(--line); border-radius: 9px; padding: 0 8px;
   background: transparent; color: var(--text); font: 500 11.5px var(--sans); outline: none; user-select: text; -webkit-user-select: text;
 }
 .done-row input:focus { border-color: var(--mood); }

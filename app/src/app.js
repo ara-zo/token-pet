@@ -2358,6 +2358,7 @@ function doneBox(a) {
   const input = el("input");
   input.type = "text";
   input.placeholder = "이어서 시킬 말";
+  input.size = 1;                          // WebKit sizes a text box by its size attribute, not by flex
   input.setAttribute("aria-label", "이어서 시킬 말");
   input.value = doneDraft[a.sid] || "";
   input.addEventListener("input", () => { doneDraft[a.sid] = input.value; });
@@ -2792,6 +2793,7 @@ function questionCard(a) {
   const input = el("input");
   input.type = "text";
   input.placeholder = "직접 쓰기…";
+  input.size = 1;
   input.value = cur && typeof cur === "object" ? cur.text : "";
   input.addEventListener("focus", () => { if (typeof picks[q.question] !== "object") { picks[q.question] = { text: input.value }; write.classList.add("pick"); mid.querySelectorAll(".ans-opt.pick").forEach((x) => x.classList.remove("pick")); updateFoot(a); } });
   input.addEventListener("input", () => { picks[q.question] = { text: input.value }; updateFoot(a); });
