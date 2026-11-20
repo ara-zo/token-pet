@@ -16,8 +16,6 @@ let pet = null;                       // the pet's box in this window's coordina
 let origin = { x: 0, y: 0 };
 let lastCrack = 0, lastHit = 0;
 let star = null;
-let sound = true;
-let ac = null;
 
 function resize() {
   const r = window.devicePixelRatio || 1;
@@ -42,10 +40,6 @@ async function start() {
     const p = await win.outerPosition(), sf = await win.scaleFactor();
     origin = { x: p.x / sf, y: p.y / sf };
   } catch (e) {}
-  try {
-    const s = await T.core.invoke("read_state");
-    sound = !(s && s.settings && s.settings.sound === false);
-  } catch (e) {}
   ask();
 }
 function ask() { if (!down) T.event.emit("whip-ask", null).catch(() => {}); }
@@ -61,7 +55,6 @@ start();
 addEventListener("mousemove", (e) => {
   if (!mouse) for (let i = 0; i < N; i++) pts.push({ x: e.clientX, y: e.clientY + i * SEG, px: e.clientX, py: e.clientY + i * SEG });
   mouse = { x: e.clientX, y: e.clientY };
-  audio();
 });
 const putDown = () => {
   if (down) return;
@@ -73,32 +66,9 @@ const putDown = () => {
 addEventListener("mousedown", putDown);
 addEventListener("keydown", (e) => { if (e.key === "Escape") putDown(); });
 
-function audio() {
-  if (ac || !sound) return;
-  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
-  loadCrack();
-}
-
-// The crack is a recording (sounds/whip.mp3: the same crack three times; the first one, 0.16–0.66 s).
-const CRACK_AT = 0.16, CRACK_LEN = 0.5;
-let crackBuf = null;
-async function loadCrack() {
-  if (!ac || crackBuf) return;
-  try {
-    const data = await (await fetch("sounds/whip.mp3")).arrayBuffer();
-    crackBuf = await ac.decodeAudioData(data);
-  } catch (e) {}
-}
-
-function crackSound() {
-  if (!ac || !crackBuf) return;
-  const src = ac.createBufferSource(), g = ac.createGain();
-  src.buffer = crackBuf;
-  src.playbackRate.value = 0.94 + Math.random() * 0.12;   // not the very same crack every time
-  g.gain.value = 0.14;
-  src.connect(g).connect(ac.destination);
-  src.start(ac.currentTime, CRACK_AT, CRACK_LEN);
-}
+// The sound is played by the pet's window (app.js), which got a real click: a window that only ever sees
+// mouse moves isn't allowed to start audio.
+function crackSound() { T.event.emit("whip-crack", null).catch(() => {}); }
 
 function inPet(x, y) {
   return pet && x >= pet.x - HIT_PAD && x <= pet.x + pet.w + HIT_PAD && y >= pet.y - HIT_PAD && y <= pet.y + pet.h + HIT_PAD;
