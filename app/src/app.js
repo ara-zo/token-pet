@@ -2873,9 +2873,9 @@ $("alert-open").addEventListener("click", (e) => {
   e.stopPropagation();                      // not a click on the pet
   if (dragged) { dragged = false; return; }
   if (!alertShown) return;
-  // the task list, with this session's row open (a waiting row opens the answer screen from there)
+  // waiting: the task list (a waiting row opens the answer screen); done: straight to that session's terminal
   const a = alertShown;
-  if (answerOn()) setExpanded(true).then(() => openAlerts(a.state === "done" ? a.sid : undefined));
+  if (a.state === "waiting" && answerOn()) setExpanded(true).then(() => openAlerts());
   else openAlert(a.sid);
 });
 $("ans-close").addEventListener("click", closeAnswer);
