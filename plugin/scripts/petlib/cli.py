@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import actions, alerts, clock, diary, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
+from . import actions, alerts, answer, clock, diary, economy, evolve, render, schema, species, speech, speech_lines, store, transcript, vacation, widget, work
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|diary [last]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|diary [last]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off|reply <말,말>]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -199,7 +199,39 @@ def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
                 s["alerts"] = {}
         if sub == "off":
             return 0, "작업 알림을 껐어요. 위젯이 Claude Code 세션 상태를 알려 주지 않아요"
-        return 0, "작업 알림을 켰어요. 위젯이 일하는 중·기다림·다 했어를 알려 줘요"
+        return 0, "작업 알림을 켰어요. 위젯이 일하는 중·기다림·다 했어를 알려 주고, 확인 요청과 질문엔 위젯에서 바로 답할 수 있어요"
+    if sub == "answer":
+        return _alert_answer(pos, now)
+    if sub == "send" and len(pos) > 3:     # the widget's 다 했어 → 이어서 시키기
+        sid, text = pos[2], " ".join(pos[3:]).strip()
+        entry = dict((store.load(now).get("alerts") or {}).get(sid) or {})
+        if not entry:
+            return 1, "그 세션은 이미 끝났어요"
+        if not text:
+            return 1, "보낼 말이 비어 있어요"
+        if entry.get("state") != "done":
+            return 1, "아직 일하는 중이라 보낼 수 없어요"
+        if not alerts.can_send(entry):
+            return 1, "이 터미널에는 글자를 보낼 수 없어요. 터미널에서 입력해 주세요"
+        if not alerts.send_text(entry, sid, text):
+            return 1, "보내지 못했어요. 터미널에서 입력해 주세요"
+        with store.transaction(now, tick=False) as s:
+            cur = (s.get("alerts") or {}).get(sid)
+            if cur:                           # the prompt hook makes it 'working' too; this is just sooner
+                cur.update(state="working", since=clock.fmt(now), updated_at=clock.fmt(now), started_at=clock.fmt(now))
+        return 0, f"「{text}」 보냈어요"
+    if sub == "clear":
+        with store.transaction(now, tick=False) as s:
+            n = alerts.clear_done(s)
+        return 0, f"완료 {n}개를 지웠어요"
+    if sub == "reply":
+        words = [w.strip() for w in " ".join(pos[2:]).split(",") if w.strip()]
+        if not words:
+            cur = store.load(now)["settings"].get("alert_replies") if store.state_path().exists() else None
+            return 0, f"자주 쓰는 말: {' · '.join(cur or [])}. 바꾸려면 /pet alert reply 커밋해,계속해,테스트 돌려"
+        with store.transaction(now, tick=False) as s:
+            s["settings"]["alert_replies"] = words[:6]
+        return 0, f"자주 쓰는 말을 바꿨어요: {' · '.join(words[:6])}"
     if sub == "glance":                   # the widget polls this while a bubble rings
         looked = alerts.glance(store.load(now)) if store.state_path().exists() else []
         if looked:                        # write only when something changed: the widget watches the file
@@ -219,6 +251,45 @@ def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
         return 0, f"{entry.get('name', '세션')} 으로 가요" if sub == "open" else "확인했어요"
     on = store.load(now)["settings"].get("alerts", True) if store.state_path().exists() else True
     return 0, f"작업 알림이 {'켜져' if on else '꺼져'} 있어요. /pet alert on 또는 /pet alert off"
+
+
+def _alert_ask(now: dt.datetime) -> None:
+    """PermissionRequest hook: hold the prompt on the widget until it answers (answer.py).
+    Prints the decision, or nothing to leave it to the terminal dialog that shows meanwhile."""
+    data = _read_stdin_json()
+    sid = data.get("session_id")
+    if not sid or not store.state_path().exists():
+        return
+    st = store.load(now)
+    if not answer.wanted(st) or alerts.looking(st, [sid]):
+        return                                # looking at that terminal: answer it there
+    term = alerts.term_info(dict(os.environ), alerts._tty(os.getppid()))
+    with store.transaction(now, tick=False) as s:
+        ask = answer.offer(s, data, now, term)
+    if not ask or ask.get("terminal"):
+        return
+    got = answer.wait(sid, ask["id"], data)
+    if got:
+        print(json.dumps(answer.decision(data, got), ensure_ascii=False))
+
+
+def _alert_answer(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
+    """The widget's `alert answer <session> <ask> allow|deny|answers <json>` (on whenever 작업 알림 is on)."""
+    if len(pos) >= 5:
+        sid, ask_id, what = pos[2], pos[3], pos[4]
+        if what in ("allow", "deny"):
+            got = {"behavior": what}
+        elif what == "answers" and len(pos) > 5:
+            try:
+                got = {"answers": json.loads(pos[5])}
+            except ValueError:
+                return 1, "답을 읽지 못했어요"
+        else:
+            return 1, "답을 읽지 못했어요"
+        with store.transaction(now, tick=False) as s:
+            why = answer.reply(s, sid, ask_id, got, now)
+        return (1, why) if why else (0, "보냈어요")
+    return 1, "작업 알림을 켜 두면 위젯에서 바로 답할 수 있어요 (/pet alert on)"
 
 
 def _widget_cmd(sub: str, now: dt.datetime) -> Tuple[int, str]:
@@ -576,11 +647,19 @@ def run(argv: List[str]) -> int:
         except Exception as e:
             store.log(f"widget launch failed: {e!r}")
         return 0
+    if cmd == "alert-hook" and (argv[1:2] == ["ask"]):
+        try:
+            _alert_ask(now)
+        except Exception as e:  # never break the session: no output means the terminal asks as usual
+            store.log(f"alert ask failed: {e!r}")
+        return 0
     if cmd == "alert-hook":
         event = argv[1] if len(argv) > 1 else ""
         try:
             data = _read_stdin_json()
             term = alerts.term_info(dict(os.environ), alerts._tty(os.getppid())) if event == "prompt" else None
+            if event == "stop":               # what it finished, for the widget's done list
+                data.update(answer.last_said(data.get("transcript_path")))
             # a session finishing or asking in front of the user needn't ring: check before taking the lock
             watched = (event in ("stop", "notify") and data.get("session_id") and store.state_path().exists()
                        and alerts.looking(store.load(now), [data["session_id"]]))

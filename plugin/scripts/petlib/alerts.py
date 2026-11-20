@@ -58,6 +58,8 @@ def term_info(env: Dict[str, str], tty: Optional[str] = None) -> dict:
         info["herdr_sock"] = env.get("HERDR_SOCKET_PATH")
     if env.get("ITERM_SESSION_ID"):
         info["iterm"] = env["ITERM_SESSION_ID"].split(":", 1)[-1]
+    if env.get("TMUX") and env.get("TMUX_PANE"):
+        info["tmux"] = env["TMUX_PANE"]
     return {k: v for k, v in info.items() if v}
 
 
@@ -104,11 +106,22 @@ def record(state: dict, event: str, data: dict, now: dt.datetime, term: Optional
     if event == "notify":
         if cur["state"] == "done":
             return cur                    # "waiting for your input" after a finished turn: already said 다 했어
+        if cur.get("ask"):
+            return cur                    # the widget already holds this question (answer.py)
+        try:                              # the prompt the widget just answered rings a few seconds late
+            if (now - clock.parse(cur["answered_at"])).total_seconds() < 15:
+                return cur
+        except (KeyError, ValueError, TypeError):
+            pass
         cur.update(state="waiting", kind=kind_of(data.get("message", "")), since=ts, updated_at=ts, seen=False)
         return cur
     if event == "stop":
         cur.update(state="done", since=ts, updated_at=ts, seen=False)
         cur.pop("kind", None)
+        cur.pop("ask", None)
+        for k in ("said", "title"):       # what it finished, for the done list (read by the caller)
+            if data.get(k):
+                cur[k] = data[k]
         return cur
     return cur
 
@@ -285,3 +298,69 @@ def open_session(entry: dict, sid: Optional[str] = None) -> bool:
         except (OSError, subprocess.SubprocessError):
             pass
     return ok
+
+
+def can_send(entry: dict) -> bool:
+    """Whether text can be typed into the session's terminal (for 다 했어 → 이어서 시키기)."""
+    t = entry.get("term") or {}
+    return bool(t.get("herdr") or t.get("orca") or t.get("tmux")
+                or (t.get("iterm") and ((t.get("app") or "").lower().startswith("iterm")
+                                        or (t.get("bundle") or "").startswith("com.googlecode.iterm2"))))
+
+
+def send_commands(entry: dict, text: str) -> List[List[str]]:
+    """Commands that type `text` into the session's prompt and press Enter."""
+    t = entry.get("term") or {}
+    if t.get("herdr"):
+        return [[t.get("herdr_bin") or "herdr", "agent", "prompt", t["herdr"], text]]
+    if t.get("orca"):
+        return [[t.get("orca_bin") or "orca", "terminal", "send", "--terminal", t["orca"], "--text", text, "--enter"]]
+    if t.get("tmux"):
+        return [["tmux", "send-keys", "-t", t["tmux"], "-l", text], ["tmux", "send-keys", "-t", t["tmux"], "Enter"]]
+    if t.get("iterm"):
+        quoted = text.replace("\\", "\\\\").replace('"', '\\"')
+        return [["osascript", "-e", _ITERM_WRITE.replace("{id}", t["iterm"]).replace("{text}", quoted)]]
+    return []
+
+
+_ITERM_WRITE = '''tell application "iTerm2"
+  repeat with w in windows
+    repeat with t in tabs of w
+      repeat with s in sessions of t
+        if unique id of s is "{id}" then
+          tell s to write text "{text}"
+          return
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell'''
+
+
+def send_text(entry: dict, sid: str, text: str) -> bool:
+    t = entry.get("term") or {}
+    env = None
+    if t.get("herdr"):
+        pane = _herdr_pane(t, sid)
+        if pane:
+            entry = dict(entry, term=dict(t, herdr=pane))
+        env = _herdr_env(t)
+    cmds = send_commands(entry, text)
+    if not cmds:
+        return False
+    for cmd in cmds:
+        try:
+            if subprocess.run(cmd, capture_output=True, timeout=8, env=env).returncode != 0:
+                return False
+        except (OSError, subprocess.SubprocessError):
+            return False
+    return True
+
+
+def clear_done(state: dict) -> int:
+    """모두 확인: finished sessions leave the list; nothing is sent to them."""
+    entries = state.setdefault("alerts", {})
+    gone = [sid for sid, a in entries.items() if a.get("state") == "done"]
+    for sid in gone:
+        del entries[sid]
+    return len(gone)

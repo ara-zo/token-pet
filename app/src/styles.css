@@ -17,6 +17,8 @@ body { font-family: var(--sans); color: var(--text); user-select: none; -webkit-
 :root { --pet-h: 156px; }   /* the pet area: SMALL.h in app.js */
 body.collapsed #expanded { display: none; }
 body.expanded #collapsed { display: none; }
+body:not(.answering) #answer { display: none; }
+body.answering #collapsed, body.answering #expanded { display: none; }
 .collapsed-view {
   width: 120px; height: var(--pet-h); position: relative; display: flex; flex-direction: column;
   align-items: center; justify-content: flex-end; padding-bottom: 6px; cursor: pointer;
@@ -771,3 +773,135 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 @keyframes d-bob { 50% { transform: translateY(-2px); } }
 .diary-hop.hop { animation: d-hop .7s ease-out; }
 @keyframes d-hop { 25% { transform: translateY(-10px); } 50% { transform: none; } 70% { transform: translateY(-5px); } }
+
+/* ---------- 위젯에서 답하기: answer a session's permission prompt or question ---------- */
+/* collapsed: the alert bubble gets a row of buttons (and the command, one line) */
+.alert-cmd {
+  font: 500 8.5px/1.3 'IBM Plex Mono', ui-monospace, Menlo, monospace; background: rgba(35, 32, 58, .12);
+  border-radius: 4px; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+}
+.alert-acts { display: flex; gap: 3px; justify-content: center; }
+.alert-acts button {
+  flex: 1 1 0; min-width: 0; height: 20px; border: 0; border-radius: 5px; padding: 0 3px; cursor: pointer;
+  font: 700 9.5px/1 var(--sans); background: #23203A; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.alert-acts button.yes { background: var(--mood); color: #23203A; }
+.alert-acts button.num { flex: 0 0 20px; font-family: var(--pixel); font-size: 9px; }
+.alert-acts button.soft { background: rgba(35, 32, 58, .16); color: #23203A; font: 800 10px/1 var(--sans); }
+.alert-acts button.wide { flex: 1 1 auto; }
+.alert-cmd.plain { font: 600 9px/1.3 var(--sans); background: none; padding: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: center; }
+.alert-bubble.danger { background: var(--warn); } .alert-bubble.danger::after { background: var(--warn); }
+.alert-acts button:focus-visible { outline: 2px solid #23203A; outline-offset: 1px; }
+.alert-acts button.counting { position: relative; background: var(--mood); color: #23203A; }
+.alert-acts button.counting::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: #23203A;
+  transform-origin: 0 50%; animation: tp-undo 2s linear forwards;
+}
+@keyframes tp-undo { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.alert-sent { font: 700 9.5px/1.3 var(--sans); text-align: center; }
+
+/* the answer screen: a bigger window (ANSWER in app.js), one card per question, oldest first */
+.answer-view {
+  width: 360px; height: 560px; background: var(--bg); border-radius: 22px; padding: 14px;
+  display: flex; flex-direction: column; gap: 9px; position: relative; overflow: hidden;
+  animation: open .24s cubic-bezier(.2, .8, .3, 1); transform-origin: 100% 100%;
+}
+.ans-title { font-size: 13px; }
+.ans-count { font-size: 10px; color: var(--coin); }
+.ans-card {
+  flex: 1; min-height: 0; background: var(--card); border-radius: 14px; padding: 11px;
+  display: flex; flex-direction: column; gap: 8px; position: relative;
+}
+.ans-card.leaving { animation: tp-ans-out .25s ease-in forwards; }
+.ans-card.arriving { animation: tp-ans-in .3s cubic-bezier(.2, .9, .3, 1); }
+@keyframes tp-ans-out { to { transform: translateX(-110%) rotate(-5deg); opacity: 0; } }
+@keyframes tp-ans-in { from { transform: translateY(10px) scale(.97); opacity: .4; } }
+.ans-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ans-badge { flex: none; font-size: 9.5px; font-weight: 700; color: #23203A; border-radius: 999px; padding: 0 6px; }
+.ans-badge.permission { background: var(--coin); } .ans-badge.question { background: #8FB4FF; } .ans-badge.danger { background: var(--warn); }
+.ans-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.ans-ago { flex: none; font-size: 10px; color: var(--sub); }
+.ans-ctx {
+  flex: none; background: #1C1A2E; border-radius: 8px; padding: 5px 8px; display: flex; flex-direction: column; gap: 2px;
+  border: 0; text-align: left; color: inherit; font: inherit; cursor: pointer;
+}
+.ans-ctx .lab { font-size: 9.5px; color: var(--sub); }
+.ans-ctx .said { font-size: 11px; line-height: 1.45; color: var(--sub2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ans-ctx.open .said { -webkit-line-clamp: unset; display: block; max-height: 120px; overflow-y: auto; }
+.ans-tabs { flex: none; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.ans-tabs button {
+  flex: none; font: 500 10.5px/1 var(--sans); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--sub); cursor: pointer;
+}
+.ans-tabs button.on { background: var(--coin); border-color: var(--coin); color: #23203A; font-weight: 700; }
+.ans-mid {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 0 2px 18px 0;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+}
+.ans-q { flex: none; font-size: 12px; line-height: 1.5; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
+.ans-cmd {
+  flex: none; font: 500 10.5px/1.5 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: #D9D4F5; background: #1C1A2E;
+  border-radius: 8px; padding: 7px 8px; white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow-y: auto; user-select: text;
+}
+.ans-opt {
+  flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%; text-align: left;
+  background: #23203A; color: var(--text); border: 1.5px solid transparent; border-radius: 10px; padding: 7px 9px; cursor: pointer;
+  font: 500 12px/1.35 var(--sans);
+}
+.ans-opt.pick { border-color: var(--coin); }
+.ans-opt .top { display: flex; gap: 7px; align-items: flex-start; }
+.ans-opt b { font: 700 10px/1.6 var(--pixel); color: var(--coin); flex: none; }
+.ans-opt .label { flex: 1; min-width: 0; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ans-opt .rec { flex: none; font-size: 9px; font-weight: 700; color: #23203A; background: var(--mood); border-radius: 999px; padding: 0 5px; margin-top: 2px; }
+.ans-opt .desc { font-size: 10.5px; color: var(--sub); line-height: 1.4; padding-left: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ans-opt.pick .desc { white-space: normal; }
+.ans-write { flex: none; display: flex; align-items: center; gap: 7px; border: 1.5px dashed var(--line); border-radius: 10px; padding: 0 9px; height: 32px; }
+.ans-write.pick { border-style: solid; border-color: var(--coin); }
+.ans-write b { font: 700 10px/1 var(--pixel); color: var(--coin); }
+.ans-write input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: 500 12px var(--sans); outline: none; user-select: text; -webkit-user-select: text; }
+.ans-write input::placeholder { color: var(--sub); }
+.ans-foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.ans-foot .btn { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 10px; }
+.ans-foot .btn.yes, .ans-perm .btn.yes { background: var(--mood); color: var(--bg); }
+.ans-foot .btn.no, .ans-perm .btn.no { background: var(--card2); color: var(--text); }
+.ans-foot .btn:disabled { opacity: .45; cursor: not-allowed; }
+.ans-perm { flex: none; display: flex; gap: 6px; margin-top: auto; }
+.ans-perm .btn { flex: 1; height: 34px; font-size: 12.5px; border-radius: 10px; }
+.ans-link { height: 26px; border: 0; border-radius: 8px; font: 600 11px var(--sans); padding: 0 9px; background: transparent; color: var(--sub2); cursor: pointer; }
+.ans-link.boxed { border: 1.5px solid var(--line); }
+.ans-link:disabled { opacity: .35; cursor: default; }
+.ans-link:hover:not(:disabled) { color: var(--text); }
+.ans-sum { flex: none; display: flex; flex-direction: column; gap: 2px; background: #23203A; border-radius: 10px; padding: 8px 10px; border: 0; text-align: left; color: inherit; cursor: pointer; font: inherit; }
+.ans-sum .lab { font-size: 10px; color: var(--sub); }
+.ans-sum .val { font-size: 12px; font-weight: 600; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
+.ans-sum .val.missing { color: var(--warn); }
+.ans-hint { flex: none; font-size: 10.5px; color: var(--sub); line-height: 1.5; }
+.ans-flash { position: absolute; left: 0; right: 0; top: -2px; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--mood); }
+.ans-done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.ans-done .big { font: 700 12px var(--pixel); color: var(--mood); }
+.ans-done .msg { font-size: 13px; font-weight: 600; }
+.ans-done .sub { font-size: 11px; color: var(--sub); }
+.ans-done .btn { height: 32px; padding: 0 14px; font-size: 12px; border-radius: 10px; }
+.ans-locked { flex: none; font-size: 11px; font-weight: 700; color: var(--mood); }
+@media (prefers-reduced-motion: reduce) {
+  .ans-card.leaving, .ans-card.arriving, .answer-view, .alert-acts button.counting::after { animation: none; }
+}
+
+/* the done list: what each finished session said, and 이어서 시키기 right there */
+.alert-item.done-item { flex-wrap: wrap; align-items: flex-start; }
+.alert-item.done-item .alert-chip { margin-top: 2px; }
+.item-said { font-size: 10.5px; color: var(--sub); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.alert-item.open { box-shadow: 0 0 0 1.5px var(--mood); }
+.done-go { flex: none; width: 22px; height: 22px; font-size: 11px; }
+.done-box { flex: 0 0 100%; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 2px 2px; cursor: default; }
+.done-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.btn.small.done-chip { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 8px; }
+.done-row { display: flex; gap: 5px; margin: 0; }
+.done-row input {
+  flex: 1; min-width: 0; height: 28px; border: 1.5px solid var(--line); border-radius: 9px; padding: 0 8px;
+  background: transparent; color: var(--text); font: 500 11.5px var(--sans); outline: none; user-select: text; -webkit-user-select: text;
+}
+.done-row input:focus { border-color: var(--mood); }
+.btn.small.done-send { height: 28px; padding: 0 10px; font-size: 11.5px; background: var(--mood); color: var(--bg); border-radius: 9px; }
+.btn.small.alerts-clear { height: 28px; font-size: 11.5px; width: 100%; margin-top: 4px; flex: none; }

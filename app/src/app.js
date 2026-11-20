@@ -24,6 +24,10 @@ let extra = 0;                       // px the collapsed window is currently gro
 let headFromBottom = 110;            // px from the drawn top of the pet to the window bottom
 const bandH = () => extra;
 const LARGE = { w: 300, h: 390 };
+const ANSWER = { w: 360, h: 560 };   // 위젯에서 답하기: the answer screen opens bigger than the expanded widget
+let bigSize = LARGE;                  // the size of the big window while expanded (LARGE or ANSWER)
+let answering = false;                // the answer screen is open (expanded stays true)
+let actsExtra = 0;                    // px the answer buttons in the alert bubble add above the head
 const HUNGER_PER_HOUR = 3, MOOD_PER_HOUR = 1, MOOD_PER_HOUR_STARVING = 3;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
@@ -220,7 +224,7 @@ new ResizeObserver(placeSpeech).observe($("speech"));
 async function applyExtra() {
   const room = SMALL.h - headFromBottom;
   const need = (px) => Math.max(0, Math.ceil(px - room));
-  const want = Math.max(bandOn ? need(BAND) : 0, talkOn ? need(TALK) : 0);
+  const want = Math.max(bandOn ? need(BAND + actsExtra) : 0, talkOn ? need(TALK) : 0);
   $("collapsed").style.height = `${SMALL.h + want}px`;
   // "+N" at the head's top-right corner, in front of the mail bubble
   $("earn-bubble").style.bottom = `${Math.round(headFromBottom - 4)}px`;
@@ -615,12 +619,13 @@ async function setExpanded(on) {
       // Not dragged: go back exactly where the pet was, whatever the OS did to the big window.
       petArea = !movedWhileExpanded && collapsedPos
         ? collapsedPos
-        : await clampToMonitor({ x: here.x + LARGE.w - SMALL.w, y: here.y + LARGE.h - SMALL.h }, SMALL);
+        : await clampToMonitor({ x: here.x + bigSize.w - SMALL.w, y: here.y + bigSize.h - SMALL.h }, SMALL);
       if (!(await onScreen(petArea, SMALL))) petArea = await homePos(SMALL);
       target = { x: petArea.x, y: petArea.y - bandH() };
     }
     if (on && !(await onScreen(target, LARGE))) target = await homePos(LARGE);
     document.body.className = on ? "expanded" : "collapsed";
+    if (!on) { answering = false; bigSize = LARGE; }
     if (on) { fitText($("name"), 13, 10); placeSpeech(); }
     const size = on ? LARGE : { w: SMALL.w, h: SMALL.h + bandH() };
     await win.setSize(new LogicalSize(size.w, size.h));
@@ -2209,8 +2214,8 @@ function liveAlerts(s) {
   });
   const rank = { waiting: 0, done: 1, working: 2 };
   const t = (a) => new Date(a.since).getTime();
-  // waiting: longest first; done: newest first; working: longest first
-  return list.sort((a, b) => rank[a.state] - rank[b.state] || (a.state === "done" ? t(b) - t(a) : t(a) - t(b)));
+  // oldest first in every group: the session that has waited longest comes first
+  return list.sort((a, b) => rank[a.state] - rank[b.state] || t(a) - t(b));
 }
 
 function alertAgo(a) {
@@ -2236,7 +2241,8 @@ function renderAlerts() {
   if (shown) {
     bubble.classList.toggle("waiting", shown.state === "waiting");
     $("alert-name").textContent = shown.name || "Claude Code";
-    $("alert-text").textContent = alertLine(kind, shown.state === "done" ? "done" : shown.kind || "input");
+    $("alert-text").textContent = alertLine(kind, shown.state === "done" ? "done" : shown.kind === "permission" ? "permission" : "input");
+    renderBubbleActs(shown);
     $("alert-open").setAttribute("aria-label", `${shown.name} ${$("alert-text").textContent} 누르면 그 세션으로 가요`);
     const others = ringing.slice(1);
     const w = others.filter((a) => a.state === "waiting").length;
@@ -2251,6 +2257,8 @@ function renderAlerts() {
   if (celebrated === null) celebrated = new Set(doneIds);
   else if (shown && shown.state === "done" && !celebrated.has(shown.sid)) fx("pop");
   for (const id of doneIds) celebrated.add(id);
+  if (!shown) renderBubbleActs(null);
+  if (answering) renderAnswer();
   if (!!shown !== alertBubbleOn) {
     alertBubbleOn = !!shown;
     $("mail-small").classList.toggle("hidden", alertBubbleOn || !mailWants);
@@ -2263,8 +2271,19 @@ function renderAlerts() {
   if (alertsOpen) renderAlertList(list);
 }
 
+let doneOpen = null;                       // the finished session whose 이어서 시키기 box is open
+const doneDraft = {};                      // what was typed there, per session (survives re-renders)
+
+function tookText(a) {
+  const m = Math.round((new Date(a.since).getTime() - new Date(a.started_at || a.since).getTime()) / 60000);
+  return m < 1 ? "1분 안에 끝남" : m < 60 ? `${m}분 걸림` : `${Math.floor(m / 60)}시간 ${m % 60}분 걸림`;
+}
+
 function renderAlertList(list = liveAlerts(state)) {
   $("alerts-sub").textContent = list.length ? `Claude Code 세션 ${list.length}개` : "";
+  const done = list.filter((a) => a.state === "done");
+  $("alerts-clear").classList.toggle("hidden", !done.length);
+  $("alerts-note").classList.toggle("hidden", !!done.length);
   if (!list.length) {
     const li = document.createElement("li");
     li.className = "mail-empty";
@@ -2272,9 +2291,13 @@ function renderAlertList(list = liveAlerts(state)) {
     $("alerts-list").replaceChildren(li);
     return;
   }
+  // keep a half-typed reply: don't rebuild while its box has the focus
+  const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest(".done-box");
+  if (typing && list.some((a) => a.sid === doneOpen && a.state === "done")) return;
   $("alerts-list").replaceChildren(...list.map((a) => {
     const li = document.createElement("li");
-    li.className = "item alert-item" + (a.seen ? " seen" : "");
+    const replyable = a.state === "done" && answerOn() && canSend(a);
+    li.className = "item alert-item" + (a.seen ? " seen" : "") + (a.state === "done" ? " done-item" : "") + (doneOpen === a.sid && replyable ? " open" : "");
     li.tabIndex = 0;
     li.setAttribute("role", "button");
     const chip = document.createElement("span");
@@ -2284,17 +2307,66 @@ function renderAlertList(list = liveAlerts(state)) {
     meta.className = "item-meta";
     const name = document.createElement("span");
     name.className = "item-name";
-    name.textContent = a.name || "Claude Code";
+    name.textContent = a.title ? `${a.name || "Claude Code"} · ${a.title}` : a.name || "Claude Code";
+    name.title = name.textContent;
     const sub = document.createElement("span");
     sub.className = "item-sub";
-    sub.textContent = alertAgo(a);
+    sub.textContent = a.state === "done" ? `${tookText(a)} · ${alertAgo(a)}` : alertAgo(a);
     meta.append(name, sub);
+    if (a.state === "done" && a.said) meta.append(el("span", "item-said", a.said));
     li.append(chip, meta);
-    const go = () => openAlert(a.sid);
-    li.addEventListener("click", go);
-    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    if (replyable) {
+      const go = el("button", "icon-btn done-go", "↗");
+      go.type = "button";
+      go.setAttribute("aria-label", "그 세션 터미널로");
+      go.addEventListener("click", (e) => { e.stopPropagation(); openAlert(a.sid); });
+      li.append(go);
+      if (doneOpen === a.sid) li.append(doneBox(a));
+    }
+    const act = () => {
+      if (replyable) { doneOpen = doneOpen === a.sid ? null : a.sid; renderAlertList(); }
+      else if (answerable(a)) openAnswer(a.sid);
+      else openAlert(a.sid);
+    };
+    li.addEventListener("click", (e) => { if (!e.target.closest(".done-box")) act(); });
+    li.addEventListener("keydown", (e) => {
+      if (e.target.closest(".done-box")) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); }
+    });
     return li;
   }));
+  const open = $("alerts-list").querySelector(".done-box input");
+  if (open && !typing) open.focus({ preventScroll: true });
+}
+
+function doneBox(a) {
+  const box = el("div", "done-box");
+  const chips = el("div", "done-chips");
+  for (const r of replies()) {
+    const b = el("button", "btn small ghost done-chip", r);
+    b.type = "button";
+    b.addEventListener("click", () => sendDone(a, r));
+    chips.append(b);
+  }
+  const row = el("form", "done-row");
+  const input = el("input");
+  input.type = "text";
+  input.placeholder = "이어서 시킬 말";
+  input.setAttribute("aria-label", "이어서 시킬 말");
+  input.value = doneDraft[a.sid] || "";
+  input.addEventListener("input", () => { doneDraft[a.sid] = input.value; });
+  input.addEventListener("keydown", (e) => e.stopPropagation());
+  const send = el("button", "btn small done-send", "보내기");
+  send.type = "submit";
+  row.addEventListener("submit", (e) => { e.preventDefault(); if (input.value.trim()) sendDone(a, input.value.trim()); });
+  row.append(input, send);
+  box.append(chips, row);
+  return box;
+}
+
+async function sendDone(a, text) {
+  const ok = await sendReply(a, text, false);
+  if (ok) { delete doneDraft[a.sid]; doneOpen = null; toast(`「${text}」 보냈어요 · 다시 일하는 중`); }
 }
 
 async function openAlert(sid) {
@@ -2303,7 +2375,8 @@ async function openAlert(sid) {
   if (expanded) setExpanded(false);
 }
 
-function openAlerts() {
+function openAlerts(sid) {
+  if (typeof sid === "string") doneOpen = sid;
   closeDiary();
   closeDress();
   closeStats();
@@ -2329,6 +2402,529 @@ setInterval(async () => {
   try { await invoke("pet", { args: ["alert", "glance"] }); } catch (e) {}   // quiet: the file watcher re-renders
   glancing = false;
 }, 3000);
+
+// ---------------------------------------------------------------- 위젯에서 답하기
+// While 작업 알림 is on, a session's permission prompt or question (AskUserQuestion) is held by the
+// plugin's PermissionRequest hook (petlib/answer.py) as `alerts[sid].ask` while the terminal shows the same
+// dialog; whichever answers first wins. The collapsed bubble gets a row of buttons for short ones, the answer
+// screen (ANSWER) takes the rest one card at a time, oldest first. Answers go back with `pet.py alert answer`.
+
+const SHORT_CMD = 30;                      // a command longer than this isn't allowed from the collapsed bubble
+const SHORT_Q = 40;                        // a question longer than this opens the answer screen
+let actsFor = null;                        // the ask id the bubble's buttons are for
+let actsShownAt = 0;                       // clicks in the first half second after the buttons appear are ignored
+let undoTimer = null;
+let ansOrder = [];                         // ask ids in the order the cards are shown ("나중에" moves one back)
+let ansDone = [];                          // cards answered this time: {sid, ask, said} ("‹ 이전" shows them locked)
+let ansView = null;                        // {sid, id} of the card on screen, or {past: i}
+let ansTab = 0;                            // question tab (questions.length = the 보내기 tab)
+let ansPicks = {};                         // ask id -> {question: label | {text}}
+let ansFlash = "";
+
+function answerOn(s = state) { return alertsOn(s); }   // on with 작업 알림
+function answerable(a) { return !!(answerOn() && a && a.ask && !a.ask.terminal); }
+
+function askList(s = state) {
+  if (!answerOn(s)) return [];
+  const list = liveAlerts(s).filter((a) => a.ask && !a.ask.terminal);
+  for (const a of list) if (!ansOrder.includes(a.ask.id)) ansOrder.push(a.ask.id);
+  ansOrder = ansOrder.filter((id) => list.some((a) => a.ask.id === id));
+  return ansOrder.map((id) => list.find((a) => a.ask.id === id));
+}
+
+function isRec(label) { return /\((권장|Recommended)\)\s*$/i.test(label); }
+function cleanLabel(label) { return label.replace(/\s*\((권장|Recommended)\)\s*$/i, ""); }
+function shortQuestion(ask) {
+  const qs = ask.questions || [];
+  return qs.length === 1 && qs[0].options.length <= 3 && qs[0].question.length <= SHORT_Q;
+}
+function permText(ask) {
+  if (ask.command) return "이 명령을 실행해도 돼요?";
+  if (ask.file) return "이 파일을 고쳐도 돼요?";
+  if (ask.url) return "이 주소를 열어도 돼요?";
+  return `${ask.tool || "도구"} 를 써도 돼요?`;
+}
+function permDetail(ask) { return ask.command || ask.file || ask.url || ask.description || ""; }
+
+async function sendAnswer(sid, ask, args) {
+  const res = await runPet(["alert", "answer", sid, ask.id, ...args]);
+  return !!(res && res.ok);
+}
+
+// ---- the collapsed bubble's buttons
+function actButton(label, cls, onClick, title) {
+  const b = el("button", cls, label);
+  b.type = "button";
+  if (title) { b.title = title; b.setAttribute("aria-label", title); }
+  b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (dragged) { dragged = false; return; }
+    if (Date.now() - actsShownAt < 500) return;          // the bubble just popped up under the pointer
+    onClick(b);
+  });
+  return b;
+}
+
+function setActsExtra(px) {
+  if (px === actsExtra) return;
+  actsExtra = px;
+  applyExtra();
+}
+
+function canSend(a) {
+  const t = (a && a.term) || {};
+  return !!(t.herdr || t.orca || t.tmux || (t.iterm && /^iterm/i.test(t.app || "") || (t.bundle || "").startsWith("com.googlecode.iterm2")));
+}
+function replies() { return ((state && state.settings && state.settings.alert_replies) || ["커밋해", "계속해", "테스트 돌려"]).slice(0, 6); }
+
+function renderBubbleActs(a) {
+  const acts = $("alert-acts"), cmd = $("alert-cmd");
+  if (a && answerOn() && a.state === "done" && canSend(a)) return renderDoneActs(a);
+  const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
+  if (!ask) {
+    actsFor = null;
+    $("alert-small").classList.remove("danger");
+    acts.classList.add("hidden");
+    cmd.classList.add("hidden");
+    setActsExtra(0);
+    return;
+  }
+  if (actsFor === ask.id) return;                         // keep a running countdown
+  actsFor = ask.id;
+  actsShownAt = Date.now();
+  clearTimeout(undoTimer);
+  const buttons = [];
+  let line = "";
+  if (ask.kind === "permission") {
+    line = permDetail(ask);
+    if (ask.terminal) buttons.push(actButton("터미널에서 보기", "wide", () => openAlert(a.sid)));
+    else if (line.length > SHORT_CMD || line.includes("\n")) buttons.push(actButton("전체 보고 허용", "wide", () => openAnswer(a.sid)));
+    else {
+      buttons.push(actButton("허용", "yes", (b) => startAllow(a, ask, b)));
+      buttons.push(actButton("거부", "", () => bubbleSend(a, ask, ["deny"], "거부했어요")));
+      buttons.push(actButton("···", "soft num", () => openAnswer(a.sid), "펼쳐서 보기"));
+    }
+  } else {
+    const q = (ask.questions || [])[0];
+    line = q ? q.question : "";
+    if (ask.terminal) buttons.push(actButton("터미널에서 답하기 ↗", "wide", () => openAlert(a.sid)));
+    else if (!shortQuestion(ask)) buttons.push(actButton("펼쳐서 답하기", "wide", () => openAnswer(a.sid)));
+    else {
+      q.options.forEach((o, i) => buttons.push(actButton(String(i + 1), "num", () =>
+        bubbleSend(a, ask, ["answers", JSON.stringify({ [q.question]: o.label })], `「${i + 1}」 보냈어요`), cleanLabel(o.label))));
+      buttons.push(actButton("···", "soft num", () => openAnswer(a.sid), "펼쳐서 답하기"));
+    }
+  }
+  cmd.textContent = line;
+  cmd.title = line;
+  cmd.classList.toggle("plain", ask.kind === "question");
+  $("alert-small").classList.toggle("danger", !!ask.danger);
+  if (ask.danger) $("alert-text").textContent = "위험한 명령이야";
+  cmd.classList.toggle("hidden", !line);
+  acts.replaceChildren(...buttons);
+  acts.classList.remove("hidden");
+  setActsExtra(24 + (!line ? 0 : ask.kind === "question" ? 24 : 13));
+}
+
+// 다 했어: two quick replies and ✎ (the done list, where you can write one)
+function renderDoneActs(a) {
+  const acts = $("alert-acts"), cmd = $("alert-cmd");
+  const key = `done:${a.sid}:${a.since}`;
+  if (actsFor === key) return;
+  actsFor = key;
+  actsShownAt = Date.now();
+  $("alert-small").classList.remove("danger");
+  cmd.classList.add("hidden");
+  const [r1, r2] = replies();
+  const buttons = [r1, r2].filter(Boolean).map((r) => actButton(r, "", () => sendReply(a, r, true), `「${r}」 보내기`));
+  buttons.push(actButton("✎", "soft num", () => setExpanded(true).then(() => openAlerts(a.sid)), "직접 쓰기"));
+  acts.replaceChildren(...buttons);
+  acts.classList.remove("hidden");
+  setActsExtra(24);
+}
+
+async function sendReply(a, text, inBubble) {
+  if (inBubble) $("alert-acts").replaceChildren(el("span", "alert-sent", "보내는 중…"));
+  const res = await runPet(["alert", "send", a.sid, text]);
+  const ok = !!(res && res.ok);
+  if (inBubble) $("alert-acts").replaceChildren(el("span", "alert-sent", ok ? `「${text}」 보냈어요` : "못 보냈어요"));
+  else if (!ok && res) toast(res.text);
+  if (ok) fx("pop");
+  return ok;
+}
+
+// 허용 waits two seconds before it goes, and a second press takes it back
+function startAllow(a, ask, b) {
+  const others = [...b.parentElement.children].filter((x) => x !== b);
+  if (b.classList.contains("counting")) {
+    clearTimeout(undoTimer);
+    b.classList.remove("counting", "wide");
+    b.textContent = "허용";
+    others.forEach((x) => x.classList.remove("hidden"));
+    return;
+  }
+  b.classList.add("counting", "wide");
+  b.textContent = "허용 · 누르면 취소";
+  others.forEach((x) => x.classList.add("hidden"));
+  undoTimer = setTimeout(() => bubbleSend(a, ask, ["allow"], "허용했어요"), 2000);
+}
+
+async function bubbleSend(a, ask, args, done) {
+  const acts = $("alert-acts");
+  acts.replaceChildren(el("span", "alert-sent", "보내는 중…"));
+  const ok = await sendAnswer(a.sid, ask, args);
+  acts.replaceChildren(el("span", "alert-sent", ok ? done : "이미 답했어요"));
+  if (ok) fx("pop");
+}
+
+// ---- the answer screen
+async function openAnswer(sid) {
+  closeDiary(); closeDress(); closeStats(); closeMailbox(); closeAlerts();
+  const list = askList();
+  const a = list.find((x) => x.sid === sid) || list[0];
+  ansView = a ? { sid: a.sid, id: a.ask.id } : null;
+  ansTab = 0;
+  ansDone = [];
+  if (!answering) {
+    try {
+      const here = await currentPos();
+      const from = expanded ? bigSize : { w: SMALL.w, h: SMALL.h + bandH() };
+      if (!expanded) { collapsedPos = { x: here.x, y: here.y + bandH() }; movedWhileExpanded = false; hideSay(); }
+      expanded = true; answering = true; bigSize = ANSWER;
+      let target = await clampToMonitor({ x: here.x + from.w - ANSWER.w, y: here.y + from.h - ANSWER.h }, ANSWER);
+      if (!(await onScreen(target, ANSWER))) target = await homePos(ANSWER);
+      document.body.className = "answering";
+      await win.setSize(new LogicalSize(ANSWER.w, ANSWER.h));
+      await win.setPosition(new LogicalPosition(target.x, target.y));
+    } catch (e) {
+      expanded = true; answering = true; bigSize = ANSWER;
+      document.body.className = "answering";
+    }
+  }
+  renderAnswer();
+}
+
+function closeAnswer() {
+  if (!answering) return;
+  setExpanded(false);
+}
+
+function answerCard() {
+  if (!ansView || ansView.past != null) return null;
+  return askList().find((a) => a.sid === ansView.sid && a.ask.id === ansView.id) || null;
+}
+
+function stepAnswer(dir) {
+  if (dir < 0) {
+    const i = ansView && ansView.past != null ? ansView.past - 1 : ansDone.length - 1;
+    if (i >= 0) { ansView = { past: i }; renderAnswer(); }
+    return;
+  }
+  if (ansView && ansView.past != null) {
+    const i = ansView.past + 1;
+    if (i < ansDone.length) ansView = { past: i };
+    else { const next = askList()[0]; ansView = next ? { sid: next.sid, id: next.ask.id } : null; }
+    ansTab = 0;
+    renderAnswer();
+  }
+}
+
+function answerLater() {
+  const c = answerCard();
+  if (!c) return;
+  ansOrder = ansOrder.filter((id) => id !== c.ask.id).concat(c.ask.id);
+  const next = askList().find((a) => a.ask.id !== c.ask.id);
+  if (next) { ansView = { sid: next.sid, id: next.ask.id }; ansTab = 0; renderAnswer(true); }
+}
+
+function nextCard(flash) {
+  ansFlash = flash;
+  const card = $("ans-card");
+  card.classList.add("leaving");
+  setTimeout(() => {
+    card.classList.remove("leaving");
+    const next = askList().find((a) => !ansDone.some((d) => d.ask.id === a.ask.id));
+    ansView = next ? { sid: next.sid, id: next.ask.id } : null;
+    ansTab = 0;
+    renderAnswer(true);
+    setTimeout(() => { ansFlash = ""; const f = $("ans-card").querySelector(".ans-flash"); if (f) f.remove(); }, 1600);
+  }, 250);
+}
+
+async function answerSend(a, args, flash, summary) {
+  const ok = await sendAnswer(a.sid, a.ask, args);
+  if (!ok) { toast("이미 터미널에서 답했어요"); nextCard("터미널에서 답했어요 ✓"); return; }
+  ansDone.push({ sid: a.sid, name: a.name, ask: a.ask, summary });
+  fx("pop");
+  nextCard(flash);
+}
+
+function renderAnswer(arriving) {
+  if (!answering) return;
+  const list = askList();
+  const card = $("ans-card");
+  let a = null, past = null;
+  if (ansView && ansView.past != null) past = ansDone[ansView.past];
+  else {
+    a = answerCard();
+    if (!a && list.length && !(ansView && ansView.id && ansDone.some((d) => d.ask.id === ansView.id))) {
+      if (ansView) ansFlash = ansFlash || "터미널에서 답했어요 ✓";       // answered in the terminal meanwhile
+      a = list[0];
+      ansView = { sid: a.sid, id: a.ask.id };
+      ansTab = 0;
+    }
+  }
+  const total = ansDone.length + list.filter((x) => !ansDone.some((d) => d.ask.id === x.ask.id)).length;
+  const pos = past ? ansView.past + 1 : a ? ansDone.length + 1 : total;
+  $("ans-count").textContent = total ? `${Math.min(pos, total)}/${total}` : "";
+  $("ans-prev").disabled = !(past ? ansView.past > 0 : ansDone.length > 0);
+  $("ans-later").disabled = !a || list.length < 2;
+  $("ans-term").disabled = !a && !past;
+  // re-render only when the card changes, so a half-typed answer survives file updates
+  const key = past ? `past:${ansView.past}` : a ? `${a.ask.id}:${ansTab}` : `none:${list.length}`;
+  if (card.dataset.key === key && !arriving) return;
+  card.dataset.key = key;
+  card.classList.toggle("arriving", !!arriving);
+  const kids = [];
+  if (ansFlash) kids.push(el("span", "ans-flash", ansFlash));
+  if (past) kids.push(...pastCard(past));
+  else if (a) kids.push(...(a.ask.kind === "permission" ? permCard(a) : questionCard(a)));
+  else kids.push(doneCard());
+  card.replaceChildren(...kids);
+  const mid = card.querySelector(".ans-mid");
+  if (mid) { const p = mid.querySelector(".ans-opt.pick, .ans-write.pick"); if (p) p.scrollIntoView({ block: "nearest" }); }
+}
+
+function cardHead(a, kind, label) {
+  const head = el("div", "ans-head");
+  head.append(el("span", `ans-badge ${kind}`, label));
+  const name = el("span", "ans-name", a.ask.title ? `${a.name} · ${a.ask.title}` : a.name || "Claude Code");
+  name.title = name.textContent;
+  head.append(name, el("span", "ans-ago", alertAgoShort(a.ask.at)));
+  return head;
+}
+
+function alertAgoShort(iso) {
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  return s < 60 ? `${s}초 전` : s < 3600 ? `${Math.floor(s / 60)}분 전` : `${Math.floor(s / 3600)}시간 전`;
+}
+
+function ctxBox(a) {
+  if (!a.ask.said) return null;
+  const b = el("button", "ans-ctx");
+  b.type = "button";
+  b.append(el("span", "lab", "Claude 가 직전에 한 말 ⌄"), el("span", "said", a.ask.said));
+  b.addEventListener("click", () => b.classList.toggle("open"));
+  return b;
+}
+
+function permCard(a) {
+  const ask = a.ask;
+  const out = [cardHead(a, ask.danger ? "danger" : "permission", ask.danger ? "위험" : "권한")];
+  const ctx = ctxBox(a);
+  if (ctx) out.push(ctx);
+  out.push(el("span", "ans-q", ask.danger ? "위험한 명령이라 터미널에서만 허용할 수 있어요" : permText(ask)));
+  const detail = permDetail(ask);
+  if (detail) out.push(el("div", "ans-cmd", detail));
+  if (ask.description && ask.command) out.push(el("span", "ans-hint", ask.description));
+  const row = el("div", "ans-perm");
+  if (ask.danger) {
+    const t = el("button", "btn no", "터미널에서 보기");
+    t.addEventListener("click", () => { openAlert(a.sid); closeAnswer(); });
+    row.append(t);
+  } else {
+    const yes = el("button", "btn yes", "허용"), no = el("button", "btn no", "거부");
+    yes.addEventListener("click", () => answerSend(a, ["allow"], "허용했어요 · 다음", `허용 · ${detail}`));
+    no.addEventListener("click", () => answerSend(a, ["deny"], "거부했어요 · 다음", `거부 · ${detail}`));
+    row.append(yes, no);
+  }
+  out.push(row);
+  return out;
+}
+
+function picksOf(a) { return (ansPicks[a.ask.id] = ansPicks[a.ask.id] || {}); }
+function pickText(q, p) { return p == null ? null : typeof p === "string" ? p : (p.text || "").trim() || null; }
+
+function questionCard(a) {
+  const ask = a.ask, qs = ask.questions || [], picks = picksOf(a);
+  const multi = qs.length > 1;
+  const out = [cardHead(a, "question", "질문")];
+  if (multi) {
+    const tabs = el("div", "ans-tabs");
+    qs.forEach((q, i) => {
+      const done = pickText(q, picks[q.question]) != null;
+      const t = el("button", i === ansTab ? "on" : "", `${done && i !== ansTab ? "✓ " : ""}${q.header || `질문 ${i + 1}`}`);
+      t.type = "button";
+      t.addEventListener("click", () => { ansTab = i; renderAnswer(); });
+      tabs.append(t);
+    });
+    const send = el("button", ansTab === qs.length ? "on" : "", "보내기");
+    send.type = "button";
+    send.addEventListener("click", () => { ansTab = qs.length; renderAnswer(); });
+    tabs.append(send);
+    out.push(tabs);
+  }
+  const ctx = ctxBox(a);
+  if (ctx) out.push(ctx);
+  if (multi && ansTab >= qs.length) return out.concat(confirmPane(a));
+  const q = qs[Math.min(ansTab, qs.length - 1)];
+  const mid = el("div", "ans-mid");
+  mid.append(el("span", "ans-q", multi ? `Q${ansTab + 1}. ${q.question}` : q.question));
+  const cur = picks[q.question];
+  q.options.forEach((o, i) => {
+    const b = el("button", "ans-opt" + (cur === o.label ? " pick" : ""));
+    b.type = "button";
+    const top = el("span", "top");
+    top.append(el("b", "", String(i + 1)), el("span", "label", cleanLabel(o.label)));
+    if (isRec(o.label)) top.append(el("span", "rec", "권장"));
+    b.append(top);
+    if (o.description) b.append(el("span", "desc", o.description));
+    b.addEventListener("click", () => { picks[q.question] = o.label; ansFresh(a); });
+    mid.append(b);
+  });
+  const write = el("label", "ans-write" + (cur && typeof cur === "object" ? " pick" : ""));
+  const input = el("input");
+  input.type = "text";
+  input.placeholder = "직접 쓰기…";
+  input.value = cur && typeof cur === "object" ? cur.text : "";
+  input.addEventListener("focus", () => { if (typeof picks[q.question] !== "object") { picks[q.question] = { text: input.value }; write.classList.add("pick"); mid.querySelectorAll(".ans-opt.pick").forEach((x) => x.classList.remove("pick")); updateFoot(a); } });
+  input.addEventListener("input", () => { picks[q.question] = { text: input.value }; updateFoot(a); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); advance(a); } e.stopPropagation(); });
+  write.append(el("b", "", String(q.options.length + 1)), input);
+  mid.append(write);
+  out.push(mid);
+  const foot = el("div", "ans-foot");
+  const chat = el("button", "ans-link", `${q.options.length + 2} · 이 질문으로 대화하기 ↗`);
+  chat.type = "button";
+  chat.addEventListener("click", () => { openAlert(a.sid); closeAnswer(); });
+  const go = el("button", "btn yes ans-go", "");
+  go.type = "button";
+  go.addEventListener("click", () => advance(a));
+  foot.append(chat, go);
+  out.push(foot);
+  setTimeout(() => updateFoot(a), 0);
+  return out;
+}
+
+function ansFresh(a) { $("ans-card").dataset.key = ""; renderAnswer(); }
+
+function updateFoot(a) {
+  const go = $("ans-card").querySelector(".ans-go");
+  if (!go) return;
+  const qs = a.ask.questions || [], q = qs[Math.min(ansTab, qs.length - 1)];
+  const has = pickText(q, picksOf(a)[q.question]) != null;
+  const last = qs.length === 1;
+  go.textContent = last ? "보내기" : ansTab === qs.length - 1 ? "확인 →" : "다음 질문 →";
+  go.disabled = !has;
+}
+
+function advance(a) {
+  const qs = a.ask.questions || [];
+  const q = qs[Math.min(ansTab, qs.length - 1)];
+  if (pickText(q, picksOf(a)[q.question]) == null) return;
+  if (qs.length === 1) return submitQuestions(a);
+  ansTab += 1;
+  renderAnswer();
+}
+
+function confirmPane(a) {
+  const qs = a.ask.questions || [], picks = picksOf(a);
+  const mid = el("div", "ans-mid");
+  mid.append(el("span", "ans-q", "이렇게 보낼까요?"));
+  qs.forEach((q, i) => {
+    const b = el("button", "ans-sum");
+    b.type = "button";
+    const v = pickText(q, picks[q.question]);
+    const n = q.options.findIndex((o) => o.label === picks[q.question]);
+    b.append(el("span", "lab", q.header || `질문 ${i + 1}`),
+      el("span", "val" + (v == null ? " missing" : ""), v == null ? "아직 안 골랐어요" : n >= 0 ? `${n + 1}. ${cleanLabel(v)}` : `직접 쓰기 · 「${v}」`));
+    b.addEventListener("click", () => { ansTab = i; renderAnswer(); });
+    mid.append(b);
+  });
+  mid.append(el("span", "ans-hint", "탭을 누르면 그 질문으로 돌아가 고칠 수 있어요"));
+  const foot = el("div", "ans-foot");
+  const back = el("button", "btn no", "← 고치기");
+  back.addEventListener("click", () => { ansTab = qs.length - 1; renderAnswer(); });
+  const send = el("button", "btn yes", "보내기");
+  send.style.flex = "1";
+  send.disabled = qs.some((q) => pickText(q, picks[q.question]) == null);
+  send.addEventListener("click", () => submitQuestions(a));
+  foot.append(back, send);
+  return [mid, foot];
+}
+
+function submitQuestions(a) {
+  const qs = a.ask.questions || [], picks = picksOf(a);
+  const answers = {};
+  for (const q of qs) {
+    const v = pickText(q, picks[q.question]);
+    if (v == null) return;
+    answers[q.question] = v;
+  }
+  const summary = qs.map((q) => `${q.header || "답"} · ${cleanLabel(answers[q.question])}`).join("  ");
+  answerSend(a, ["answers", JSON.stringify(answers)], qs.length > 1 ? "보냈어요 · 다음" : `「${cleanLabel(answers[qs[0].question])}」 보냈어요`, summary);
+}
+
+function pastCard(d) {
+  const head = el("div", "ans-head");
+  head.append(el("span", `ans-badge ${d.ask.kind}`, d.ask.kind === "permission" ? "권한" : "질문"),
+    el("span", "ans-name", d.name || "Claude Code"));
+  const mid = el("div", "ans-mid");
+  mid.append(el("span", "ans-locked", "✓ 답했어요"));
+  mid.append(el("span", "ans-q", d.ask.kind === "permission" ? permText(d.ask) : (d.ask.questions || []).map((q) => q.question).join("\n")));
+  mid.append(el("div", "ans-cmd", d.summary));
+  const foot = el("div", "ans-foot");
+  const next = el("button", "btn no", "다음 →");
+  next.addEventListener("click", () => stepAnswer(1));
+  foot.append(el("span"), next);
+  return [head, mid, foot];
+}
+
+function doneCard() {
+  const box = el("div", "ans-done");
+  const finished = liveAlerts(state).filter((a) => a.state === "done").length;
+  if (ansDone.length) box.append(el("span", "big", `${ansDone.length}/${ansDone.length} ✓`));
+  box.append(el("span", "msg", ansDone.length ? "다 답했어요!" : "지금 답할 게 없어요"));
+  if (finished) {
+    box.append(el("span", "sub", `완료 ${finished}개가 남아 있어요`));
+    const b = el("button", "btn yes", "완료 목록 보기");
+    b.addEventListener("click", async () => { await setExpanded(false); await setExpanded(true); openAlerts(); });
+    box.append(b);
+  }
+  const close = el("button", "ans-link", "닫기");
+  close.addEventListener("click", closeAnswer);
+  box.append(close);
+  if (ansDone.length && !finished) setTimeout(() => { if (answering && !answerCard() && !askList().length) closeAnswer(); }, 1800);
+  return box;
+}
+
+// keys on the answer screen: ← → question tabs, ↑ ↓ options, 1–9 pick, Enter next, Esc close
+function answerKey(e) {
+  if (e.key === "Escape") { closeAnswer(); return; }
+  const a = answerCard();
+  if (!a) return;
+  if (a.ask.kind === "permission") return;
+  const qs = a.ask.questions || [];
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const n = qs.length > 1 ? qs.length + 1 : 1;
+    ansTab = Math.max(0, Math.min(n - 1, ansTab + (e.key === "ArrowLeft" ? -1 : 1)));
+    renderAnswer();
+    return;
+  }
+  if (ansTab >= qs.length) { if (e.key === "Enter") submitQuestions(a); return; }
+  const q = qs[ansTab], picks = picksOf(a);
+  const i = q.options.findIndex((o) => o.label === picks[q.question]);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const j = Math.max(0, Math.min(q.options.length - 1, (i < 0 ? -1 : i) + (e.key === "ArrowDown" ? 1 : -1)));
+    picks[q.question] = q.options[j].label;
+    ansFresh(a);
+  } else if (/^[1-9]$/.test(e.key)) {
+    const j = Number(e.key) - 1;
+    if (j < q.options.length) { picks[q.question] = q.options[j].label; ansFresh(a); }
+    else if (j === q.options.length) { const inp = $("ans-card").querySelector(".ans-write input"); if (inp) inp.focus(); }
+    else if (j === q.options.length + 1) { openAlert(a.sid); closeAnswer(); }
+  } else if (e.key === "Enter") advance(a);
+}
 
 // ---------------------------------------------------------------- wiring
 
@@ -2364,20 +2960,32 @@ $("fx-large").addEventListener("click", () => {
 });
 window.addEventListener("keydown", (e) => {
   if (diary && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { turnDiary(e.key === "ArrowLeft" ? -1 : 1); return; }
+  if (answering) { answerKey(e); return; }
   if (e.key !== "Escape") return;
   if (diary) closeDiary(); else if (shop) closeDress(); else if (stats) closeStats(); else if (mailOpen) closeMailbox(); else if (alertsOpen) closeAlerts(); else setExpanded(false);
 });
-window.addEventListener("blur", () => { if (expanded) { closeDiary(); closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); } });
+window.addEventListener("blur", () => { if (expanded && !answering) { closeDiary(); closeDress(); closeStats(); closeMailbox(); closeAlerts(); setExpanded(false); } });
 
 T.event.listen("state", (ev) => { state = ev.payload; render(); });
 $("mail-btn").addEventListener("click", () => (mailOpen ? closeMailbox() : openMailbox()));
 $("alerts-btn").addEventListener("click", () => (alertsOpen ? closeAlerts() : openAlerts()));
 $("alerts-close").addEventListener("click", closeAlerts);
+$("alerts-clear").addEventListener("click", async () => {
+  const res = await runPet(["alert", "clear"]);
+  if (res && res.text) toast(res.text);
+});
 $("alert-open").addEventListener("click", (e) => {
   e.stopPropagation();                      // not a click on the pet
   if (dragged) { dragged = false; return; }
-  if (alertShown) openAlert(alertShown.sid);
+  if (!alertShown) return;
+  if (answerable(alertShown)) openAnswer(alertShown.sid); else openAlert(alertShown.sid);
 });
+$("alert-acts").addEventListener("click", (e) => e.stopPropagation());
+$("ans-close").addEventListener("click", closeAnswer);
+$("ans-prev").addEventListener("click", () => stepAnswer(-1));
+$("ans-later").addEventListener("click", answerLater);
+$("ans-term").addEventListener("click", () => { const c = answerCard(); if (c) { openAlert(c.sid); closeAnswer(); } });
+makeDraggable($("answer"));
 $("alert-more").addEventListener("click", (e) => {
   e.stopPropagation();
   if (dragged) { dragged = false; return; }
