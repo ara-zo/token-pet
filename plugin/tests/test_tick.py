@@ -17,7 +17,7 @@ def fresh(now, **over):
 def test_ten_hours_decay():
     s = fresh(at(20, 0))
     tick.apply(s, at(20, 5))
-    assert s["hunger"] == pytest.approx(80 - 5 * H) and s["mood"] == 70
+    assert s["hunger"] == pytest.approx(80 - 5 * H) and s["mood"] == pytest.approx(80 - 5 * economy.MOOD_PER_HOUR)
     assert s["last_tick_at"] == clock.fmt(at(20, 5))
     s = fresh(at(20, 0))
     tick.apply(s, at(20, 10))
@@ -32,18 +32,19 @@ def test_model_form_hunger_slower():
 
 def test_hunger_hits_zero_and_accumulates_zero_hours():
     s = fresh(at(20, 0))
-    to_zero = 80 / H                 # hours until a fresh pet (hunger 80) starves; must stay < 24
+    to_zero = 80 / H                 # hours until a fresh pet (hunger 80) starves; must fall within the second day
+    assert 24 < to_zero < 48
     tick.apply(s, at(20, 0) + dt.timedelta(minutes=int(to_zero * 60) - 1))   # a minute before zero
     assert s["hunger"] > 0
     s = fresh(at(19, 0))
-    tick.apply(s, at(20, 16))        # 40h, single day boundary at 20 00:00
+    tick.apply(s, at(21, 6))         # 54h, day boundaries at 20 and 21 00:00
     assert s["hunger"] == 0
-    day19 = s["daily_log"][0]
-    day20 = s["daily_log"][1]
-    # starvation starts on day 19 after to_zero hours, then all 16h of day 20
-    assert day19["hunger_zero_hours"] == pytest.approx(24 - to_zero, abs=0.01)
-    assert day20["hunger_zero_hours"] == pytest.approx(16.0, abs=0.01)
-    # mood drains 2/h then 4/h over 40h → clamped 0
+    day19, day20, day21 = s["daily_log"][:3]
+    # starvation starts on day 20 after to_zero hours, then all 6h of day 21
+    assert day19["hunger_zero_hours"] == 0
+    assert day20["hunger_zero_hours"] == pytest.approx(48 - to_zero, abs=0.01)
+    assert day21["hunger_zero_hours"] == pytest.approx(6.0, abs=0.01)
+    # mood drains slowly, then faster once starving, over 54h → clamped 0
     assert s["mood"] == 0
 
 

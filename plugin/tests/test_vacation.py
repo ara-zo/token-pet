@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from petlib import cli, clock, schema, store, tick, vacation
+from petlib import cli, clock, economy, schema, store, tick, vacation
 from petlib.actions import ActionError
 from conftest import at
 
@@ -34,7 +34,7 @@ def test_back_by_itself_after_the_stay():
     vacation.start(s, NOW, "3")
     tick.apply(s, at(27, 15))                      # an hour past checkout
     assert s["vacation"] is None
-    assert s["mood"] == pytest.approx(80 - 2 * 1, abs=0.01)    # +10 on return, then an hour of normal decay
+    assert s["mood"] == pytest.approx(80 - economy.MOOD_PER_HOUR * 1, abs=0.01)    # +10 on return, then an hour of normal decay
     assert s["last_fed_at"] == clock.fmt(at(27, 12))           # the meal moved by the 3-day stay
     assert any(e["type"] == "vacation_back" for e in s["events"])
 

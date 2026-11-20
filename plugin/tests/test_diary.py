@@ -128,7 +128,7 @@ def week_state(state):
         _day("2026-10-19", 120_000, {10: 20_000, 15: 100_000}, night_out=0,
              repos={"token-pet": _repo(90_000, titles={"a": "선물 페이지"}, commits=2, tests=3),
                     "dk-jarvis": _repo(30_000, ("b",), {"b": "큐 정리"}, prs=1)}),
-        _day("2026-10-20", 400_000, {15: 152_000, 23: 8_000}, night_out=8_000,
+        _day("2026-10-20", 400_000, {15: 252_000, 23: 8_000}, night_out=8_000,
              repos={"token-pet": _repo(400_000, ("a", "c"), {"a": "선물 페이지", "c": "일기"}, commits=1)}),
     ]
     return state
@@ -139,8 +139,8 @@ def test_payload_this_week(week_state):
     assert p["start"] == "2026-10-19" and p["end"] == "2026-10-25" and p["label"] == "10월 셋째 주"
     assert [d["weekday"] for d in p["days"]] == ["월", "화", "수", "목", "금", "토", "일"]
     assert p["days"][1]["today"] and p["days"][2]["future"] and not p["days"][0]["future"]
-    assert p["peak"] == {"weekday": "화", "hour": 15, "out": 152_000, "date": "2026-10-20"}
-    assert p["tired"] == 1                                       # only 152k is past the 100k rush line
+    assert p["peak"] == {"weekday": "화", "hour": 15, "out": 252_000, "date": "2026-10-20"}
+    assert p["tired"] == 1                                       # only 252k is past the 200k rush line
     assert p["good"] == 1                                        # Monday's 120k; today isn't over yet
     assert p["night_days"] == 1 and p["change"] == -48           # 520k vs 1,000,000
     assert [s["id"] for s in p["stamps"]] == ["tired", "good", "night"]
@@ -149,7 +149,7 @@ def test_payload_this_week(week_state):
     assert top["sessions"] == 2 and top["titles"] == ["선물 페이지", "일기"]
     assert p["counts"] == {"commits": 3, "tests": 3, "prs": 1}
     assert [s["label"] for s in p["work_stamps"]] == ["한 우물 94%", "테스트 3번", "PR 1 · 커밋 3"]
-    assert p["lines"]["time"][0] == "화요일 오후 3시에 공장이 제일 빨랐다. 15만 조각! 땀이 났다."
+    assert p["lines"]["time"][0] == "화요일 오후 3시에 공장이 제일 빨랐다. 25만 조각! 땀이 났다."
     assert p["lines"]["work"] == ["token-pet 공장에 제일 오래 있었다!", "커밋 3번, 테스트 3번, PR 1개!"]
 
 
@@ -181,7 +181,7 @@ def test_text_and_widget_payload(pet_home, week_state):
     store.write(week_state)
     code, txt = cli.main_pet(["diary"], at(20, 18))
     assert code == 0 and "📔 모찌의 일기 · 10월 셋째 주 (10/19~10/25) · 쓰는 중" in txt
-    assert "가장 바빴던 시간: 화요일 15시 (출력 15만)" in txt
+    assert "가장 바빴던 시간: 화요일 15시 (출력 25만)" in txt
     assert "📂 이번 주 작업한 곳" in txt and "  · 선물 페이지" in txt and "  커밋 3 · 테스트 3" in txt
     assert "도장: 지친 시간 1 · 좋은 날 1 · 밤 작업 1" in txt
     code, js = cli.main_pet(["diary", "last", "--json"], at(26, 9))

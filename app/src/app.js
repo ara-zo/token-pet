@@ -24,7 +24,7 @@ let extra = 0;                       // px the collapsed window is currently gro
 let headFromBottom = 110;            // px from the drawn top of the pet to the window bottom
 const bandH = () => extra;
 const LARGE = { w: 300, h: 390 };
-const HUNGER_PER_HOUR = 5, MOOD_PER_HOUR = 2, MOOD_PER_HOUR_STARVING = 4;
+const HUNGER_PER_HOUR = 3, MOOD_PER_HOUR = 1, MOOD_PER_HOUR_STARVING = 3;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
 const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경", hotel: "호텔" };
@@ -1576,7 +1576,7 @@ let diary = null;                     // last payload while the diary is open
 let diaryWhich = "this";
 let diaryPage = 0;
 const DIARY_PAGES = ["time", "grid", "work"];
-const RUSH_OUT = 100000;              // economy.RUSH_OUT_PER_HOUR: a 「지친 시간」
+const RUSH_OUT = 200000;              // economy.RUSH_OUT_PER_HOUR: a 「지친 시간」
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Korean count units, like diary.man: 152000 -> "15만", 15200 -> "1.5만"

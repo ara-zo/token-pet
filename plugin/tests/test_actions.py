@@ -233,6 +233,7 @@ def test_toy_halves_mood_decay_while_playing():
     assert s["mood"] == 60 and s["toy"]["id"] == "yarn"
     tick.decay(s, NOW, at(20, 16))                      # 2 hours, all while playing
     assert s["mood"] == 60 - economy.MOOD_PER_HOUR * 2 * (1 - economy.TOY_DECAY)
+    m = s["mood"]
     tick.decay(s, at(20, 16), at(20, 19))               # 1 hour of play, then 2 normal
-    assert s["mood"] == 58 - economy.MOOD_PER_HOUR * (1 * (1 - economy.TOY_DECAY) + 2)
+    assert s["mood"] == m - economy.MOOD_PER_HOUR * (1 * (1 - economy.TOY_DECAY) + 2)
     assert s["toy"] is None                             # play time over

@@ -77,8 +77,8 @@ def test_statusline_structure():
 
 def test_statusline_applies_virtual_decay_without_writing():
     s = st(hunger=100, mood=100)
-    line = render.strip_ansi(render.statusline(s, CC, at(20, 18)))   # 5h later
-    hunger = 100 - 5 * economy.HUNGER_PER_HOUR
+    line = render.strip_ansi(render.statusline(s, CC, at(21, 1)))    # 12h later
+    hunger = 100 - 12 * economy.HUNGER_PER_HOUR
     assert f"배고픔{render.bars(hunger)}" in line and "기분▓▓▓▓▓" not in line
     assert s["hunger"] == 100
 
