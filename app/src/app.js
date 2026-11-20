@@ -2372,7 +2372,7 @@ function doneBox(a) {
 }
 
 async function sendDone(a, text) {
-  const ok = await sendReply(a, text, false);
+  const ok = await sendReply(a, text);
   if (ok) { delete doneDraft[a.sid]; doneOpen = null; toast(`「${text}」 보냈어요 · 다시 일하는 중`); }
 }
 
@@ -2486,7 +2486,6 @@ function replies() { return ((state && state.settings && state.settings.alert_re
 
 function renderBubbleActs(a) {
   const acts = $("alert-acts"), cmd = $("alert-cmd");
-  if (a && answerOn() && a.state === "done" && canSend(a)) return renderDoneActs(a);
   const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
   if (!ask) {
     actsFor = null;
@@ -2533,29 +2532,10 @@ function renderBubbleActs(a) {
   setActsExtra(24 + (!line ? 0 : ask.kind === "question" ? 24 : 13));
 }
 
-// 다 했어: two quick replies and ✎ (the done list, where you can write one)
-function renderDoneActs(a) {
-  const acts = $("alert-acts"), cmd = $("alert-cmd");
-  const key = `done:${a.sid}:${a.since}`;
-  if (actsFor === key) return;
-  actsFor = key;
-  actsShownAt = Date.now();
-  $("alert-small").classList.remove("danger");
-  cmd.classList.add("hidden");
-  const [r1, r2] = replies();
-  const buttons = [r1, r2].filter(Boolean).map((r) => actButton(r, "", () => sendReply(a, r, true), `「${r}」 보내기`));
-  buttons.push(actButton("✎", "soft num", () => setExpanded(true).then(() => openAlerts(a.sid)), "직접 쓰기"));
-  acts.replaceChildren(...buttons);
-  acts.classList.remove("hidden");
-  setActsExtra(24);
-}
-
-async function sendReply(a, text, inBubble) {
-  if (inBubble) $("alert-acts").replaceChildren(el("span", "alert-sent", "보내는 중…"));
+async function sendReply(a, text) {
   const res = await runPet(["alert", "send", a.sid, text]);
   const ok = !!(res && res.ok);
-  if (inBubble) $("alert-acts").replaceChildren(el("span", "alert-sent", ok ? `「${text}」 보냈어요` : "못 보냈어요"));
-  else if (!ok && res) toast(res.text);
+  if (!ok && res) toast(res.text);
   if (ok) fx("pop");
   return ok;
 }
