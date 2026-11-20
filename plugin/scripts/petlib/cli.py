@@ -14,7 +14,7 @@ from . import actions, alerts, answer, clock, diary, economy, evolve, render, sc
 from .actions import ActionError
 
 NOTIFY_TYPES = ("born", "evolve", "runaway", "extort", "demand", "sold", "rehab", "debt", "levelup", "dex", "dex_sign")
-USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|diary [last]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|update]"""
+USAGE = """사용법: /pet [status|feed [--force]|pat|gift [<id>]|stats|diary [last]|shop|buy <id>|equip <id>|unequip <slot>|name <이름>|dex|adopt <종족> [이름]|switch <종족>|vacation [<일수>|end]|find|reset [--confirm]|setup [--write]|widget [on|off|install]|pr [on|off]|alert [on|off]|sound [on|off]|update]"""
 
 STATUSLINE_BOOTSTRAP = '''#!/usr/bin/env python3
 """token-pet status line bootstrap. Finds the installed plugin via state.json."""
@@ -253,6 +253,17 @@ def _alert_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
     return 0, f"작업 알림이 {'켜져' if on else '꺼져'} 있어요. /pet alert on 또는 /pet alert off"
 
 
+def _sound_cmd(pos: List[str], now: dt.datetime) -> Tuple[int, str]:
+    """/pet sound on|off: the widget's sounds (채찍질)."""
+    sub = pos[1] if len(pos) > 1 else ""
+    if sub in ("on", "off"):
+        with store.transaction(now, tick=False) as s:
+            s["settings"]["sound"] = sub == "on"
+        return 0, "위젯 소리를 켰어요" if sub == "on" else "위젯 소리를 껐어요"
+    on = store.load(now)["settings"].get("sound", True) if store.state_path().exists() else True
+    return 0, f"위젯 소리가 {'켜져' if on else '꺼져'} 있어요. /pet sound on 또는 /pet sound off"
+
+
 def _alert_ask(now: dt.datetime) -> None:
     """PermissionRequest hook: hold the prompt on the widget until it answers (answer.py).
     Prints the decision, or nothing to leave it to the terminal dialog that shows meanwhile."""
@@ -474,6 +485,8 @@ def main_pet(argv: List[str], now: dt.datetime) -> Tuple[int, str]:
         return out(*_widget_cmd(pos[1] if len(pos) > 1 else "", now))
     if cmd == "pr":
         return out(*_pr_cmd(pos[1] if len(pos) > 1 else "", now))
+    if cmd == "sound":
+        return out(*_sound_cmd(pos, now))
     if cmd == "alert":
         return out(*_alert_cmd(pos, now))
     if cmd == "update":

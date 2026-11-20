@@ -59,3 +59,18 @@ const ALERT = {
 export function alertLine(kind, which) {
   return ((ALERT[kind] || ALERT.mochi)[which]) || ALERT.mochi[which];
 }
+
+// 채찍질: what the pet says when the whip lands
+const WHIP = {
+  mochi: { hit: "히익! 할게요 할게!" },
+  squirrel: { hit: "끼양!! 달린다!!" },
+  mole: { hit: "…파는 중이다." },
+  robot: { hit: "출력 상향: 120%" },
+  penguin: { hit: "…빨리… 할게…" },
+  hamster: { hit: "근데근데 빨리 할게!" },
+  rabbit: { hit: "가속 신호 수신!" },
+};
+
+export function whipLine(kind) {
+  return (WHIP[kind] || WHIP.mochi).hit;
+}

@@ -875,3 +875,14 @@ body.expanded .expanded-view { animation: open .24s cubic-bezier(.2, .8, .3, 1);
 
 /* the task list takes the whole expanded widget (no stage above it), so finished sessions have room to open */
 #alerts-panel { top: 0; border-top: 0; border-radius: 24px; padding-top: 16px; }
+
+/* 채찍질: a drop of sweat when the whip lands */
+.particle.sweat { width: 5px; height: 8px; left: 66%; bottom: 66%; background: #8FB4FF; border-radius: 0 50% 50% 50%; animation-name: tp-sweat-drop; animation-duration: 1s; }
+@keyframes tp-sweat-drop { 0% { opacity: 0; transform: none; } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(16px); } }
+
+/* 채찍질 while working: 「×2」 by the furnace for the 5 s the shovel runs fast */
+.pet-host.whipped .pet-fx::after, .stage.whipped .pet-fx::after {
+  content: "×2"; position: absolute; right: -6px; top: 52px; font: 700 9px var(--pixel); color: var(--mood);
+  text-shadow: 0 1px 0 #23203A; animation: tp-boost .5s steps(2) infinite;
+}
+@keyframes tp-boost { 50% { opacity: .4; } }

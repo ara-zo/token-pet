@@ -68,7 +68,7 @@ def new_state(now: dt.datetime, name: str = DEFAULT_NAME) -> dict:
         "flags": new_flags(),
         "badges": [],
         "settings": {"widget": True, "widget_install_tried": None, "pr_inbox": False, "alerts": True, "vacation_days": {},
-                     "alert_replies": ["커밋해", "계속해", "테스트 돌려"]},
+                     "alert_replies": ["커밋해", "계속해", "테스트 돌려"], "sound": True},
         "species": "mochi",
         "dex": ["mochi"],
         "lifetime": new_lifetime(),

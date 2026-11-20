@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "whip",
+  "description": "The whip overlay (채찍질)",
+  "windows": ["whip"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-outer-position"
+  ]
+}

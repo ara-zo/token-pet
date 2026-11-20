@@ -327,6 +327,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let detail = MenuItem::with_id(app, "detail", "", false, None::<&str>)?;
     let hidden = pet_hidden(app.handle());
     let toggle = MenuItem::with_id(app, "toggle", if hidden { "캐릭터 보이기" } else { "캐릭터 숨기기" }, true, None::<&str>)?;
+    let whip = MenuItem::with_id(app, "whip", "채찍 들기", true, None::<&str>)?;
     let reload = MenuItem::with_id(app, "reload", "위젯 다시 불러오기", true, None::<&str>)?;
     let update = MenuItem::with_id(app, "update", "업데이트 확인…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "토큰 펫 종료", true, None::<&str>)?;
@@ -343,7 +344,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         &PredefinedMenuItem::separator(app)?,
         &vacation,
         &PredefinedMenuItem::separator(app)?,
-        &toggle,
+        &whip, &toggle,
         &PredefinedMenuItem::separator(app)?,
         &reload, &update,
         &PredefinedMenuItem::separator(app)?,
@@ -366,6 +367,14 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                 }
             }
             "update" => check_updates(app.clone()),
+            "whip" => {
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    if let Err(e) = open_whip(&app) {
+                        eprintln!("token-pet: whip failed: {e}");
+                    }
+                });
+            }
             "quit" => app.exit(0),
             // the widget runs `/pet vacation <days|end>` so it can speak and move with the answer
             id if id.starts_with("vacation-") => {
@@ -379,6 +388,100 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         set_pet_hidden(app.handle(), true);
     }
     Ok(())
+}
+
+/// 채찍질: a transparent window over the whole screen under the cursor, where the whip follows the mouse
+/// (whip.html). A click or Esc puts it down again.
+#[tauri::command]
+async fn whip_open(app: tauri::AppHandle) -> Result<(), String> {
+    open_whip(&app).map_err(|e| {
+        eprintln!("token-pet: whip failed: {e}");
+        e
+    })
+}
+
+fn open_whip(app: &tauri::AppHandle) -> Result<(), String> {
+    let cur = app.cursor_position().map_err(|e| e.to_string())?;
+    let mon = app
+        .monitor_from_point(cur.x, cur.y)
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .ok_or("no screen")?;
+    // the window is made once and then only hidden and shown again: closing a window that was turned
+    // into a panel takes the app down
+    let win = match app.get_webview_window("whip") {
+        Some(w) => w,
+        None => {
+            let w = tauri::WebviewWindowBuilder::new(app, "whip", tauri::WebviewUrl::App("whip.html".into()))
+                .title("Token Pet Whip")
+                .transparent(true)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
+                .accept_first_mouse(true)
+                .visible(false)
+                .build()
+                .map_err(|e| e.to_string())?;
+            // over full-screen apps too, like the pet: the panel swap runs on the main thread, before the
+            // window is ever shown
+            #[cfg(target_os = "macos")]
+            {
+                let (tx, rx) = mpsc::channel();
+                let ww = w.clone();
+                let _ = app.run_on_main_thread(move || {
+                    float_over_full_screen(&ww);
+                    let _ = tx.send(());
+                });
+                let _ = rx.recv_timeout(Duration::from_secs(2));
+            }
+            w
+        }
+    };
+    // in points, not pixels: with a Retina screen beside 1x monitors the pixel spaces don't line up
+    let sf = mon.scale_factor();
+    let pos: tauri::LogicalPosition<f64> = mon.position().to_logical(sf);
+    let size: tauri::LogicalSize<f64> = mon.size().to_logical(sf);
+    let _ = win.set_position(pos);
+    let _ = win.set_size(size);
+    #[cfg(target_os = "macos")]
+    {
+        // ordered front directly, not through show(), which activates the app and so leaves a
+        // full-screen app's space; a non-activating panel still takes the keys (Esc) and mouse moves
+        let w = win.clone();
+        let pet = app.get_webview_window("main");
+        let _ = app.run_on_main_thread(move || {
+            if let Ok(ptr) = w.ns_window() {
+                let ns = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
+                // cover the screen the pet is on, in AppKit's own screen frame (no pixel conversions)
+                if let Some(screen) = pet
+                    .and_then(|p| p.ns_window().ok())
+                    .and_then(|p| unsafe { &*(p as *const objc2_app_kit::NSWindow) }.screen())
+                {
+                    ns.setFrame_display(screen.frame(), true);
+                }
+                ns.setAcceptsMouseMovedEvents(true);
+                ns.orderFrontRegardless();
+                ns.makeKeyWindow();
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    let _ = app.emit_to("whip", "whip-shown", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn whip_close(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("whip") {
+        let _ = w.hide();
+    }
 }
 
 fn place_bottom_right(win: &tauri::WebviewWindow) {
@@ -445,7 +548,7 @@ fn float_over_full_screen(win: &tauri::WebviewWindow) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url, tray_status])
+        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url, tray_status, whip_open, whip_close])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -460,6 +563,25 @@ pub fn run() {
             }
             let handle = app.handle().clone();
             std::thread::spawn(move || watch_state(handle));
+            // debug builds: TOKEN_PET_WHIP=1 picks up the whip right away (for trying it without a click)
+            if cfg!(debug_assertions) && std::env::var("TOKEN_PET_WHIP").is_ok() {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    // TOKEN_PET_WHIP=cycle also puts it down and picks it up again
+                    let cycles = if std::env::var("TOKEN_PET_WHIP").as_deref() == Ok("cycle") { 3 } else { 1 };
+                    for i in 0..cycles {
+                        std::thread::sleep(Duration::from_secs(2));
+                        if let Err(e) = open_whip(&handle) {
+                            eprintln!("token-pet: whip failed: {e}");
+                        }
+                        if i + 1 < cycles {
+                            std::thread::sleep(Duration::from_secs(2));
+                            whip_close(handle.clone());
+                            eprintln!("token-pet: whip put down");
+                        }
+                    }
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

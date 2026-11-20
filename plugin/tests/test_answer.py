@@ -213,3 +213,10 @@ def test_clear_done_and_quick_replies(pet_home):
     assert store.load()["settings"]["alert_replies"] == ["커밋해", "계속해", "테스트 돌려"]
     cli.main_pet(["alert", "reply", "푸시해,", "리뷰", "해줘"], at(20, 14))
     assert store.load()["settings"]["alert_replies"] == ["푸시해", "리뷰 해줘"]
+
+
+def test_sound_on_off(pet_home):
+    assert store.load()["settings"]["sound"] is True
+    code, text = cli.main_pet(["sound", "off"], at(20, 14))
+    assert code == 0 and store.load()["settings"]["sound"] is False
+    assert "꺼져" in cli.main_pet(["sound"], at(20, 14))[1]

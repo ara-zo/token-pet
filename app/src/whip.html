@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Token Pet Whip</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; cursor: none; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .hint {
+    position: fixed; left: 50%; top: 24px; transform: translateX(-50%); font: 600 12px 'IBM Plex Sans KR', system-ui, sans-serif;
+    color: #F4F1FF; background: rgba(35, 32, 58, .82); padding: 6px 12px; border-radius: 999px; pointer-events: none;
+    animation: fade 3.5s ease-in forwards;
+  }
+  @keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hint">채찍을 휘둘러 펫을 맞혀 보세요 · 클릭하거나 Esc 로 내려놓기</div>
+<script type="module" src="whip.js"></script>
+</body>
+</html>

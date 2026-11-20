@@ -2,7 +2,7 @@ import { SPRITES, ITEMS, OWN_HEADWEAR } from "./sprites.js";
 import { hotelMarkup, returnMove } from "./hotel.js";
 import { BACKGROUNDS, BG_VIEWBOX } from "./backgrounds.js";
 import { speciesMarkup, itemOffset, formOwnsSlot, anchor, peeks } from "./species.js";
-import { mailLine, eventLine, alertLine, SPOKEN_EVENTS } from "./lines.js";
+import { mailLine, eventLine, alertLine, whipLine, SPOKEN_EVENTS } from "./lines.js";
 import { ART, ART_CSS } from "./alerts-art.js";
 
 const T = window.__TAURI__;
@@ -2751,12 +2751,54 @@ function answerKey(e) {
   } else if (e.key === "Enter") advance(a);
 }
 
+// ---------------------------------------------------------------- 채찍질
+// The whip lives in its own window over the screen (whip.html); it asks where the pet is and tells
+// when the lash lands. Hits make the pet jolt and speak; while a session is working the furnace art
+// runs twice as fast for 5 s. It can be whipped on and on.
+
+T.event.listen("whip-ask", async () => {
+  const r = (expanded ? $("sprite-large") : $("sprite-small")).getBoundingClientRect();
+  let p = { x: 0, y: 0 };
+  try { p = await currentPos(); } catch (e) {}
+  T.event.emit("whip-pet", { x: p.x + r.left, y: p.y + r.top, w: r.width, h: r.height }).catch(() => {});
+});
+
+T.event.listen("whip-hit", () => {
+  const kind = (state && state.species) || "mochi";
+  fx("hop", expanded ? "large" : "small");
+  burst("sweat", 1);
+  const line = whipLine(kind);
+  if (expanded) speakNote(line); else say(line, 2500);
+  // working: the shovel goes twice as fast for 5 s (only what you see)
+  if (liveAlerts(state).some((a) => a.state === "working")) whipBoost();
+});
+
+let boostUntil = 0, boostTimer = null;
+function whipBoost() {
+  boostUntil = Date.now() + 5000;
+  for (const id of ["collapsed", "stage"]) $(id).classList.add("whipped");
+  if (boostTimer) return;
+  // re-applied while it lasts: a re-render may start the furnace's animations afresh
+  const speed = (rate) => [$("fx-small"), $("fx-large")]
+    .flatMap((el) => el.getAnimations({ subtree: true }))
+    .forEach((a) => { if (a.animationName !== "hop") a.playbackRate = rate; });
+  speed(2);
+  boostTimer = setInterval(() => {
+    if (Date.now() < boostUntil) { speed(2); return; }
+    speed(1);
+    clearInterval(boostTimer);
+    boostTimer = null;
+    for (const id of ["collapsed", "stage"]) $(id).classList.remove("whipped");
+  }, 400);
+}
+
 // ---------------------------------------------------------------- wiring
 
 makeDraggable($("collapsed"));
 makeDraggable($("expanded"));
-$("collapsed").addEventListener("click", () => {
+$("collapsed").addEventListener("click", (e) => {
   if (dragged) { dragged = false; return; }       // the press was a drag, not a click
+  if (e.altKey) { invoke("whip_open").catch((err) => say(String(err), 4000)); return; }   // ⌥ + click: pick up the whip
   setExpanded(true).then(weeklyDiary);
 });
 
