@@ -2276,8 +2276,6 @@ function renderAlerts() {
   if (alertsOpen) renderAlertList(list);
 }
 
-let doneOpen = null;                       // the finished session whose 이어서 시키기 box is open
-const doneDraft = {};                      // what was typed there, per session (survives re-renders)
 
 function tookText(a) {
   const m = Math.round((new Date(a.since).getTime() - new Date(a.started_at || a.since).getTime()) / 60000);
@@ -2296,13 +2294,9 @@ function renderAlertList(list = liveAlerts(state)) {
     $("alerts-list").replaceChildren(li);
     return;
   }
-  // keep a half-typed reply: don't rebuild while its box has the focus
-  const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest(".done-box");
-  if (typing && list.some((a) => a.sid === doneOpen && a.state === "done")) return;
   $("alerts-list").replaceChildren(...list.map((a) => {
     const li = document.createElement("li");
-    const replyable = a.state === "done" && answerOn() && canSend(a);
-    li.className = "item alert-item" + (a.seen ? " seen" : "") + (a.state === "done" ? " done-item" : "") + (doneOpen === a.sid && replyable ? " open" : "");
+    li.className = "item alert-item" + (a.seen ? " seen" : "") + (a.state === "done" ? " done-item" : "");
     li.tabIndex = 0;
     li.setAttribute("role", "button");
     const chip = document.createElement("span");
@@ -2320,59 +2314,11 @@ function renderAlertList(list = liveAlerts(state)) {
     meta.append(name, sub);
     if (a.state === "done" && a.said) meta.append(el("span", "item-said", a.said));
     li.append(chip, meta);
-    if (replyable) {
-      const go = el("button", "icon-btn done-go", "↗");
-      go.type = "button";
-      go.setAttribute("aria-label", "그 세션 터미널로");
-      go.addEventListener("click", (e) => { e.stopPropagation(); openAlert(a.sid); });
-      li.append(go);
-      if (doneOpen === a.sid) li.append(doneBox(a));
-    }
-    const act = () => {
-      if (replyable) { doneOpen = doneOpen === a.sid ? null : a.sid; renderAlertList(); }
-      else if (answerable(a)) openAnswer(a.sid);
-      else openAlert(a.sid);
-    };
-    li.addEventListener("click", (e) => { if (!e.target.closest(".done-box")) act(); });
-    li.addEventListener("keydown", (e) => {
-      if (e.target.closest(".done-box")) return;
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); }
-    });
+    const act = () => (answerable(a) ? openAnswer(a.sid) : openAlert(a.sid));
+    li.addEventListener("click", act);
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
     return li;
   }));
-  const open = $("alerts-list").querySelector(".done-box input");
-  if (open && !typing) open.focus({ preventScroll: true });
-}
-
-function doneBox(a) {
-  const box = el("div", "done-box");
-  const chips = el("div", "done-chips");
-  for (const r of replies()) {
-    const b = el("button", "btn small ghost done-chip", r);
-    b.type = "button";
-    b.addEventListener("click", () => sendDone(a, r));
-    chips.append(b);
-  }
-  const row = el("form", "done-row");
-  const input = el("input");
-  input.type = "text";
-  input.placeholder = "이어서 시킬 말";
-  input.size = 1;                          // WebKit sizes a text box by its size attribute, not by flex
-  input.setAttribute("aria-label", "이어서 시킬 말");
-  input.value = doneDraft[a.sid] || "";
-  input.addEventListener("input", () => { doneDraft[a.sid] = input.value; });
-  input.addEventListener("keydown", (e) => e.stopPropagation());
-  const send = el("button", "btn small done-send", "보내기");
-  send.type = "submit";
-  row.addEventListener("submit", (e) => { e.preventDefault(); if (input.value.trim()) sendDone(a, input.value.trim()); });
-  row.append(input, send);
-  box.append(chips, row);
-  return box;
-}
-
-async function sendDone(a, text) {
-  const ok = await sendReply(a, text);
-  if (ok) { delete doneDraft[a.sid]; doneOpen = null; toast(`「${text}」 보냈어요 · 다시 일하는 중`); }
 }
 
 async function openAlert(sid) {
@@ -2381,8 +2327,7 @@ async function openAlert(sid) {
   if (expanded) setExpanded(false);
 }
 
-function openAlerts(sid) {
-  if (typeof sid === "string") doneOpen = sid;
+function openAlerts() {
   closeDiary();
   closeDress();
   closeStats();
@@ -2454,21 +2399,6 @@ function renderBubbleActs(a) {
   const ask = a && answerOn() && a.state === "waiting" ? a.ask : null;
   $("alert-small").classList.toggle("danger", !!(ask && ask.danger));
   if (ask && ask.danger) $("alert-text").textContent = "위험한 명령이야";
-}
-
-// 다 했어 → 이어서 시키기: only where text can be typed into the session's terminal
-function canSend(a) {
-  const t = (a && a.term) || {};
-  return !!(t.herdr || t.orca || t.tmux || (t.iterm && /^iterm/i.test(t.app || "") || (t.bundle || "").startsWith("com.googlecode.iterm2")));
-}
-function replies() { return ((state && state.settings && state.settings.alert_replies) || ["커밋해", "계속해", "테스트 돌려"]).slice(0, 6); }
-
-async function sendReply(a, text) {
-  const res = await runPet(["alert", "send", a.sid, text]);
-  const ok = !!(res && res.ok);
-  if (!ok && res) toast(res.text);
-  if (ok) fx("pop");
-  return ok;
 }
 
 // ---- the answer screen
