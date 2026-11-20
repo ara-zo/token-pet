@@ -237,8 +237,14 @@ async function applyExtra() {
   if (expanded) return;                    // applied when the widget collapses again
   try {
     const here = await currentPos();
+    // the pet area stays put; a position read back doubled on mixed-scale screens is not trusted
+    let pet = { x: here.x, y: here.y - diff + want };
+    if (!(await onScreen(pet, SMALL))) {
+      const saved = loadPos();
+      pet = saved && (await onScreen(saved, SMALL)) ? saved : await homePos(SMALL);
+    }
     await win.setSize(new LogicalSize(SMALL.w, SMALL.h + want));
-    await win.setPosition(new LogicalPosition(here.x, here.y - diff));
+    await win.setPosition(new LogicalPosition(pet.x, pet.y - want));
   } catch (e) {}
 }
 
