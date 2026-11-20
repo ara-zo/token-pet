@@ -2873,9 +2873,11 @@ $("alert-open").addEventListener("click", (e) => {
   e.stopPropagation();                      // not a click on the pet
   if (dragged) { dragged = false; return; }
   if (!alertShown) return;
-  // waiting: the task list (a waiting row opens the answer screen); done: straight to that session's terminal
+  // waiting, or several finished: the task list (a waiting row opens the answer screen);
+  // one finished session: straight to its terminal
   const a = alertShown;
-  if (a.state === "waiting" && answerOn()) setExpanded(true).then(() => openAlerts());
+  const done = liveAlerts(state).filter((x) => x.state === "done" && !x.seen).length;
+  if (answerOn() && (a.state === "waiting" || done > 1)) setExpanded(true).then(() => openAlerts());
   else openAlert(a.sid);
 });
 $("ans-close").addEventListener("click", closeAnswer);
