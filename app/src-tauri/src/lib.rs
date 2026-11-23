@@ -484,6 +484,36 @@ fn whip_close(app: tauri::AppHandle) {
     }
 }
 
+/// The whip's crack (sounds/crack.wav: one crack cut from the whip recording), played by AppKit: WebKit only
+/// starts audio after a real click in that webview, which the pet window may not have had yet.
+#[tauri::command]
+fn whip_sound(app: tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.run_on_main_thread(|| {
+        use objc2::rc::Retained;
+        use objc2::AllocAnyThread;
+        use objc2_app_kit::NSSound;
+        use objc2_foundation::NSData;
+        thread_local! {
+            static PLAYING: std::cell::RefCell<Vec<Retained<NSSound>>> = Default::default();
+        }
+        static CRACK: &[u8] = include_bytes!("../sounds/crack.wav");
+        let data = NSData::with_bytes(CRACK);
+        if let Some(snd) = NSSound::initWithData(NSSound::alloc(), &data) {
+            snd.setVolume(0.14);
+            snd.play();
+            // kept alive while it plays; several cracks may overlap
+            PLAYING.with(|p| {
+                let mut p = p.borrow_mut();
+                p.retain(|s| s.isPlaying());
+                p.push(snd);
+            });
+        }
+    });
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}
+
 fn place_bottom_right(win: &tauri::WebviewWindow) {
     if let Ok(Some(mon)) = win.primary_monitor() {
         let size = mon.size();
@@ -548,7 +578,7 @@ fn float_over_full_screen(win: &tauri::WebviewWindow) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url, tray_status, whip_open, whip_close])
+        .invoke_handler(tauri::generate_handler![read_state, pet, pr_inbox, open_url, tray_status, whip_open, whip_close, whip_sound])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);

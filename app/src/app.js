@@ -2800,26 +2800,10 @@ T.event.listen("whip-hit", () => {
   if (liveAlerts(state).some((a) => a.state === "working")) whipBoost();
 });
 
-// The crack (sounds/whip.mp3: the same crack three times; the first one, 0.16–0.66 s), played here
-// because this window had a real click (WebKit only starts audio after one); the whip window only reports it.
-let audioCtx = null, crackBuf = null;
-function unlockAudio() {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state !== "running") audioCtx.resume();
-    if (!crackBuf) fetch("sounds/whip.mp3").then((r) => r.arrayBuffer()).then((d) => audioCtx.decodeAudioData(d)).then((b) => { crackBuf = b; }).catch(() => {});
-  } catch (e) {}
-}
-document.addEventListener("mousedown", unlockAudio, true);
+// The crack is played natively (whip_sound in lib.rs); the whip window only reports it.
 T.event.listen("whip-crack", () => {
-  if (!audioCtx || !crackBuf || (state && state.settings && state.settings.sound === false)) return;
-  if (audioCtx.state !== "running") audioCtx.resume();
-  const src = audioCtx.createBufferSource(), g = audioCtx.createGain();
-  src.buffer = crackBuf;
-  src.playbackRate.value = 0.94 + Math.random() * 0.12;   // not the very same crack every time
-  g.gain.value = 0.14;
-  src.connect(g).connect(audioCtx.destination);
-  src.start(audioCtx.currentTime, 0.16, 0.5);
+  if (state && state.settings && state.settings.sound === false) return;
+  invoke("whip_sound").catch(() => {});
 });
 
 let boostUntil = 0, boostTimer = null;
@@ -2847,7 +2831,6 @@ makeDraggable($("collapsed"));
 makeDraggable($("expanded"));
 $("collapsed").addEventListener("click", (e) => {
   if (dragged) { dragged = false; return; }       // the press was a drag, not a click
-  unlockAudio();                                   // a real click: the whip's sound may play from here on
   if (e.altKey) { invoke("whip_open").catch((err) => say(String(err), 4000)); return; }   // ⌥ + click: pick up the whip
   setExpanded(true).then(weeklyDiary);
 });
