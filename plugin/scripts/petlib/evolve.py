@@ -136,7 +136,7 @@ def check(state: dict, now: dt.datetime) -> List[dict]:
     if level >= economy.FIRST_EVOLUTION_LEVEL:
         w = window(state)
         if form != "thug" and w["hunger_zero_hours"] >= THUG_ZERO_HOURS:
-            events.append(set_form(state, "thug", now, "배고픔 0으로 48시간 방치"))
+            events.append(set_form(state, "thug", now, f"배고픔 0으로 {THUG_ZERO_HOURS}시간 방치"))
             return events
         if form == "thug":
             if flags["thug_days"] >= THUG_RUNAWAY_DAYS:

@@ -17,7 +17,7 @@ FEED_HUNGER = 40
 PAT_MOOD = 8                          # mood per pat
 PAT_DAILY_LIMIT = 5
 
-HUNGER_PER_HOUR = 3.0
+HUNGER_PER_HOUR = 2.0
 MOOD_PER_HOUR = 1.0
 MOOD_PER_HOUR_STARVING = 3.0
 

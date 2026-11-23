@@ -27,7 +27,7 @@ const LARGE = { w: 300, h: 390 };
 const ANSWER = { w: 360, h: 560 };   // 위젯에서 답하기: the answer screen opens bigger than the expanded widget
 let bigSize = LARGE;                  // the size of the big window while expanded (LARGE or ANSWER)
 let answering = false;                // the answer screen is open (expanded stays true)
-const HUNGER_PER_HOUR = 3, MOOD_PER_HOUR = 1, MOOD_PER_HOUR_STARVING = 3;
+const HUNGER_PER_HOUR = 2, MOOD_PER_HOUR = 1, MOOD_PER_HOUR_STARVING = 3;
 const SLOW_HUNGER_FORMS = new Set(["model", "scholar"]);
 const FEED_COST = 50;                       // mirrors economy.FEED_COST; shop --json also reports it
 const SLOT_KO = { head: "머리", face: "얼굴", body: "몸", room: "방", bg: "배경", hotel: "호텔" };
