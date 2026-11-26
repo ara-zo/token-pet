@@ -1,6 +1,6 @@
 [package]
 name = "token-pet"
-version = "0.14.3"
+version = "0.14.4"
 description = "Token Pet desktop widget"
 authors = ["arazo"]
 edition = "2021"
